@@ -1,6 +1,8 @@
 import { useState } from 'react'
 
+import { cn } from '../../lib/cn'
 import type { Medication, MedicationLog, MedicationLogStatus } from '../../types'
+import { Badge, Button, Input } from '../ui'
 
 interface Props {
   medication: Medication
@@ -10,10 +12,16 @@ interface Props {
 }
 
 const OPTIONS: { value: MedicationLogStatus; label: string; active: string }[] = [
-  { value: 'administered', label: 'Administered', active: 'bg-brand-500 text-white border-brand-500' },
-  { value: 'skipped', label: 'Skipped', active: 'bg-warning-500 text-white border-warning-500' },
-  { value: 'refused', label: 'Refused', active: 'bg-critical-600 text-white border-critical-600' },
+  { value: 'administered', label: 'Taken', active: 'border-brand-500 bg-brand-500 text-text-inverted' },
+  { value: 'skipped', label: 'Skipped', active: 'border-warning-500 bg-warning-500 text-text-inverted' },
+  { value: 'refused', label: 'Refused', active: 'border-critical-600 bg-critical-600 text-text-inverted' },
 ]
+
+const LOGGED_LABELS: Record<MedicationLogStatus, string> = {
+  administered: 'Taken',
+  skipped: 'Skipped',
+  refused: 'Refused',
+}
 
 export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }: Props) {
   const [status, setStatus] = useState<MedicationLogStatus | null>(existingLog?.status ?? null)
@@ -22,7 +30,6 @@ export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }
   const [saving, setSaving] = useState(false)
 
   const needsReason = status === 'skipped' || status === 'refused'
-  const reasonId = `reason-${medication.id}`
 
   async function save() {
     if (!status) {
@@ -43,24 +50,25 @@ export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }
   }
 
   return (
-    <li className="rounded-2xl border border-slate-200 p-4">
+    <li className="rounded-2xl border border-border-subtle p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="font-semibold text-navy-800">
-            {medication.name} <span className="font-normal text-slate-500">{medication.dosage}</span>
+        <div className="min-w-0">
+          <p className="text-body font-semibold text-text-primary">
+            {medication.name}{' '}
+            <span className="font-normal text-text-secondary">{medication.dosage}</span>
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-caption text-text-muted">
             {medication.frequency} · scheduled {medication.scheduled_time}
           </p>
         </div>
-        {existingLog && (
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-            Logged: {existingLog.status}
-          </span>
-        )}
+        {existingLog && <Badge tone="neutral">Logged: {LOGGED_LABELS[existingLog.status]}</Badge>}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={`Outcome for ${medication.name}`}>
+      <div
+        className="mt-3 flex flex-wrap gap-2"
+        role="group"
+        aria-label={`Outcome for ${medication.name}`}
+      >
         {OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -71,11 +79,13 @@ export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }
               setStatus(option.value)
               setError(null)
             }}
-            className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+            className={cn(
+              'min-h-control rounded-xl border px-3.5 text-small font-semibold transition-colors',
+              'disabled:cursor-not-allowed disabled:opacity-50',
               status === option.value
                 ? option.active
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            }`}
+                : 'border-border-subtle bg-surface-raised text-text-secondary hover:bg-surface',
+            )}
           >
             {option.label}
           </button>
@@ -83,33 +93,34 @@ export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }
       </div>
 
       {needsReason && (
-        <div className="mt-3">
-          <label className="field-label" htmlFor={reasonId}>
-            Reason (required)
-          </label>
-          <input
-            id={reasonId}
-            type="text"
-            value={reason}
-            disabled={disabled || saving}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="e.g. Patient had not eaten yet"
-            className="field-input"
-            aria-invalid={Boolean(error)}
-          />
-        </div>
+        <Input
+          className="mt-3"
+          label="Reason"
+          required
+          value={reason}
+          disabled={disabled || saving}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="e.g. Patient had not eaten yet"
+          error={error && !reason.trim() ? error : null}
+        />
       )}
 
-      {error && <p className="field-error">{error}</p>}
+      {error && !needsReason && (
+        <p className="mt-2 text-small font-medium text-critical-600" role="alert">
+          {error}
+        </p>
+      )}
 
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-3"
         onClick={() => void save()}
-        disabled={disabled || saving}
-        className="btn-ghost mt-3 py-2 text-xs"
+        disabled={disabled}
+        loading={saving}
       >
-        {saving ? 'Saving...' : existingLog ? 'Update log' : 'Save medication log'}
-      </button>
+        {existingLog ? 'Update log' : 'Save medication log'}
+      </Button>
     </li>
   )
 }

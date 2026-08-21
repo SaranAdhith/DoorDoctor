@@ -1,14 +1,11 @@
 import { useParams } from 'react-router-dom'
 
 import { patientsApi } from '../../api/patients'
-import { Card, EmptyState } from '../../components/common/Card'
-import { VisitStatusBadge } from '../../components/common/Badge'
-import { ErrorBanner } from '../../components/common/ErrorBanner'
-import { LoadingScreen } from '../../components/common/Loading'
 import { useAsync } from '../../hooks/useAsync'
 import { METRIC_LABELS, METRIC_UNITS, formatDate, formatDateTime, formatNumber } from '../../lib/format'
 import { bloodPressure } from '../../lib/vitals'
 import type { VitalMetric } from '../../types'
+import { Card, EmptyState, ErrorState, LoadingScreen, VisitStatusBadge } from '../../components/ui'
 
 export function PatientProfile() {
   const { patientId } = useParams()
@@ -17,7 +14,7 @@ export function PatientProfile() {
   const dashboard = useAsync(() => patientsApi.dashboard(id), [id])
 
   if (dashboard.loading) return <LoadingScreen label="Loading patient" />
-  if (dashboard.error) return <ErrorBanner message={dashboard.error} onRetry={() => void dashboard.reload()} />
+  if (dashboard.error) return <ErrorState message={dashboard.error} onRetry={() => void dashboard.reload()} />
   if (!dashboard.data) return <EmptyState title="Patient not found" />
 
   const { patient, thresholds, vitals_history: history } = dashboard.data
@@ -25,15 +22,15 @@ export function PatientProfile() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-navy-800">{patient.name}</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-h1 font-bold text-text-primary">{patient.name}</h1>
+        <p className="mt-1 text-small text-text-secondary">
           {patient.age} years · {patient.gender} · {patient.address}
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Profile">
-          <dl className="space-y-2 text-sm">
+          <dl className="space-y-2 text-small">
             <Row label="Emergency contact" value={patient.emergency_contact ?? '--'} />
             <Row label="Status" value={patient.status} />
             <Row label="Enrolled" value={formatDate(patient.created_at)} />
@@ -42,9 +39,9 @@ export function PatientProfile() {
 
         <Card title="Monitoring thresholds" className="lg:col-span-2">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-small">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="text-left text-caption uppercase tracking-wide text-text-secondary">
                   <th className="pb-2 pr-4 font-semibold">Metric</th>
                   <th className="pb-2 pr-4 font-semibold">Low</th>
                   <th className="pb-2 pr-4 font-semibold">High</th>
@@ -54,18 +51,18 @@ export function PatientProfile() {
               <tbody className="divide-y divide-slate-100">
                 {thresholds.map((threshold) => (
                   <tr key={threshold.metric}>
-                    <td className="py-2 pr-4 font-medium text-navy-800">
+                    <td className="py-2 pr-4 font-medium text-text-primary">
                       {METRIC_LABELS[threshold.metric as VitalMetric] ?? threshold.metric}
                     </td>
-                    <td className="py-2 pr-4 tabular-nums text-slate-600">{threshold.low_threshold ?? '--'}</td>
-                    <td className="py-2 pr-4 tabular-nums text-slate-600">{threshold.high_threshold ?? '--'}</td>
-                    <td className="py-2 text-slate-500">{METRIC_UNITS[threshold.metric as VitalMetric]}</td>
+                    <td className="py-2 pr-4 tnum text-text-secondary">{threshold.low_threshold ?? '--'}</td>
+                    <td className="py-2 pr-4 tnum text-text-secondary">{threshold.high_threshold ?? '--'}</td>
+                    <td className="py-2 text-text-secondary">{METRIC_UNITS[threshold.metric as VitalMetric]}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-caption text-text-secondary">
             Threshold values are demo configuration, not clinical standards.
           </p>
         </Card>
@@ -76,9 +73,9 @@ export function PatientProfile() {
           <EmptyState title="No readings recorded yet" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[640px] text-small">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="text-left text-caption uppercase tracking-wide text-text-secondary">
                   <th className="pb-2 pr-4 font-semibold">Recorded</th>
                   <th className="pb-2 pr-4 font-semibold">BP</th>
                   <th className="pb-2 pr-4 font-semibold">HR</th>
@@ -91,19 +88,19 @@ export function PatientProfile() {
               <tbody className="divide-y divide-slate-100">
                 {[...history].reverse().map((entry) => (
                   <tr key={entry.id}>
-                    <td className="py-2 pr-4 text-slate-600">{formatDateTime(entry.recorded_at)}</td>
-                    <td className="py-2 pr-4 font-medium tabular-nums text-navy-800">{bloodPressure(entry)}</td>
-                    <td className="py-2 pr-4 tabular-nums text-slate-600">{formatNumber(entry.heart_rate)}</td>
-                    <td className="py-2 pr-4 tabular-nums text-slate-600">{formatNumber(entry.spo2)}</td>
-                    <td className="py-2 pr-4 tabular-nums text-slate-600">{formatNumber(entry.blood_glucose)}</td>
-                    <td className="py-2 pr-4 tabular-nums text-slate-600">{formatNumber(entry.temperature)}</td>
+                    <td className="py-2 pr-4 text-text-secondary">{formatDateTime(entry.recorded_at)}</td>
+                    <td className="py-2 pr-4 font-medium tnum text-text-primary">{bloodPressure(entry)}</td>
+                    <td className="py-2 pr-4 tnum text-text-secondary">{formatNumber(entry.heart_rate)}</td>
+                    <td className="py-2 pr-4 tnum text-text-secondary">{formatNumber(entry.spo2)}</td>
+                    <td className="py-2 pr-4 tnum text-text-secondary">{formatNumber(entry.blood_glucose)}</td>
+                    <td className="py-2 pr-4 tnum text-text-secondary">{formatNumber(entry.temperature)}</td>
                     <td className="py-2">
                       {entry.threshold_breached ? (
-                        <span className="rounded-full bg-critical-50 px-2 py-0.5 text-xs font-semibold text-critical-700">
+                        <span className="rounded-full bg-critical-50 px-2 py-0.5 text-caption font-semibold text-critical-700">
                           Out of range
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">In range</span>
+                        <span className="text-caption text-text-muted">In range</span>
                       )}
                     </td>
                   </tr>
@@ -122,8 +119,8 @@ export function PatientProfile() {
             {dashboard.data.recent_visits.map((visit) => (
               <li key={visit.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
-                  <p className="text-sm font-medium text-navy-800">{formatDateTime(visit.scheduled_at)}</p>
-                  <p className="text-xs text-slate-500">{visit.nurse_name ?? 'Nurse'}</p>
+                  <p className="text-small font-medium text-text-primary">{formatDateTime(visit.scheduled_at)}</p>
+                  <p className="text-caption text-text-secondary">{visit.nurse_name ?? 'Nurse'}</p>
                 </div>
                 <VisitStatusBadge status={visit.status} />
               </li>
@@ -138,8 +135,8 @@ export function PatientProfile() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="text-right font-medium text-navy-800">{value}</dd>
+      <dt className="text-text-secondary">{label}</dt>
+      <dd className="text-right font-medium text-text-primary">{value}</dd>
     </div>
   )
 }

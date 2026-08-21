@@ -4,17 +4,13 @@ import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { visitsApi } from '../../api/visits'
 import { AlertCard } from '../../components/alerts/AlertCard'
-import { Card, EmptyState } from '../../components/common/Card'
-import { VisitStatusBadge } from '../../components/common/Badge'
-import { ErrorBanner } from '../../components/common/ErrorBanner'
-import { LoadingScreen } from '../../components/common/Loading'
-import { useToast } from '../../components/common/Toast'
 import { MedicationLogRow } from '../../components/forms/MedicationLogRow'
 import { VitalsForm } from '../../components/forms/VitalsForm'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDateTime, formatNumber, formatTime } from '../../lib/format'
 import { bloodPressure } from '../../lib/vitals'
 import type { Alert, MedicationLogStatus, VisitDetail, VitalsSubmission } from '../../types'
+import { Button, Card, EmptyState, ErrorState, LoadingScreen, Textarea, VisitStatusBadge, useToast } from '../../components/ui'
 
 /** Optional browser location; check-in never blocks on it in this MVP. */
 async function tryGetLocation(): Promise<{ lat: number; lng: number } | undefined> {
@@ -47,7 +43,7 @@ export function NurseVisitDetail() {
   const [lastResultMessage, setLastResultMessage] = useState<string | null>(null)
 
   if (visit.loading) return <LoadingScreen label="Loading visit" />
-  if (visit.error) return <ErrorBanner message={visit.error} onRetry={() => void visit.reload()} />
+  if (visit.error) return <ErrorState message={visit.error} onRetry={() => void visit.reload()} />
   if (!visit.data) return <EmptyState title="Visit not found" />
 
   const data = visit.data
@@ -132,7 +128,7 @@ export function NurseVisitDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/nurse/visits" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-navy-800">
+      <Link to="/nurse/visits" className="inline-flex items-center gap-1 text-small font-semibold text-text-secondary hover:text-navy-800">
         <span aria-hidden="true">&larr;</span> Back to visits
       </Link>
 
@@ -140,12 +136,12 @@ export function NurseVisitDetail() {
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-navy-800">{data.patient?.name ?? 'Patient'}</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <h1 className="text-h2 font-bold text-text-primary">{data.patient?.name ?? 'Patient'}</h1>
+            <p className="mt-0.5 text-small text-text-secondary">
               {data.patient?.age ? `${data.patient.age} years · ` : ''}
               {data.patient?.address}
             </p>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-small text-text-secondary">
               Scheduled {formatDateTime(data.scheduled_at)}
               {data.checkin_at ? ` · Checked in ${formatTime(data.checkin_at)}` : ''}
             </p>
@@ -153,21 +149,21 @@ export function NurseVisitDetail() {
           <VisitStatusBadge status={data.status} />
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border-subtle pt-4">
           {isScheduled && (
-            <button type="button" onClick={() => void checkIn()} className="btn-accent" disabled={busy}>
-              {busy ? 'Starting...' : 'Check In'}
-            </button>
+            <Button variant="accent" onClick={() => void checkIn()} loading={busy}>
+              {busy ? 'Starting…' : 'Check in'}
+            </Button>
           )}
           {isInProgress && (
-            <button type="button" onClick={() => void completeVisit()} className="btn-primary" disabled={busy}>
-              Complete Visit
-            </button>
+            <Button onClick={() => void completeVisit()} disabled={busy}>
+              Complete visit
+            </Button>
           )}
           {isCompleted && (
-            <p className="text-sm font-medium text-brand-700">
-              Visit completed {data.checkout_at ? `at ${formatTime(data.checkout_at)}` : ''} - this record is
-              now read-only.
+            <p className="text-small font-medium text-brand-700">
+              Visit completed {data.checkout_at ? `at ${formatTime(data.checkout_at)}` : ''} — this record
+              is now read-only.
             </p>
           )}
         </div>
@@ -175,7 +171,7 @@ export function NurseVisitDetail() {
 
       {lastResultMessage && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+          className={`rounded-2xl border px-4 py-3 text-small font-semibold ${
             lastAlerts.length > 0
               ? 'border-warning-200 bg-warning-50 text-warning-700'
               : 'border-brand-200 bg-brand-50 text-brand-700'
@@ -199,24 +195,26 @@ export function NurseVisitDetail() {
         )}
 
         {data.vitals.length > 0 && (
-          <div className="mt-6 border-t border-slate-100 pt-4">
-            <h3 className="card-heading">Recorded this visit</h3>
+          <div className="mt-6 border-t border-border-subtle pt-4">
+            <h3 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+              Recorded this visit
+            </h3>
             <ul className="mt-3 space-y-2">
               {data.vitals.map((entry) => (
                 <li
                   key={entry.id}
-                  className={`rounded-xl px-3 py-2.5 text-sm ${
-                    entry.threshold_breached ? 'bg-critical-50 text-critical-700' : 'bg-slate-50 text-slate-700'
+                  className={`rounded-xl px-3 py-2.5 text-small ${
+                    entry.threshold_breached ? 'bg-status-critical-bg text-status-critical' : 'bg-surface text-text-primary'
                   }`}
                 >
-                  <span className="font-semibold tabular-nums">{bloodPressure(entry)} mmHg</span>
-                  <span className="tabular-nums">
+                  <span className="font-semibold tnum">{bloodPressure(entry)} mmHg</span>
+                  <span className="tnum">
                     {' '}
                     · {formatNumber(entry.heart_rate)} bpm · SpO2 {formatNumber(entry.spo2)}% ·{' '}
                     {formatNumber(entry.blood_glucose)} mg/dL · {formatNumber(entry.temperature)} °F ·{' '}
                     {formatNumber(entry.weight)} kg
                   </span>
-                  <span className="mt-1 block text-xs">
+                  <span className="mt-1 block text-caption">
                     {formatTime(entry.recorded_at)}
                     {entry.threshold_breached ? ' · outside configured range' : ' · within configured range'}
                   </span>
@@ -248,28 +246,26 @@ export function NurseVisitDetail() {
 
       {/* Notes */}
       <Card title="Observations">
-        <label className="sr-only" htmlFor="visit-notes">
-          Observations
-        </label>
-        <textarea
-          id="visit-notes"
-          className="field-input min-h-[120px]"
+        <Textarea
+          label="Observations"
+          hideLabel
+          rows={5}
           value={noteValue}
           disabled={!isInProgress}
           onChange={(event) => setNotes(event.target.value)}
           placeholder="Describe what you observed during the visit. Do not record a diagnosis."
         />
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          className="mt-3"
           onClick={() => void saveNotes()}
-          className="btn-ghost mt-3"
           disabled={!isInProgress || busy}
         >
           Save observations
-        </button>
+        </Button>
       </Card>
 
-      <p className="text-xs text-slate-500">
+      <p className="text-caption text-text-secondary">
         Alerts describe readings outside the patient's configured monitoring thresholds. They are not
         medical diagnoses.
       </p>

@@ -1,9 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
-import { LoadingScreen } from '../components/common/Loading'
 import type { Role } from '../types'
 import { ROLE_HOME, useAuth } from './AuthContext'
+import { LoadingScreen } from '../components/ui'
 
 interface Props {
   allow: Role[]

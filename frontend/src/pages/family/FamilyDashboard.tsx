@@ -7,19 +7,16 @@ import { AlertBanner } from '../../components/alerts/AlertBanner'
 import { AdherenceCard } from '../../components/cards/AdherenceCard'
 import { VitalCard } from '../../components/cards/VitalCard'
 import { VitalsTrendChart } from '../../components/charts/VitalsTrendChart'
-import { Card, EmptyState } from '../../components/common/Card'
-import { VisitStatusBadge } from '../../components/common/Badge'
-import { ErrorBanner } from '../../components/common/ErrorBanner'
-import { LoadingScreen } from '../../components/common/Loading'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatDateTime, formatNumber, formatTime, greeting } from '../../lib/format'
 import { bloodPressure, evaluateReading } from '../../lib/vitals'
 import type { Patient } from '../../types'
+import { Card, EmptyState, ErrorState, LoadingScreen, Select, VisitStatusBadge } from '../../components/ui'
 
 const STATUS_STYLES: Record<string, string> = {
   Stable: 'bg-brand-50 text-brand-700 ring-brand-200',
   'Attention Required': 'bg-warning-50 text-warning-700 ring-warning-200',
-  'Critical Alert': 'bg-critical-50 text-critical-700 ring-critical-200',
+  'Critical Alert': 'bg-status-critical-bg text-status-critical ring-critical-200',
 }
 
 export function FamilyDashboard() {
@@ -38,8 +35,8 @@ export function FamilyDashboard() {
     return <LoadingScreen label="Loading dashboard" />
   }
 
-  if (patients.error) return <ErrorBanner message={patients.error} onRetry={() => void patients.reload()} />
-  if (dashboard.error) return <ErrorBanner message={dashboard.error} onRetry={() => void dashboard.reload()} />
+  if (patients.error) return <ErrorState message={patients.error} onRetry={() => void patients.reload()} />
+  if (dashboard.error) return <ErrorState message={dashboard.error} onRetry={() => void dashboard.reload()} />
 
   const data = dashboard.data
   if (!data) {
@@ -62,40 +59,36 @@ export function FamilyDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-navy-800">{greeting(user?.name ?? 'there')}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-h1 font-bold text-text-primary">{greeting(user?.name ?? 'there')}</h1>
+          <p className="mt-1 text-small text-text-secondary">
             Here is how {patient.name.split(' ')[0]} is doing today.
           </p>
         </div>
 
         {(patients.data?.length ?? 0) > 1 && (
-          <div>
-            <label className="sr-only" htmlFor="patient-select">
-              Select patient
-            </label>
-            <select
-              id="patient-select"
-              className="field-input"
-              value={patientId ?? ''}
-              onChange={(event) => setSelectedPatientId(Number(event.target.value))}
-            >
-              {patients.data?.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Select patient"
+            hideLabel
+            className="sm:w-64"
+            value={patientId ?? ''}
+            onChange={(event) => setSelectedPatientId(Number(event.target.value))}
+          >
+            {patients.data?.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </Select>
         )}
       </div>
 
       {alerts.length > 0 && <AlertBanner alert={alerts[0]} to={`/family/alerts?alert=${alerts[0].id}`} />}
 
       {/* Health status */}
-      <section className="card">
+      <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-navy-800 text-lg font-bold text-white">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-navy-800 text-h2 font-bold text-white">
               {patient.name
                 .split(' ')
                 .map((part) => part[0])
@@ -103,17 +96,17 @@ export function FamilyDashboard() {
                 .join('')}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-navy-800">{patient.name}</h2>
-              <p className="text-sm text-slate-500">
+              <h2 className="text-h2 font-bold text-text-primary">{patient.name}</h2>
+              <p className="text-small text-text-secondary">
                 {patient.age} years · {patient.gender} · {patient.address}
               </p>
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="mt-2 text-small text-text-secondary">
                 Last visit: {lastVisit ? formatDate(lastVisit.scheduled_at) : 'No completed visits yet'}
                 {data.nurse ? ` · Nurse: ${data.nurse.name}` : ''}
               </p>
               <Link
                 to={`/family/patient/${patient.id}`}
-                className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:underline"
+                className="mt-2 inline-block text-small font-semibold text-brand-600 hover:underline"
               >
                 View full profile and history
               </Link>
@@ -121,7 +114,7 @@ export function FamilyDashboard() {
           </div>
 
           <span
-            className={`inline-flex shrink-0 items-center gap-2 self-start rounded-full px-3.5 py-2 text-sm font-bold ring-1 ring-inset ${
+            className={`inline-flex shrink-0 items-center gap-2 self-start rounded-full px-3.5 py-2 text-small font-bold ring-1 ring-inset ${
               STATUS_STYLES[data.overall_status] ?? STATUS_STYLES.Stable
             }`}
           >
@@ -129,14 +122,14 @@ export function FamilyDashboard() {
             {data.overall_status}
           </span>
         </div>
-      </section>
+      </Card>
 
       {/* Vitals */}
       <section>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Latest Vitals</h2>
+          <h2 className="text-small font-semibold uppercase tracking-wide text-text-secondary">Latest Vitals</h2>
           {vitals && (
-            <p className="text-xs text-slate-500">Recorded {formatDateTime(vitals.recorded_at)}</p>
+            <p className="text-caption text-text-secondary">Recorded {formatDateTime(vitals.recorded_at)}</p>
           )}
         </div>
 
@@ -211,16 +204,16 @@ export function FamilyDashboard() {
         <Card
           title="Upcoming Visit"
           action={
-            <Link to="/family/alerts" className="text-xs font-semibold text-brand-600 hover:underline">
+            <Link to="/family/alerts" className="text-caption font-semibold text-brand-600 hover:underline">
               View alerts
             </Link>
           }
         >
           {nextVisit ? (
             <div>
-              <p className="text-lg font-semibold text-navy-800">{formatDate(nextVisit.scheduled_at)}</p>
-              <p className="text-sm text-slate-500">{formatTime(nextVisit.scheduled_at)}</p>
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="text-h2 font-semibold text-text-primary">{formatDate(nextVisit.scheduled_at)}</p>
+              <p className="text-small text-text-secondary">{formatTime(nextVisit.scheduled_at)}</p>
+              <p className="mt-2 text-small text-text-secondary">
                 Nurse: {nextVisit.nurse_name ?? data.nurse?.name ?? 'To be assigned'}
               </p>
               <div className="mt-3">
@@ -235,18 +228,18 @@ export function FamilyDashboard() {
         <Card title="Nurse">
           {data.nurse ? (
             <div>
-              <p className="text-lg font-semibold text-navy-800">{data.nurse.name}</p>
-              <p className="text-sm text-slate-500">{data.nurse.credential}</p>
-              <dl className="mt-3 space-y-1 text-sm">
+              <p className="text-h2 font-semibold text-text-primary">{data.nurse.name}</p>
+              <p className="text-small text-text-secondary">{data.nurse.credential}</p>
+              <dl className="mt-3 space-y-1 text-small">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-slate-500">Verification</dt>
-                  <dd className="font-medium capitalize text-navy-800">
+                  <dt className="text-text-secondary">Verification</dt>
+                  <dd className="font-medium capitalize text-text-primary">
                     {data.nurse.verification_status}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-slate-500">Contact</dt>
-                  <dd className="font-medium text-navy-800">{data.nurse.phone ?? '--'}</dd>
+                  <dt className="text-text-secondary">Contact</dt>
+                  <dd className="font-medium text-text-primary">{data.nurse.phone ?? '--'}</dd>
                 </div>
               </dl>
             </div>
@@ -258,7 +251,7 @@ export function FamilyDashboard() {
         <Card
           title="Recent Visits"
           action={
-            <Link to="/family/medications" className="text-xs font-semibold text-brand-600 hover:underline">
+            <Link to="/family/medications" className="text-caption font-semibold text-brand-600 hover:underline">
               Medications
             </Link>
           }
@@ -270,8 +263,8 @@ export function FamilyDashboard() {
               {data.recent_visits.slice(0, 4).map((visit) => (
                 <li key={visit.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div>
-                    <p className="text-sm font-medium text-navy-800">{formatDate(visit.scheduled_at)}</p>
-                    <p className="text-xs text-slate-500">{visit.nurse_name ?? 'Nurse'}</p>
+                    <p className="text-small font-medium text-text-primary">{formatDate(visit.scheduled_at)}</p>
+                    <p className="text-caption text-text-secondary">{visit.nurse_name ?? 'Nurse'}</p>
                   </div>
                   <VisitStatusBadge status={visit.status} />
                 </li>

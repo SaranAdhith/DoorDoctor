@@ -1,3 +1,4 @@
+import { cn } from '../../lib/cn'
 import { METRIC_UNITS, formatRelative } from '../../lib/format'
 import { evaluateReading, readingStateLabel, thresholdText, type ReadingState } from '../../lib/vitals'
 import type { Threshold, VitalMetric } from '../../types'
@@ -15,10 +16,10 @@ interface Props {
 }
 
 const STATE_STYLES: Record<ReadingState, { dot: string; text: string; ring: string }> = {
-  normal: { dot: 'bg-brand-500', text: 'text-brand-700', ring: 'ring-slate-200/80' },
-  high: { dot: 'bg-critical-500', text: 'text-critical-700', ring: 'ring-critical-200' },
-  low: { dot: 'bg-warning-500', text: 'text-warning-700', ring: 'ring-warning-200' },
-  unknown: { dot: 'bg-slate-300', text: 'text-slate-500', ring: 'ring-slate-200/80' },
+  normal: { dot: 'bg-status-good', text: 'text-status-good', ring: 'ring-border-subtle' },
+  high: { dot: 'bg-status-critical', text: 'text-status-critical', ring: 'ring-status-critical-border' },
+  low: { dot: 'bg-status-watch', text: 'text-status-watch', ring: 'ring-status-watch-border' },
+  unknown: { dot: 'bg-border-strong', text: 'text-text-muted', ring: 'ring-border-subtle' },
 }
 
 export function VitalCard({
@@ -36,20 +37,24 @@ export function VitalCard({
   const range = thresholdText(metric, thresholds)
 
   return (
-    <article className={`rounded-2xl bg-white p-4 shadow-card ring-1 ${styles.ring}`}>
+    <article className={cn('rounded-2xl bg-surface-raised p-4 shadow-card ring-1', styles.ring)}>
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</h3>
-        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${styles.dot}`} aria-hidden="true" />
+        <h3 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+          {label}
+        </h3>
+        <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', styles.dot)} aria-hidden="true" />
       </div>
 
       <p className="mt-2 flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold tabular-nums text-navy-800">{value}</span>
-        <span className="text-xs font-medium text-slate-500">{unitOverride ?? METRIC_UNITS[metric]}</span>
+        <span className="tnum text-h1 font-bold text-text-primary">{value}</span>
+        <span className="text-caption font-medium text-text-muted">
+          {unitOverride ?? METRIC_UNITS[metric]}
+        </span>
       </p>
 
-      <p className={`mt-1 text-xs font-semibold ${styles.text}`}>{readingStateLabel(state)}</p>
+      <p className={cn('mt-1 text-caption font-semibold', styles.text)}>{readingStateLabel(state)}</p>
 
-      <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] text-slate-400">
+      <p className="mt-2 border-t border-border-subtle pt-2 text-caption text-text-muted">
         {range ? `Range ${range}` : 'No threshold set'}
         {recordedAt ? ` · ${formatRelative(recordedAt)}` : ''}
       </p>

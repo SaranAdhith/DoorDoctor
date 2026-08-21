@@ -12,56 +12,52 @@
   }
 
   body {
-    @apply bg-slate-50 text-navy-800 antialiased;
+    @apply bg-surface text-body text-text-primary antialiased;
     font-family: theme('fontFamily.sans');
   }
 
   /* Visible focus for keyboard users on every interactive element. */
-  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-surface-raised;
+  }
+
+  /* Headings inherit the scale rather than the browser defaults. */
+  h1 {
+    @apply text-h1 font-bold;
+  }
+  h2 {
+    @apply text-h2 font-semibold;
+  }
+
+  /* Respect a reader who has asked the OS for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 @layer components {
-  .card {
-    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card;
+  /*
+   * Only genuinely global affordances live here. Component styling belongs in
+   * `components/ui/`, so there is exactly one definition of a button.
+   */
+
+  /* Every clinical reading uses lining figures so columns align. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
   }
 
-  .card-heading {
-    @apply text-sm font-semibold uppercase tracking-wide text-slate-500;
-  }
-
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-      transition-colors disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .btn-primary {
-    @apply btn bg-navy-800 text-white hover:bg-navy-700;
-  }
-
-  .btn-accent {
-    @apply btn bg-brand-500 text-white hover:bg-brand-600;
-  }
-
-  .btn-ghost {
-    @apply btn border border-slate-200 bg-white text-navy-800 hover:bg-slate-50;
-  }
-
-  .btn-danger {
-    @apply btn bg-critical-600 text-white hover:bg-critical-700;
-  }
-
-  .field-label {
-    @apply mb-1.5 block text-sm font-medium text-navy-800;
-  }
-
-  .field-input {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-navy-900
-      placeholder:text-slate-400 focus:border-brand-500;
-  }
-
-  .field-error {
-    @apply mt-1.5 text-sm font-medium text-critical-600;
+  /* Keyboard users land here first; visually hidden until focused. */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-overlay
+      focus:rounded-md focus:bg-navy-800 focus:px-4 focus:py-2.5 focus:text-small
+      focus:font-semibold focus:text-text-inverted;
   }
 }

@@ -2,12 +2,17 @@ import { useState, type FormEvent } from 'react'
 
 import { localInputToApi, toLocalInputValue } from '../../lib/format'
 import type { Nurse, Patient } from '../../types'
+import { Button, Input, Select } from '../ui'
 
 interface Props {
   patients: Patient[]
   nurses: Nurse[]
   submitting: boolean
-  onSubmit: (payload: { patient_id: number; nurse_id: number | null; scheduled_at: string }) => Promise<void>
+  onSubmit: (payload: {
+    patient_id: number
+    nurse_id: number | null
+    scheduled_at: string
+  }) => Promise<void>
 }
 
 function defaultSlot(): string {
@@ -42,64 +47,40 @@ export function ScheduleVisitForm({ patients, nurses, submitting, onSubmit }: Pr
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-      <div>
-        <label className="field-label" htmlFor="visit-patient">
-          Patient
-        </label>
-        <select
-          id="visit-patient"
-          className="field-input"
-          value={patientId}
-          onChange={(event) => setPatientId(event.target.value)}
-        >
-          {patients.map((patient) => (
-            <option key={patient.id} value={patient.id}>
-              {patient.name}
-            </option>
-          ))}
-        </select>
-      </div>
+    <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+      <Select
+        label="Patient"
+        value={patientId}
+        error={error && !patientId ? error : null}
+        onChange={(event) => setPatientId(event.target.value)}
+      >
+        {patients.map((patient) => (
+          <option key={patient.id} value={patient.id}>
+            {patient.name}
+          </option>
+        ))}
+      </Select>
 
-      <div>
-        <label className="field-label" htmlFor="visit-nurse">
-          Nurse
-        </label>
-        <select
-          id="visit-nurse"
-          className="field-input"
-          value={nurseId}
-          onChange={(event) => setNurseId(event.target.value)}
-        >
-          <option value="">Unassigned</option>
-          {nurses.map((nurse) => (
-            <option key={nurse.id} value={nurse.id}>
-              {nurse.name} ({nurse.credential})
-            </option>
-          ))}
-        </select>
-      </div>
+      <Select label="Nurse" value={nurseId} onChange={(event) => setNurseId(event.target.value)}>
+        <option value="">Unassigned</option>
+        {nurses.map((nurse) => (
+          <option key={nurse.id} value={nurse.id}>
+            {nurse.name} ({nurse.credential})
+          </option>
+        ))}
+      </Select>
 
-      <div>
-        <label className="field-label" htmlFor="visit-time">
-          Date and time
-        </label>
-        <input
-          id="visit-time"
-          type="datetime-local"
-          className="field-input"
-          value={scheduledAt}
-          onChange={(event) => setScheduledAt(event.target.value)}
-        />
-      </div>
+      <Input
+        label="Date and time"
+        type="datetime-local"
+        value={scheduledAt}
+        error={error && !scheduledAt ? error : null}
+        onChange={(event) => setScheduledAt(event.target.value)}
+      />
 
-      <button type="submit" className="btn-accent h-[46px]" disabled={submitting}>
-        {submitting ? 'Scheduling...' : 'Schedule visit'}
-      </button>
-
-      {error && (
-        <p className="field-error sm:col-span-2 lg:col-span-4">{error}</p>
-      )}
+      <Button type="submit" variant="accent" loading={submitting} className="mt-[1.6rem]">
+        {submitting ? 'Scheduling…' : 'Schedule visit'}
+      </Button>
     </form>
   )
 }

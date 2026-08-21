@@ -4,14 +4,10 @@ import { ApiError } from '../../api/client'
 import { adminApi } from '../../api/admin'
 import { patientsApi } from '../../api/patients'
 import { visitsApi } from '../../api/visits'
-import { VisitStatusBadge } from '../../components/common/Badge'
-import { Card, EmptyState } from '../../components/common/Card'
-import { ErrorBanner } from '../../components/common/ErrorBanner'
-import { LoadingScreen } from '../../components/common/Loading'
-import { useToast } from '../../components/common/Toast'
 import { ScheduleVisitForm } from '../../components/forms/ScheduleVisitForm'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatTime } from '../../lib/format'
+import { Card, EmptyState, ErrorState, LoadingScreen, VisitStatusBadge, useToast } from '../../components/ui'
 
 export function AdminVisits() {
   const { notify } = useToast()
@@ -27,7 +23,7 @@ export function AdminVisits() {
   }, [])
 
   if (data.loading) return <LoadingScreen label="Loading visits" />
-  if (data.error) return <ErrorBanner message={data.error} onRetry={() => void data.reload()} />
+  if (data.error) return <ErrorState message={data.error} onRetry={() => void data.reload()} />
   if (!data.data) return null
 
   const { visits, patients, nurses } = data.data
@@ -58,8 +54,8 @@ export function AdminVisits() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-navy-800">Visits</h1>
-        <p className="mt-1 text-sm text-slate-500">Schedule visits and assign nurses.</p>
+        <h1 className="text-h1 font-bold text-text-primary">Visits</h1>
+        <p className="mt-1 text-small text-text-secondary">Schedule visits and assign nurses.</p>
       </div>
 
       <Card title="Schedule a visit">
@@ -76,9 +72,9 @@ export function AdminVisits() {
           <EmptyState title="No visits yet" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[720px] text-small">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="text-left text-caption uppercase tracking-wide text-text-secondary">
                   <th className="pb-2 pr-4 font-semibold">Date</th>
                   <th className="pb-2 pr-4 font-semibold">Time</th>
                   <th className="pb-2 pr-4 font-semibold">Patient</th>
@@ -92,12 +88,12 @@ export function AdminVisits() {
                   const locked = visit.status === 'completed' || visit.status === 'cancelled'
                   return (
                     <tr key={visit.id}>
-                      <td className="py-2.5 pr-4 text-slate-700">{formatDate(visit.scheduled_at)}</td>
-                      <td className="py-2.5 pr-4 tabular-nums text-slate-700">
+                      <td className="py-2.5 pr-4 text-text-primary">{formatDate(visit.scheduled_at)}</td>
+                      <td className="py-2.5 pr-4 tnum text-text-primary">
                         {formatTime(visit.scheduled_at)}
                       </td>
-                      <td className="py-2.5 pr-4 font-medium text-navy-800">{visit.patient?.name ?? '--'}</td>
-                      <td className="py-2.5 pr-4 text-slate-700">{visit.nurse?.name ?? 'Unassigned'}</td>
+                      <td className="py-2.5 pr-4 font-medium text-text-primary">{visit.patient?.name ?? '--'}</td>
+                      <td className="py-2.5 pr-4 text-text-primary">{visit.nurse?.name ?? 'Unassigned'}</td>
                       <td className="py-2.5 pr-4">
                         <VisitStatusBadge status={visit.status} />
                       </td>
@@ -107,7 +103,7 @@ export function AdminVisits() {
                         </label>
                         <select
                           id={`assign-${visit.id}`}
-                          className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs disabled:bg-slate-50 disabled:text-slate-400"
+                          className="rounded-lg border border-border-strong bg-surface-raised px-2 py-1.5 text-caption disabled:bg-surface-sunken disabled:text-text-muted"
                           value={visit.nurse_id ?? ''}
                           disabled={locked}
                           onChange={(event) => void assign(visit.id, Number(event.target.value))}
