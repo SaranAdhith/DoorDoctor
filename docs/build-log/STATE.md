@@ -1,45 +1,85 @@
 # DoorDoctor Platform v2 — Build State
 
-Running ledger for the multi-phase build. Updated at every phase boundary.
-If context is lost, this file plus `git log` restores full state.
+Running ledger for the multi-phase build. **Read this first in a new session**, then
+`docs/build-log/phase-N.md` for the phase you are starting. Together with `git log` this restores
+full context without re-reading the codebase.
+
+The full build specification lives in the founder's original prompt. The phase plan is at
+`/home/saran/.claude/plans/doordoctor-platform-clever-hippo.md`.
+
+---
 
 ## Locked decisions
 
 | Decision | Answer |
 |---|---|
-| Source of facts | The build prompt is the source of truth. No business documents exist in the repo. Every price, tier, ratio and founder name comes from the prompt verbatim. Invent no traction, testimonials, customer counts, certifications or partner logos — DoorDoctor is pre-launch. |
+| Source of facts | **The build prompt is the source of truth.** No business documents exist in the repo. Every price, tier, ratio and founder name comes from the prompt verbatim. Invent no traction, testimonials, customer counts, certifications or partner logos — DoorDoctor is pre-launch. |
 | Checkpointing | Report at each phase boundary and continue. No waiting for approval between phases. |
-| Git | Commit directly on `main`, one conventional commit per phase boundary, full suite green before each. |
-| LLM provider | **Groq, not Anthropic.** Free-tier key supplied by the founder when needed. No `anthropic` package, no Claude API key. Deterministic fallback is mandatory and built first. |
+| Git | Commit directly on `main`, one conventional commit per phase boundary, full suite green before each. **Commit promptly** — see the incident note below. |
+| LLM provider | **Groq, not Anthropic.** The founder supplies a free Groq API key when a phase needs it. No `anthropic` package, no Claude API key. The deterministic fallback is mandatory and is built and tested *first*. |
 
-### Founders (always named together, as an equal pair)
+### Founders — always named together, as an equal pair
 - **Saran Adhith** — Founder & CEO
 - **Darren D'Souza** — Co-Founder
+
+### LLM integration contract (Phases 6 and 7)
+- Single boundary: `backend/app/services/llm_client.py`.
+- Groq's OpenAI-compatible endpoint `https://api.groq.com/openai/v1/chat/completions`, called with
+  **`httpx`, already in requirements.txt** — no new dependency.
+- Env: `GROQ_API_KEY`, `GROQ_MODEL` (default `llama-3.3-70b-versatile`), `GROQ_BASE_URL`,
+  `ASSISTANT_ENABLED`.
+- Timeouts: **2s** for the plain-summary rewrite, **8s** for the assistant. Both fall back silently
+  to deterministic output. The demo must work with no key and no network.
+
+---
 
 ## Phase status
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done |
-| 2 | Design system, UI primitives, sidebar navigation | ⬜ not started |
-| 3 | Forgot password + login rebuild | ⬜ not started |
-| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ⬜ not started |
-| 5 | Realistic seed data | ⬜ not started |
-| 6 | Plain-language summary + reports | ⬜ not started |
-| 7 | AI assistant (family + admin) | ⬜ not started |
-| 8 | Public marketing site + leads | ⬜ not started |
-| 9 | Clinical features (labs → escalation) | ⬜ not started |
-| 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ not started |
-| 11 | Multi-family, hardening, tests, docs | ⬜ not started |
+| 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `53fdb4d` |
+| 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
+| 3 | Forgot password + login rebuild | ⬜ **next** |
+| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ⬜ |
+| 5 | Realistic seed data | ⬜ |
+| 6 | Plain-language summary + reports | ⬜ |
+| 7 | AI assistant (family + admin) | ⬜ |
+| 8 | Public marketing site + leads | ⬜ |
+| 9 | Clinical features (labs → escalation) | ⬜ |
+| 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
+| 11 | Multi-family, hardening, tests, docs | ⬜ |
 
-## Baseline (before Phase 1)
+Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats a broken phase 11.
 
-- Backend: 73 pytest cases passing via `backend/.venv/bin/python -m pytest` (Python 3.13.12).
-- Frontend: 2 Vitest files, TypeScript strict, `frontend/node_modules` present (Node v20.20.2).
-- WeasyPrint system libs (pango, cairo, harfbuzz, gobject) verified present on this machine.
-- PyPI and npm registry reachable.
+---
 
-## Environment variables
+## How to verify (run before every commit)
+
+```bash
+cd backend  && .venv/bin/python -m pytest          # 73 passing today; the count only grows
+cd backend  && .venv/bin/python -m app.seed        # must run clean
+cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
+cd frontend && npm run build                       # clean
+cd frontend && npx vitest run                      # 11 passing today
+```
+
+Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
+`-p tsconfig.json --noEmit` as above, or `npm run build` which runs `tsc -b && vite build`.
+
+### Visual verification
+Chrome and the Playwright browsers are already installed on this machine. `playwright-core` is
+installed in `frontend/` with `--no-save` (deliberately **not** in package.json). Drive it with a
+throwaway script placed **inside `frontend/`** so it can resolve `node_modules`:
+
+```js
+import { chromium } from 'playwright-core'
+const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome-stable', headless: true })
+```
+Log in at `http://127.0.0.1:5173/login`, fill email + `Demo@123`, submit. Check 375 / 768 / 1024 / 1440.
+
+---
+
+## Environment
 
 | Variable | Added in | Default | Purpose |
 |---|---|---|---|
@@ -49,31 +89,92 @@ If context is lost, this file plus `git log` restores full state.
 | `CORS_ORIGINS` | baseline | `http://localhost:5173,...` | CORS allow-list |
 | `VITE_API_BASE_URL` | baseline | `http://localhost:8000/api/v1` | Frontend API base |
 
-## Dependencies added
+Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's system libraries
+(pango, cairo, harfbuzz, gobject) are verified present for Phase 6. PyPI and npm are reachable.
 
-*(none yet)*
+## Dependencies added so far
+
+| Where | Package | For |
+|---|---|---|
+| frontend | `lucide-react` | Icons, replacing emoji (Phase 2) |
+
+Still planned: `weasyprint`, `apscheduler`, `alembic` (backend); `react-helmet-async`,
+`@playwright/test` (frontend). **No `anthropic` — the provider is Groq via `httpx`.**
+
+---
 
 ## Phase results
 
-### Phase 1 — terminology refactor (2026-08-21)
+### Phase 1 — terminology refactor → `53fdb4d`
 - 51 files rewritten, 16 paths renamed via `git mv` (history preserved), ~700 occurrences resolved.
 - Grep audit: **0** hits for caregiver/coordinator outside `docs/build-log/`.
-- 73 backend tests pass · frontend builds clean · 11 Vitest tests pass.
 - Live smoke test: all three roles log in, `/admin/summary` and `/nurses` serve, old
-  `/coordinator/summary` and `/caregivers` return 404, and the 148/92 breach path still runs
-  end-to-end (nurse records → family + admin see the alert → admin resolves).
-- Doc repairs beyond the rename: README architecture box and DESIGN.md route map were
-  column-aligned around the longer old words and needed re-padding; the SQLite box top border
-  was one column short (pre-existing) and is now square.
-- Family-facing prose written by hand rather than substituted, because "your admin" is wrong to
-  say to a family member: FamilyAlerts now reads "Your DoorDoctor care team reviews and resolves
-  alerts", FamilyDashboard "Ask DoorDoctor to link a patient".
-- `.env.example` had an uncommitted stray `ju` prefix on line 1; removed, file now matches HEAD.
+  `/coordinator/summary` and `/caregivers` 404, and the 148/92 breach path runs end-to-end.
+- Family-facing prose was written by hand, not substituted — "your admin" is wrong to say to a
+  family member, so FamilyAlerts reads "Your DoorDoctor care team reviews and resolves alerts".
+- Repaired column alignment the shorter words broke in the README architecture box and the
+  DESIGN.md route map.
 
-## Deferrals and open items
+### Phase 2 — design system, primitives, navigation → `3cd24cf`
+- **Tokens** in `tailwind.config.js`: semantic surfaces, borders, text and clinical status colours
+  layered on top of the untouched navy/brand palette. One type scale (display 32/40 → caption
+  12/16), `.tnum` for readings, two elevations, one radius family.
+- **Contrast was measured, not assumed.** Two candidates failed WCAG AA and were darkened:
+  `text-muted` (slate-400 measured **3.39:1**) → `#5f7186`, and `status-good` (brand-600 measured
+  **3.65:1** on its own tint) → brand-700 `#1d7529`. Every token now clears 4.5:1 against its
+  worst-case ground. **Re-run that check if you touch a colour.**
+- **28 primitives** in `components/ui/`, exported from one barrel. They *absorbed*
+  `components/common/` and `cards/StatCard` — those are deleted, not paralleled.
+  `Field` wires label + hint + error + ARIA once. `useFocusTrap` backs Modal and Drawer.
+  `LinkButton` is kept separate from `Button` on purpose: a navigation is an anchor, an action is a
+  button.
+- **Navigation** replaced the top-tab bar: collapsible left sidebar with grouped sections
+  (persisted in `localStorage`), top bar for notifications/account, mobile bottom tab bar, and the
+  same sidebar served in a drawer below 768px.
+- **Charts**: one axis/grid/tooltip/threshold treatment in `components/charts/chartTheme.ts`.
+  Reuse it for every chart added later.
+- Verified in a real browser at 375 / 768 / 1024 / 1440.
 
-- Business documents were never supplied. Facts come from the build prompt. All prices/tiers will be
-  centralised in one constants module in Phase 4 so later reconciliation is a one-file change.
+---
+
+## ⚠️ Incident — external `git filter-branch` during Phase 2
+
+At ~21:00 on 2026-08-21 an **external** `git filter-branch` + `git reset` ran against this repo
+(reflog: `filter-branch: rewrite`, then `reset: moving to HEAD`). It stripped the binary assets from
+history — `assets/` and `docs/screenshots/`, 10 files — the standard "shrink the repo before pushing
+to GitHub" operation. It was not run from the build session.
+
+Effects:
+- Phase 1's commit was rewritten `0c797ec` → `53fdb4d`. **Content survived intact.**
+- The accompanying reset **discarded uncommitted changes to tracked files**, costing part of the
+  Phase 2 work, which was redone. Untracked new files were unaffected.
+- `assets/` and `docs/screenshots/` are gone from the working tree. The founder has since restored
+  the README logo (`8c4c369`). `frontend/public/` logos were never touched, so the app UI is fine.
+- The pre-rewrite commit is still reachable at `refs/original/refs/heads/main` if anything is needed
+  back.
+
+**Lesson applied: commit at every phase boundary promptly, and do not leave large amounts of work
+uncommitted in the working tree.**
+
+---
+
+## Open items and deferrals
+
+- **README image links.** `README.md` references `docs/screenshots/*.png`, which the history rewrite
+  deleted. Either regenerate the screenshots (the app now looks materially different anyway, so
+  these are stale) or drop the links. Worth doing as part of Phase 11 docs, or sooner if the founder
+  wants the README presentable.
+- **Care manager role.** §4.4 gives care managers their own ratios and worklist. Plan is to model
+  them as a profile on an admin user rather than a fourth `UserRole`, which keeps the three-way
+  route guard intact. Flagged for Phase 9; cheap to agree on early.
+- **Login page** was migrated onto the primitives in Phase 2 but still has its original layout —
+  Phase 3 rebuilds it fully (§2.5).
+- **Business documents** were never supplied. All prices/tiers will be centralised in one constants
+  module in Phase 4 so any later reconciliation is a one-file change.
+- **Seed data is thin** (1 patient, 1 nurse), so charts and lists look sparse. Phase 5 fixes this;
+  do not treat it as a bug before then.
+
+---
 
 ## Demo credentials
 
