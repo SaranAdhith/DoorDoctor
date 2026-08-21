@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-50 text-navy-800 antialiased;
+    font-family: theme('fontFamily.sans');
+  }
+
+  /* Visible focus for keyboard users on every interactive element. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card;
+  }
+
+  .card-heading {
+    @apply text-sm font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-navy-800 text-white hover:bg-navy-700;
+  }
+
+  .btn-accent {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600;
+  }
+
+  .btn-ghost {
+    @apply btn border border-slate-200 bg-white text-navy-800 hover:bg-slate-50;
+  }
+
+  .btn-danger {
+    @apply btn bg-critical-600 text-white hover:bg-critical-700;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-navy-800;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-navy-900
+      placeholder:text-slate-400 focus:border-brand-500;
+  }
+
+  .field-error {
+    @apply mt-1.5 text-sm font-medium text-critical-600;
+  }
+}
