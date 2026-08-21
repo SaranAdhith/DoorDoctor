@@ -11,7 +11,7 @@ from ..models import (
     Alert,
     AlertSeverity,
     AlertStatus,
-    Caregiver,
+    Nurse,
     Patient,
     User,
     UserRole,
@@ -88,12 +88,12 @@ def list_alerts_for_user(db: Session, user: User, status: str | None = None) -> 
 
     if user.role == UserRole.FAMILY:
         query = query.join(Patient, Alert.patient_id == Patient.id).where(Patient.family_user_id == user.id)
-    elif user.role == UserRole.CAREGIVER:
-        # Caregivers only see alerts for patients they are assigned to.
+    elif user.role == UserRole.NURSE:
+        # Nurses only see alerts for patients they are assigned to.
         patient_ids = (
             select(Visit.patient_id)
-            .join(Caregiver, Visit.caregiver_id == Caregiver.id)
-            .where(Caregiver.user_id == user.id)
+            .join(Nurse, Visit.nurse_id == Nurse.id)
+            .where(Nurse.user_id == user.id)
         )
         query = query.where(Alert.patient_id.in_(patient_ids))
 
@@ -108,7 +108,7 @@ def get_alert_for_user(db: Session, user: User, alert_id: int) -> Alert:
     if alert is None:
         raise NotFoundError("Alert not found.")
 
-    if user.role == UserRole.COORDINATOR:
+    if user.role == UserRole.ADMIN:
         return alert
     if user.role == UserRole.FAMILY and alert.patient.family_user_id == user.id:
         return alert

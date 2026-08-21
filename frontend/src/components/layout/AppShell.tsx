@@ -12,20 +12,20 @@ const NAV_BY_ROLE: Record<Role, { to: string; label: string }[]> = {
     { to: '/family/medications', label: 'Medications' },
     { to: '/family/alerts', label: 'Alerts' },
   ],
-  caregiver: [{ to: '/caregiver/visits', label: "Today's Visits" }],
-  coordinator: [
-    { to: '/coordinator/dashboard', label: 'Dashboard' },
-    { to: '/coordinator/visits', label: 'Visits' },
-    { to: '/coordinator/patients', label: 'Patients' },
-    { to: '/coordinator/caregivers', label: 'Caregivers' },
-    { to: '/coordinator/alerts', label: 'Alerts' },
+  nurse: [{ to: '/nurse/visits', label: "Today's Visits" }],
+  admin: [
+    { to: '/admin/dashboard', label: 'Dashboard' },
+    { to: '/admin/visits', label: 'Visits' },
+    { to: '/admin/patients', label: 'Patients' },
+    { to: '/admin/nurses', label: 'Nurses' },
+    { to: '/admin/alerts', label: 'Alerts' },
   ],
 }
 
 const ROLE_LABELS: Record<Role, string> = {
   family: 'Family Member',
-  caregiver: 'Caregiver',
-  coordinator: 'Care Coordinator',
+  nurse: 'Nurse',
+  admin: 'Admin',
 }
 
 export function AppShell() {

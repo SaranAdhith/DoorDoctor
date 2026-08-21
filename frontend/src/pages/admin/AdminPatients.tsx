@@ -8,7 +8,7 @@ import { useAsync } from '../../hooks/useAsync'
 import { formatDate } from '../../lib/format'
 import type { Patient } from '../../types'
 
-export function CoordinatorPatients() {
+export function AdminPatients() {
   const patients = useAsync<Patient[]>(() => patientsApi.list(), [])
 
   if (patients.loading) return <LoadingScreen label="Loading patients" />
@@ -42,7 +42,7 @@ export function CoordinatorPatients() {
                 {rows.map((patient) => (
                   <tr key={patient.id}>
                     <td className="py-2.5 pr-4 font-medium text-navy-800">
-                      <Link to={`/coordinator/patients/${patient.id}`} className="hover:underline">
+                      <Link to={`/admin/patients/${patient.id}`} className="hover:underline">
                         {patient.name}
                       </Link>
                     </td>

@@ -123,7 +123,7 @@ export function PatientProfile() {
               <li key={visit.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
                   <p className="text-sm font-medium text-navy-800">{formatDateTime(visit.scheduled_at)}</p>
-                  <p className="text-xs text-slate-500">{visit.caregiver_name ?? 'Caregiver'}</p>
+                  <p className="text-xs text-slate-500">{visit.nurse_name ?? 'Nurse'}</p>
                 </div>
                 <VisitStatusBadge status={visit.status} />
               </li>

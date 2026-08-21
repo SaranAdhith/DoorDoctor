@@ -28,7 +28,7 @@ class AlertOut(BaseModel):
 
 class AlertDetailOut(AlertOut):
     patient_name: str | None = None
-    caregiver_name: str | None = None
+    nurse_name: str | None = None
     vitals: dict[str, Any] | None = None
     thresholds: list[dict[str, Any]] = []
 

@@ -65,7 +65,7 @@ export function VitalsTrendChart({ history, thresholds }: Props) {
 
       {data.length === 0 ? (
         <p className="py-12 text-center text-sm text-slate-500">
-          No readings recorded yet. Trends appear after the first caregiver visit.
+          No readings recorded yet. Trends appear after the first nurse visit.
         </p>
       ) : (
         <div className="h-64 w-full">

@@ -28,43 +28,43 @@ def test_other_family_cannot_reach_the_demo_patient(client, other_family):
     assert client.get("/api/v1/patients/1", headers=headers).status_code == 404
 
 
-def test_caregiver_cannot_record_vitals_on_an_unassigned_visit(client, db, caregiver_headers):
-    from app.models import Caregiver, CaregiverStatus, User, UserRole, VerificationStatus, Visit
+def test_nurse_cannot_record_vitals_on_an_unassigned_visit(client, db, nurse_headers):
+    from app.models import Nurse, NurseStatus, User, UserRole, VerificationStatus, Visit
     from app.core.security import hash_password
     from app.database import now
 
     other_user = User(
-        name="Other Caregiver",
-        email="other-caregiver@doordoc.demo",
+        name="Other Nurse",
+        email="other-nurse@doordoctor.in",
         password_hash=hash_password(DEMO_PASSWORD),
-        role=UserRole.CAREGIVER,
+        role=UserRole.NURSE,
     )
     db.add(other_user)
     db.flush()
-    other_caregiver = Caregiver(
+    other_nurse = Nurse(
         user_id=other_user.id,
         credential="RN",
         verification_status=VerificationStatus.VERIFIED,
-        status=CaregiverStatus.ACTIVE,
+        status=NurseStatus.ACTIVE,
     )
-    db.add(other_caregiver)
+    db.add(other_nurse)
     db.flush()
-    visit = Visit(patient_id=1, caregiver_id=other_caregiver.id, scheduled_at=now())
+    visit = Visit(patient_id=1, nurse_id=other_nurse.id, scheduled_at=now())
     db.add(visit)
     db.commit()
 
-    assert client.get(f"/api/v1/visits/{visit.id}", headers=caregiver_headers).status_code == 404
+    assert client.get(f"/api/v1/visits/{visit.id}", headers=nurse_headers).status_code == 404
     response = client.post(
-        f"/api/v1/visits/{visit.id}/vitals", json=ABNORMAL_VITALS, headers=caregiver_headers
+        f"/api/v1/visits/{visit.id}/vitals", json=ABNORMAL_VITALS, headers=nurse_headers
     )
     assert response.status_code == 404
 
 
-def test_caregiver_cannot_schedule_a_visit(client, caregiver_headers):
+def test_nurse_cannot_schedule_a_visit(client, nurse_headers):
     response = client.post(
         "/api/v1/visits",
-        json={"patient_id": 1, "caregiver_id": 1, "scheduled_at": "2026-08-20T10:30:00"},
-        headers=caregiver_headers,
+        json={"patient_id": 1, "nurse_id": 1, "scheduled_at": "2026-08-20T10:30:00"},
+        headers=nurse_headers,
     )
     assert response.status_code == 403
 
@@ -72,26 +72,26 @@ def test_caregiver_cannot_schedule_a_visit(client, caregiver_headers):
 def test_family_cannot_schedule_a_visit(client, family_headers):
     response = client.post(
         "/api/v1/visits",
-        json={"patient_id": 1, "caregiver_id": 1, "scheduled_at": "2026-08-20T10:30:00"},
+        json={"patient_id": 1, "nurse_id": 1, "scheduled_at": "2026-08-20T10:30:00"},
         headers=family_headers,
     )
     assert response.status_code == 403
 
 
-def test_family_cannot_list_caregivers(client, family_headers):
-    assert client.get("/api/v1/caregivers", headers=family_headers).status_code == 403
+def test_family_cannot_list_nurses(client, family_headers):
+    assert client.get("/api/v1/nurses", headers=family_headers).status_code == 403
 
 
-def test_coordinator_can_read_operational_data(client, coordinator_headers):
-    summary = client.get("/api/v1/coordinator/summary", headers=coordinator_headers)
+def test_admin_can_read_operational_data(client, admin_headers):
+    summary = client.get("/api/v1/admin/summary", headers=admin_headers)
     assert summary.status_code == 200
     assert summary.json()["patients"] >= 1
 
-    caregivers = client.get("/api/v1/caregivers", headers=coordinator_headers)
-    assert caregivers.status_code == 200
-    assert caregivers.json()[0]["name"] == "Anitha Kumar"
+    nurses = client.get("/api/v1/nurses", headers=admin_headers)
+    assert nurses.status_code == 200
+    assert nurses.json()[0]["name"] == "Anitha Kumar"
 
-    patients = client.get("/api/v1/patients", headers=coordinator_headers)
+    patients = client.get("/api/v1/patients", headers=admin_headers)
     assert patients.status_code == 200
     assert len(patients.json()) >= 1
 

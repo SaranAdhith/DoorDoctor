@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { ApiError } from '../../api/client'
-import { coordinatorApi } from '../../api/coordinator'
+import { adminApi } from '../../api/admin'
 import { patientsApi } from '../../api/patients'
 import { visitsApi } from '../../api/visits'
 import { VisitStatusBadge } from '../../components/common/Badge'
@@ -13,30 +13,30 @@ import { ScheduleVisitForm } from '../../components/forms/ScheduleVisitForm'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatTime } from '../../lib/format'
 
-export function CoordinatorVisits() {
+export function AdminVisits() {
   const { notify } = useToast()
   const [submitting, setSubmitting] = useState(false)
 
   const data = useAsync(async () => {
-    const [visits, patients, caregivers] = await Promise.all([
+    const [visits, patients, nurses] = await Promise.all([
       visitsApi.list(),
       patientsApi.list(),
-      coordinatorApi.caregivers(),
+      adminApi.nurses(),
     ])
-    return { visits, patients, caregivers }
+    return { visits, patients, nurses }
   }, [])
 
   if (data.loading) return <LoadingScreen label="Loading visits" />
   if (data.error) return <ErrorBanner message={data.error} onRetry={() => void data.reload()} />
   if (!data.data) return null
 
-  const { visits, patients, caregivers } = data.data
+  const { visits, patients, nurses } = data.data
 
-  async function schedule(payload: { patient_id: number; caregiver_id: number | null; scheduled_at: string }) {
+  async function schedule(payload: { patient_id: number; nurse_id: number | null; scheduled_at: string }) {
     setSubmitting(true)
     try {
       await visitsApi.create(payload)
-      notify('Visit scheduled. It is now on the caregiver worklist.', 'success')
+      notify('Visit scheduled. It is now on the nurse worklist.', 'success')
       await data.reload({ quiet: true })
     } catch (error) {
       notify(error instanceof ApiError ? error.message : 'Could not schedule the visit.', 'error')
@@ -45,13 +45,13 @@ export function CoordinatorVisits() {
     }
   }
 
-  async function assign(visitId: number, caregiverId: number) {
+  async function assign(visitId: number, nurseId: number) {
     try {
-      await visitsApi.assign(visitId, caregiverId)
-      notify('Caregiver assigned.', 'success')
+      await visitsApi.assign(visitId, nurseId)
+      notify('Nurse assigned.', 'success')
       await data.reload({ quiet: true })
     } catch (error) {
-      notify(error instanceof ApiError ? error.message : 'Could not assign the caregiver.', 'error')
+      notify(error instanceof ApiError ? error.message : 'Could not assign the nurse.', 'error')
     }
   }
 
@@ -59,13 +59,13 @@ export function CoordinatorVisits() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-navy-800">Visits</h1>
-        <p className="mt-1 text-sm text-slate-500">Schedule visits and assign caregivers.</p>
+        <p className="mt-1 text-sm text-slate-500">Schedule visits and assign nurses.</p>
       </div>
 
       <Card title="Schedule a visit">
         <ScheduleVisitForm
           patients={patients}
-          caregivers={caregivers}
+          nurses={nurses}
           submitting={submitting}
           onSubmit={schedule}
         />
@@ -82,7 +82,7 @@ export function CoordinatorVisits() {
                   <th className="pb-2 pr-4 font-semibold">Date</th>
                   <th className="pb-2 pr-4 font-semibold">Time</th>
                   <th className="pb-2 pr-4 font-semibold">Patient</th>
-                  <th className="pb-2 pr-4 font-semibold">Caregiver</th>
+                  <th className="pb-2 pr-4 font-semibold">Nurse</th>
                   <th className="pb-2 pr-4 font-semibold">Status</th>
                   <th className="pb-2 font-semibold">Assign</th>
                 </tr>
@@ -97,27 +97,27 @@ export function CoordinatorVisits() {
                         {formatTime(visit.scheduled_at)}
                       </td>
                       <td className="py-2.5 pr-4 font-medium text-navy-800">{visit.patient?.name ?? '--'}</td>
-                      <td className="py-2.5 pr-4 text-slate-700">{visit.caregiver?.name ?? 'Unassigned'}</td>
+                      <td className="py-2.5 pr-4 text-slate-700">{visit.nurse?.name ?? 'Unassigned'}</td>
                       <td className="py-2.5 pr-4">
                         <VisitStatusBadge status={visit.status} />
                       </td>
                       <td className="py-2.5">
                         <label className="sr-only" htmlFor={`assign-${visit.id}`}>
-                          Assign caregiver for visit {visit.id}
+                          Assign nurse for visit {visit.id}
                         </label>
                         <select
                           id={`assign-${visit.id}`}
                           className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs disabled:bg-slate-50 disabled:text-slate-400"
-                          value={visit.caregiver_id ?? ''}
+                          value={visit.nurse_id ?? ''}
                           disabled={locked}
                           onChange={(event) => void assign(visit.id, Number(event.target.value))}
                         >
                           <option value="" disabled>
                             Select
                           </option>
-                          {caregivers.map((caregiver) => (
-                            <option key={caregiver.id} value={caregiver.id}>
-                              {caregiver.name}
+                          {nurses.map((nurse) => (
+                            <option key={nurse.id} value={nurse.id}>
+                              {nurse.name}
                             </option>
                           ))}
                         </select>

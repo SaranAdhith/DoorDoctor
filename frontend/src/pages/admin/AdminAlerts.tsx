@@ -11,7 +11,7 @@ import { useAsync } from '../../hooks/useAsync'
 import { METRIC_LABELS, formatDateTime, formatNumber } from '../../lib/format'
 import type { Alert, AlertDetail } from '../../types'
 
-export function CoordinatorAlerts() {
+export function AdminAlerts() {
   const { notify } = useToast()
   const alerts = useAsync<Alert[]>(() => alertsApi.list(), [])
   const [selected, setSelected] = useState<AlertDetail | null>(null)
@@ -51,7 +51,7 @@ export function CoordinatorAlerts() {
       <div>
         <h1 className="text-2xl font-bold text-navy-800">Alerts</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Threshold events raised during caregiver visits. Acknowledge, then resolve once handled.
+          Threshold events raised during nurse visits. Acknowledge, then resolve once handled.
         </p>
       </div>
 
@@ -63,7 +63,7 @@ export function CoordinatorAlerts() {
         }>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Detail label="Patient" value={selected.patient_name ?? '--'} />
-            <Detail label="Recorded by" value={selected.caregiver_name ?? '--'} />
+            <Detail label="Recorded by" value={selected.nurse_name ?? '--'} />
             <Detail label="Detected" value={formatDateTime(selected.created_at)} />
             <Detail label="Status" value={selected.status} className="capitalize" />
           </dl>

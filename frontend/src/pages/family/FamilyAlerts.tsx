@@ -41,7 +41,7 @@ export function FamilyAlerts() {
             <Detail label="Alert" value={detail.data.title} />
             <Detail label="Patient" value={detail.data.patient_name ?? '--'} />
             <Detail label="Detected" value={formatDateTime(detail.data.created_at)} />
-            <Detail label="Recorded by" value={detail.data.caregiver_name ?? '--'} />
+            <Detail label="Recorded by" value={detail.data.nurse_name ?? '--'} />
             <Detail label="Severity" value={detail.data.severity} className="capitalize" />
             <Detail label="Status" value={detail.data.status} className="capitalize" />
           </dl>
@@ -68,7 +68,7 @@ export function FamilyAlerts() {
           </div>
 
           <p className="mt-4 rounded-xl bg-navy-50 px-3 py-2 text-xs font-medium text-navy-700">
-            Monitoring alert - not a medical diagnosis. Your care coordinator reviews and resolves alerts.
+            Monitoring alert - not a medical diagnosis. Your DoorDoctor care team reviews and resolves alerts.
           </p>
         </Card>
       )}

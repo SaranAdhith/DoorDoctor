@@ -12,10 +12,10 @@ export const visitsApi = {
   list: (status?: string) => api.get<Visit[]>(`/visits${status ? `?status=${status}` : ''}`),
   today: () => api.get<Visit[]>('/visits/today'),
   get: (visitId: number) => api.get<VisitDetail>(`/visits/${visitId}`),
-  create: (payload: { patient_id: number; caregiver_id?: number | null; scheduled_at: string }) =>
+  create: (payload: { patient_id: number; nurse_id?: number | null; scheduled_at: string }) =>
     api.post<Visit>('/visits', payload),
-  assign: (visitId: number, caregiverId: number) =>
-    api.post<Visit>(`/visits/${visitId}/assign`, { caregiver_id: caregiverId }),
+  assign: (visitId: number, nurseId: number) =>
+    api.post<Visit>(`/visits/${visitId}/assign`, { nurse_id: nurseId }),
   checkIn: (visitId: number, location?: { lat: number; lng: number }) =>
     api.post<Visit>(`/visits/${visitId}/checkin`, location ?? {}),
   checkOut: (visitId: number) => api.post<Visit>(`/visits/${visitId}/checkout`),

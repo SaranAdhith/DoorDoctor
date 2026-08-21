@@ -43,7 +43,7 @@ export function FamilyDashboard() {
 
   const data = dashboard.data
   if (!data) {
-    return <EmptyState title="No patient linked to this account" description="Ask a coordinator to link a patient." />
+    return <EmptyState title="No patient linked to this account" description="Ask DoorDoctor to link a patient." />
   }
 
   const { patient, current_vitals: vitals, thresholds, active_alerts: alerts } = data
@@ -109,7 +109,7 @@ export function FamilyDashboard() {
               </p>
               <p className="mt-2 text-sm text-slate-600">
                 Last visit: {lastVisit ? formatDate(lastVisit.scheduled_at) : 'No completed visits yet'}
-                {data.caregiver ? ` · Caregiver: ${data.caregiver.name}` : ''}
+                {data.nurse ? ` · Nurse: ${data.nurse.name}` : ''}
               </p>
               <Link
                 to={`/family/patient/${patient.id}`}
@@ -195,7 +195,7 @@ export function FamilyDashboard() {
         ) : (
           <EmptyState
             title="No vitals recorded yet"
-            description="Readings appear here after the first caregiver visit."
+            description="Readings appear here after the first nurse visit."
           />
         )}
       </section>
@@ -221,7 +221,7 @@ export function FamilyDashboard() {
               <p className="text-lg font-semibold text-navy-800">{formatDate(nextVisit.scheduled_at)}</p>
               <p className="text-sm text-slate-500">{formatTime(nextVisit.scheduled_at)}</p>
               <p className="mt-2 text-sm text-slate-600">
-                Caregiver: {nextVisit.caregiver_name ?? data.caregiver?.name ?? 'To be assigned'}
+                Nurse: {nextVisit.nurse_name ?? data.nurse?.name ?? 'To be assigned'}
               </p>
               <div className="mt-3">
                 <VisitStatusBadge status={nextVisit.status} />
@@ -232,26 +232,26 @@ export function FamilyDashboard() {
           )}
         </Card>
 
-        <Card title="Caregiver">
-          {data.caregiver ? (
+        <Card title="Nurse">
+          {data.nurse ? (
             <div>
-              <p className="text-lg font-semibold text-navy-800">{data.caregiver.name}</p>
-              <p className="text-sm text-slate-500">{data.caregiver.credential}</p>
+              <p className="text-lg font-semibold text-navy-800">{data.nurse.name}</p>
+              <p className="text-sm text-slate-500">{data.nurse.credential}</p>
               <dl className="mt-3 space-y-1 text-sm">
                 <div className="flex justify-between gap-3">
                   <dt className="text-slate-500">Verification</dt>
                   <dd className="font-medium capitalize text-navy-800">
-                    {data.caregiver.verification_status}
+                    {data.nurse.verification_status}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-slate-500">Contact</dt>
-                  <dd className="font-medium text-navy-800">{data.caregiver.phone ?? '--'}</dd>
+                  <dd className="font-medium text-navy-800">{data.nurse.phone ?? '--'}</dd>
                 </div>
               </dl>
             </div>
           ) : (
-            <EmptyState title="No caregiver assigned yet" />
+            <EmptyState title="No nurse assigned yet" />
           )}
         </Card>
 
@@ -271,7 +271,7 @@ export function FamilyDashboard() {
                 <li key={visit.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div>
                     <p className="text-sm font-medium text-navy-800">{formatDate(visit.scheduled_at)}</p>
-                    <p className="text-xs text-slate-500">{visit.caregiver_name ?? 'Caregiver'}</p>
+                    <p className="text-xs text-slate-500">{visit.nurse_name ?? 'Nurse'}</p>
                   </div>
                   <VisitStatusBadge status={visit.status} />
                 </li>

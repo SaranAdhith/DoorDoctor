@@ -15,7 +15,7 @@ const ACTION_LABELS: Record<string, string> = {
   cancelled: 'View Visit',
 }
 
-export function CaregiverVisits() {
+export function NurseVisits() {
   const { user } = useAuth()
   const today = useAsync<Visit[]>(() => visitsApi.today(), [])
   const all = useAsync<Visit[]>(() => visitsApi.list(), [])
@@ -40,7 +40,7 @@ export function CaregiverVisits() {
         {open.length === 0 ? (
           <EmptyState
             title="No open visits"
-            description="Assigned visits appear here as soon as a coordinator schedules them."
+            description="Assigned visits appear here as soon as an admin schedules them."
           />
         ) : (
           open.map((visit) => (
@@ -48,7 +48,7 @@ export function CaregiverVisits() {
               key={visit.id}
               visit={visit}
               actionLabel={ACTION_LABELS[visit.status]}
-              to={`/caregiver/visits/${visit.id}`}
+              to={`/nurse/visits/${visit.id}`}
             />
           ))
         )}
@@ -58,7 +58,7 @@ export function CaregiverVisits() {
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recently completed</h2>
           {completedToday.map((visit) => (
-            <VisitCard key={visit.id} visit={visit} actionLabel="View Visit" to={`/caregiver/visits/${visit.id}`} />
+            <VisitCard key={visit.id} visit={visit} actionLabel="View Visit" to={`/nurse/visits/${visit.id}`} />
           ))}
         </section>
       )}

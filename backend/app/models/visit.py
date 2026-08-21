@@ -1,4 +1,4 @@
-"""Scheduled caregiver visits and their lifecycle state."""
+"""Scheduled nurse visits and their lifecycle state."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
@@ -10,7 +10,7 @@ from ..database import Base, now
 from .enums import VisitStatus
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .caregiver import Caregiver
+    from .nurse import Nurse
     from .medication import MedicationLog
     from .patient import Patient
     from .vital import Vital
@@ -21,7 +21,7 @@ class Visit(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True, nullable=False)
-    caregiver_id: Mapped[Optional[int]] = mapped_column(ForeignKey("caregivers.id"), index=True)
+    nurse_id: Mapped[Optional[int]] = mapped_column(ForeignKey("nurses.id"), index=True)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
     status: Mapped[VisitStatus] = mapped_column(
         SAEnum(VisitStatus, values_callable=lambda e: [m.value for m in e]),
@@ -38,7 +38,7 @@ class Visit(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now, nullable=False)
 
     patient: Mapped["Patient"] = relationship(back_populates="visits")
-    caregiver: Mapped[Optional["Caregiver"]] = relationship(back_populates="visits")
+    nurse: Mapped[Optional["Nurse"]] = relationship(back_populates="visits")
     vitals: Mapped[list["Vital"]] = relationship(back_populates="visit", cascade="all, delete-orphan")
     medication_logs: Mapped[list["MedicationLog"]] = relationship(
         back_populates="visit", cascade="all, delete-orphan"

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { alertsApi } from '../../api/alerts'
-import { coordinatorApi } from '../../api/coordinator'
+import { adminApi } from '../../api/admin'
 import { visitsApi } from '../../api/visits'
 import { StatCard } from '../../components/cards/StatCard'
 import { AlertStatusBadge, SeverityBadge, VisitStatusBadge } from '../../components/common/Badge'
@@ -11,10 +11,10 @@ import { LoadingScreen } from '../../components/common/Loading'
 import { useAsync } from '../../hooks/useAsync'
 import { formatRelative, formatTime } from '../../lib/format'
 
-export function CoordinatorDashboard() {
+export function AdminDashboard() {
   const data = useAsync(async () => {
     const [summary, visits, alerts] = await Promise.all([
-      coordinatorApi.summary(),
+      adminApi.summary(),
       visitsApi.today(),
       alertsApi.list(),
     ])
@@ -36,10 +36,10 @@ export function CoordinatorDashboard() {
           <p className="mt-1 text-sm text-slate-500">Care delivery across all DoorDoctor patients today.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/coordinator/visits" className="btn-accent">
+          <Link to="/admin/visits" className="btn-accent">
             Schedule visit
           </Link>
-          <Link to="/coordinator/alerts" className="btn-ghost">
+          <Link to="/admin/alerts" className="btn-ghost">
             View alerts
           </Link>
         </div>
@@ -47,7 +47,7 @@ export function CoordinatorDashboard() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total Patients" value={summary.patients} />
-        <StatCard label="Active Caregivers" value={summary.caregivers} />
+        <StatCard label="Active Nurses" value={summary.nurses} />
         <StatCard
           label="Today's Visits"
           value={summary.today_visits}
@@ -64,7 +64,7 @@ export function CoordinatorDashboard() {
       <Card
         title="Today's visits"
         action={
-          <Link to="/coordinator/visits" className="text-xs font-semibold text-brand-600 hover:underline">
+          <Link to="/admin/visits" className="text-xs font-semibold text-brand-600 hover:underline">
             Manage
           </Link>
         }
@@ -78,7 +78,7 @@ export function CoordinatorDashboard() {
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                   <th className="pb-2 pr-4 font-semibold">Time</th>
                   <th className="pb-2 pr-4 font-semibold">Patient</th>
-                  <th className="pb-2 pr-4 font-semibold">Caregiver</th>
+                  <th className="pb-2 pr-4 font-semibold">Nurse</th>
                   <th className="pb-2 font-semibold">Status</th>
                 </tr>
               </thead>
@@ -89,7 +89,7 @@ export function CoordinatorDashboard() {
                       {formatTime(visit.scheduled_at)}
                     </td>
                     <td className="py-2.5 pr-4 text-slate-700">{visit.patient?.name ?? '--'}</td>
-                    <td className="py-2.5 pr-4 text-slate-700">{visit.caregiver?.name ?? 'Unassigned'}</td>
+                    <td className="py-2.5 pr-4 text-slate-700">{visit.nurse?.name ?? 'Unassigned'}</td>
                     <td className="py-2.5">
                       <VisitStatusBadge status={visit.status} />
                     </td>
@@ -104,7 +104,7 @@ export function CoordinatorDashboard() {
       <Card
         title="Active alerts"
         action={
-          <Link to="/coordinator/alerts" className="text-xs font-semibold text-brand-600 hover:underline">
+          <Link to="/admin/alerts" className="text-xs font-semibold text-brand-600 hover:underline">
             Handle alerts
           </Link>
         }
@@ -136,7 +136,7 @@ export function CoordinatorDashboard() {
                     </td>
                     <td className="py-2.5">
                       <Link
-                        to="/coordinator/alerts"
+                        to="/admin/alerts"
                         className="text-xs font-semibold text-brand-600 hover:underline"
                       >
                         Review

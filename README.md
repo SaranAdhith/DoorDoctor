@@ -1,7 +1,7 @@
 <h1 align="center">DoorDoctor - Elderly Healthcare Platform (MVP)</h1>
 
 <p align="center">
-  <em>Visit &rarr; Vitals &rarr; Threshold Evaluation &rarr; Alert &rarr; Family Visibility &rarr; Coordinator Action</em>
+  <em>Visit &rarr; Vitals &rarr; Threshold Evaluation &rarr; Alert &rarr; Family Visibility &rarr; Admin Action</em>
 </p>
 
 ---
@@ -10,7 +10,7 @@
 
 DoorDoctor is a subscription-style elderly healthcare platform built around **scheduled professional
 home visits** and **exception-based escalation**. A family member who cannot be physically present can
-see exactly what happened during a caregiver's visit, and is alerted when a recorded reading falls
+see exactly what happened during a nurse's visit, and is alerted when a recorded reading falls
 outside the patient's configured monitoring thresholds.
 
 This repository is a **complete, runnable MVP** of that workflow: a FastAPI backend with a real
@@ -20,9 +20,9 @@ tracking, and a React + TypeScript frontend for all three user roles.
 **The core demo story**
 
 ```
-Coordinator schedules a visit
+Admin schedules a visit
         │
-Caregiver checks in and records vitals
+Nurse checks in and records vitals
         │
 Threshold engine evaluates every reading (synchronously, in the same request)
         │
@@ -30,7 +30,7 @@ Out-of-range reading raises an alert + notifications
         │
 Family dashboard shows "Attention Required" / "Critical Alert"
         │
-Coordinator acknowledges and resolves the alert
+Admin acknowledges and resolves the alert
 ```
 
 > **Safety note.** DoorDoctor is a healthcare monitoring and coordination prototype. Alerts indicate
@@ -44,8 +44,8 @@ Coordinator acknowledges and resolves the alert
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  React + TypeScript + Vite + Tailwind  (family / caregiver / │
-│  coordinator UI, responsive down to 375px)                   │
+│  React + TypeScript + Vite + Tailwind                       │
+│  family / nurse / admin UI, responsive down to 375px        │
 └───────────────────────────┬─────────────────────────────────┘
                             │  REST + JWT (fetch)
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -55,7 +55,7 @@ Coordinator acknowledges and resolves the alert
 │  models/   -> SQLAlchemy 2.x ORM                            │
 └───────────────────────────┬─────────────────────────────────┘
                             │
-                    ┌───────▼────────┐
+                    ┌────────▼────────┐
                     │  SQLite         │
                     └─────────────────┘
 ```
@@ -64,12 +64,12 @@ Request flow for the most important operation:
 
 ```
 POST /api/v1/visits/{id}/vitals
-  -> router validates the payload (Pydantic bounds) and the caregiver's ownership of the visit
+  -> router validates the payload (Pydantic bounds) and the nurse's ownership of the visit
   -> visit_service.record_vitals stores the reading
   -> vitals_service.evaluate_thresholds compares it against patient_thresholds
   -> alert_service.create_threshold_alert raises ONE alert listing every breached parameter
-  -> notification_service notifies the family member and every coordinator
-  -> the caregiver receives the outcome in the same HTTP response
+  -> notification_service notifies the family member and every admin
+  -> the nurse receives the outcome in the same HTTP response
 ```
 
 Full architecture notes, data model and diagrams: **[DESIGN.md](DESIGN.md)**.
@@ -124,7 +124,7 @@ DoorDoctor/
         ├── components/           # layout, cards, charts, forms, alerts, common
         ├── hooks/                # useAsync (loading / error / data)
         ├── lib/                  # formatting + threshold helpers
-        ├── pages/                # family / caregiver / coordinator screens
+        ├── pages/                # family / nurse / admin screens
         ├── test/                 # Vitest tests
         └── types/                # shared API types
 ```
@@ -211,13 +211,13 @@ This **resets the demo database** and recreates:
 
 - the three demo accounts,
 - patient **Lakshmi D'Souza** (68) linked to the family account,
-- caregiver **Anitha Kumar** (RN/ANM, verified),
+- nurse **Anitha Kumar** (RN/ANM, verified),
 - three scheduled medications (Amlodipine 5 mg 08:00, Metformin 500 mg 08:00, Atorvastatin 10 mg 20:00),
 - four completed historical visits with in-range vitals,
 - medication logs producing **87% adherence**,
 - the patient's threshold configuration,
 - **today's visit left in `scheduled` state** so the live workflow can be demonstrated,
-- one future scheduled visit for the coordinator screens.
+- one future scheduled visit for the admin screens.
 
 Run it again at any time to return to a clean demo state.
 
@@ -227,9 +227,9 @@ Run it again at any time to return to a clean demo state.
 
 | Role | Email | Password |
 |---|---|---|
-| Family member | `family@doordoc.demo` | `Demo@123` |
-| Caregiver | `caregiver@doordoc.demo` | `Demo@123` |
-| Care coordinator | `coordinator@doordoc.demo` | `Demo@123` |
+| Family member | `family@doordoctor.in` | `Demo@123` |
+| Nurse | `nurse@doordoctor.in` | `Demo@123` |
+| Admin | `admin@doordoctor.in` | `Demo@123` |
 
 The login screen also offers one-click buttons that fill these in.
 
@@ -257,7 +257,7 @@ POST /api/v1/visits/1/complete
 GET  /api/v1/alerts?status=active
 POST /api/v1/alerts/1/acknowledge
 POST /api/v1/alerts/1/resolve
-GET  /api/v1/coordinator/summary
+GET  /api/v1/admin/summary
 ```
 
 Recording out-of-range vitals returns the alert in the same response:
@@ -298,10 +298,10 @@ npm test
 
 ## 14. Demo workflow (3-5 minutes)
 
-1. **Sign in as the family member** (`family@doordoc.demo`).
+1. **Sign in as the family member** (`family@doordoctor.in`).
    Lakshmi's dashboard shows her latest vitals, the blood-pressure trend, 87% medication adherence,
-   the upcoming visit, her caregiver, and status **Stable**.
-2. **Sign out, sign in as the caregiver** (`caregiver@doordoc.demo`).
+   the upcoming visit, her nurse, and status **Stable**.
+2. **Sign out, sign in as the nurse** (`nurse@doordoctor.in`).
    Today's assigned visit is listed. Click **Start Visit**, then **Check In**.
 3. **Record normal vitals**: `130/80, 82 bpm, 98% SpO2, 110 mg/dL, 98.2 °F, 64 kg`.
    The reading is saved and confirmed as within range - no alert.
@@ -312,7 +312,7 @@ npm test
    refused) - then click **Complete Visit**.
 6. **Sign in as the family member again.** The dashboard now shows **Critical Alert**, the red
    blood-pressure card, the new reading in the trend chart and history, and a notification badge.
-7. **Sign in as the coordinator** (`coordinator@doordoc.demo`).
+7. **Sign in as the admin** (`admin@doordoctor.in`).
    The operations dashboard shows the counts, today's visits and the active alert. Open it,
    **Acknowledge**, then **Resolve** - the alert leaves the family dashboard but stays in history.
 
@@ -330,7 +330,7 @@ This is a deliberately reduced slice of the production design:
 - No payments, subscriptions, corporate/institutional management or NRI features.
 - Check-in location is optional and unverified (`demo/unverified` unless the browser provides
   coordinates); there is no geofencing.
-- The caregiver app is a responsive web UI, not an offline-first React Native app.
+- The nurse app is a responsive web UI, not an offline-first React Native app.
 - Dashboards refresh on navigation; only the notification bell polls (every 30s) instead of using
   WebSockets.
 - JWT is stored in `localStorage`, which is acceptable for a local academic prototype but not for
@@ -346,7 +346,7 @@ This is a deliberately reduced slice of the production design:
 | Synchronous alert dispatch | Emergency escalation + notification services over SQS/RabbitMQ |
 | `notifications` table | FCM push, Twilio SMS/WhatsApp, SendGrid email |
 | In-process caching | Redis |
-| React responsive caregiver UI | React Native offline-first app (WatermelonDB) |
+| React responsive nurse UI | React Native offline-first app (WatermelonDB) |
 | Simulated check-in | GPS verification / geofencing |
 | REST polling | WebSocket real-time dashboard |
 | Demo credentials | OTP + MFA |
@@ -371,7 +371,7 @@ This is a deliberately reduced slice of the production design:
 | Browser console shows a CORS error | Add the frontend origin to `CORS_ORIGINS` in `backend/.env` and restart the API |
 | `Address already in use` on 8000 / 5173 | `uvicorn app.main:app --port 8001` and update `VITE_API_BASE_URL`, or stop the other process |
 | Demo data looks stale or half-used | Re-run `python -m app.seed` to reset to a clean demo state |
-| Today's visit is missing from the caregiver worklist | Re-seed; the seed always places one `scheduled` visit on the current day |
+| Today's visit is missing from the nurse worklist | Re-seed; the seed always places one `scheduled` visit on the current day |
 
 ---
 

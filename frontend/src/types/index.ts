@@ -1,4 +1,4 @@
-export type Role = 'family' | 'caregiver' | 'coordinator'
+export type Role = 'family' | 'nurse' | 'admin'
 
 export interface User {
   id: number
@@ -64,7 +64,7 @@ export type VisitStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export interface Visit {
   id: number
   patient_id: number
-  caregiver_id: number | null
+  nurse_id: number | null
   scheduled_at: string
   status: VisitStatus
   checkin_at: string | null
@@ -72,8 +72,8 @@ export interface Visit {
   location_source: string
   notes: string | null
   patient?: { id: number; name: string; age: number; address: string }
-  caregiver?: { id: number; name: string; credential: string; phone: string | null }
-  caregiver_name?: string | null
+  nurse?: { id: number; name: string; credential: string; phone: string | null }
+  nurse_name?: string | null
 }
 
 export interface VisitDetail extends Visit {
@@ -141,12 +141,12 @@ export interface Alert {
 
 export interface AlertDetail extends Alert {
   patient_name: string | null
-  caregiver_name: string | null
+  nurse_name: string | null
   vitals: Vitals | null
   thresholds: Threshold[]
 }
 
-export interface Caregiver {
+export interface Nurse {
   id: number
   user_id: number
   name: string
@@ -179,14 +179,14 @@ export interface Dashboard {
   upcoming_visits: Visit[]
   recent_visits: Visit[]
   active_alerts: Alert[]
-  caregiver: Caregiver | null
+  nurse: Nurse | null
   overall_status: 'Stable' | 'Attention Required' | 'Critical Alert'
   thresholds: Threshold[]
 }
 
-export interface CoordinatorSummary {
+export interface AdminSummary {
   patients: number
-  caregivers: number
+  nurses: number
   today_visits: number
   active_alerts: number
   completed_today: number

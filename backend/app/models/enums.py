@@ -5,8 +5,8 @@ from enum import Enum
 
 class UserRole(str, Enum):
     FAMILY = "family"
-    CAREGIVER = "caregiver"
-    COORDINATOR = "coordinator"
+    NURSE = "nurse"
+    ADMIN = "admin"
 
 
 class PatientStatus(str, Enum):
@@ -20,7 +20,7 @@ class VerificationStatus(str, Enum):
     REJECTED = "rejected"
 
 
-class CaregiverStatus(str, Enum):
+class NurseStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
 

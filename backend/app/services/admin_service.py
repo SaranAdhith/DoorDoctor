@@ -1,4 +1,4 @@
-"""Operational metrics and directory listings for coordinators."""
+"""Operational metrics and directory listings for admins."""
 
 from datetime import datetime, time, timedelta
 from typing import Any
@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..database import now
-from ..models import Alert, AlertStatus, Caregiver, CaregiverStatus, Patient, Visit, VisitStatus
+from ..models import Alert, AlertStatus, Nurse, NurseStatus, Patient, Visit, VisitStatus
 
 
 def summary(db: Session) -> dict[str, int]:
@@ -15,8 +15,8 @@ def summary(db: Session) -> dict[str, int]:
     end = start + timedelta(days=1)
 
     patients = db.scalar(select(func.count(Patient.id))) or 0
-    caregivers = (
-        db.scalar(select(func.count(Caregiver.id)).where(Caregiver.status == CaregiverStatus.ACTIVE)) or 0
+    nurses = (
+        db.scalar(select(func.count(Nurse.id)).where(Nurse.status == NurseStatus.ACTIVE)) or 0
     )
     today_visits = (
         db.scalar(
@@ -40,24 +40,24 @@ def summary(db: Session) -> dict[str, int]:
 
     return {
         "patients": int(patients),
-        "caregivers": int(caregivers),
+        "nurses": int(nurses),
         "today_visits": int(today_visits),
         "completed_today": int(completed_today),
         "active_alerts": int(active_alerts),
     }
 
 
-def list_caregivers(db: Session) -> list[dict[str, Any]]:
-    caregivers = db.scalars(
-        select(Caregiver).options(selectinload(Caregiver.user)).order_by(Caregiver.id)
+def list_nurses(db: Session) -> list[dict[str, Any]]:
+    nurses = db.scalars(
+        select(Nurse).options(selectinload(Nurse.user)).order_by(Nurse.id)
     ).all()
 
     payload: list[dict[str, Any]] = []
-    for caregiver in caregivers:
+    for nurse in nurses:
         assigned = (
             db.scalar(
                 select(func.count(Visit.id)).where(
-                    Visit.caregiver_id == caregiver.id,
+                    Visit.nurse_id == nurse.id,
                     Visit.status.in_([VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS]),
                 )
             )
@@ -65,14 +65,14 @@ def list_caregivers(db: Session) -> list[dict[str, Any]]:
         )
         payload.append(
             {
-                "id": caregiver.id,
-                "user_id": caregiver.user_id,
-                "name": caregiver.user.name if caregiver.user else "",
-                "email": caregiver.user.email if caregiver.user else "",
-                "phone": caregiver.user.phone if caregiver.user else None,
-                "credential": caregiver.credential,
-                "verification_status": caregiver.verification_status.value,
-                "status": caregiver.status.value,
+                "id": nurse.id,
+                "user_id": nurse.user_id,
+                "name": nurse.user.name if nurse.user else "",
+                "email": nurse.user.email if nurse.user else "",
+                "phone": nurse.user.phone if nurse.user else None,
+                "credential": nurse.credential,
+                "verification_status": nurse.verification_status.value,
+                "status": nurse.status.value,
                 "open_visits": int(assigned),
             }
         )

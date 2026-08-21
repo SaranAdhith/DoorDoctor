@@ -7,9 +7,9 @@ import { Disclaimer } from '../components/layout/Disclaimer'
 import { Logo } from '../components/layout/Logo'
 
 const DEMO_ACCOUNTS = [
-  { role: 'Family member', email: 'family@doordoc.demo', description: "Lakshmi's health dashboard" },
-  { role: 'Caregiver', email: 'caregiver@doordoc.demo', description: "Today's assigned visits" },
-  { role: 'Care coordinator', email: 'coordinator@doordoc.demo', description: 'Operations and alerts' },
+  { role: 'Family member', email: 'family@doordoctor.in', description: "Lakshmi's health dashboard" },
+  { role: 'Nurse', email: 'nurse@doordoctor.in', description: "Today's assigned visits" },
+  { role: 'Admin', email: 'admin@doordoctor.in', description: 'Operations and alerts' },
 ]
 const DEMO_PASSWORD = 'Demo@123'
 
@@ -60,16 +60,16 @@ export function Login() {
             Care at home, visible to the family that cannot be there.
           </h1>
           <p className="mt-4 text-navy-100">
-            Scheduled caregiver visits, recorded vitals, medication adherence and threshold-based
+            Scheduled nurse visits, recorded vitals, medication adherence and threshold-based
             escalation - in one place.
           </p>
 
           <ol className="mt-10 space-y-3 text-sm">
             {[
-              'Caregiver checks in and records vitals',
+              'Nurse checks in and records vitals',
               'Threshold engine evaluates every reading',
               'Out-of-range readings raise an alert',
-              'Family and coordinator see it immediately',
+              'Family and admin see it immediately',
             ].map((step, index) => (
               <li key={step} className="flex items-start gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-bold">
@@ -107,7 +107,7 @@ export function Login() {
                   className="field-input"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="family@doordoc.demo"
+                  placeholder="family@doordoctor.in"
                   required
                 />
               </div>

@@ -63,7 +63,7 @@ export function FamilyMedications() {
       <div>
         <h1 className="text-2xl font-bold text-navy-800">Medications</h1>
         <p className="mt-1 text-sm text-slate-500">
-          The schedule caregivers follow during each visit, and how doses have been logged.
+          The schedule nurses follow during each visit, and how doses have been logged.
         </p>
       </div>
 

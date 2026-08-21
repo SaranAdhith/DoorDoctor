@@ -9,14 +9,14 @@ is responsible for, and how the MVP maps onto the production DoorDoctor architec
 
 ## 1. System overview
 
-DoorDoctor turns a physical caregiver visit into a digital visibility layer for the family. Three
+DoorDoctor turns a physical nurse visit into a digital visibility layer for the family. Three
 roles share one backend:
 
 | Role | Sees | Can do |
 |---|---|---|
 | **Family** | Their own patients only | Read the dashboard, vitals, medications, visits, alerts; configure the medication schedule and thresholds |
-| **Caregiver** | Only visits assigned to them | Check in, record vitals, log medication, add observations, complete the visit |
-| **Coordinator** | All operational records | Schedule/assign visits, view patients and caregivers, acknowledge and resolve alerts |
+| **Nurse** | Only visits assigned to them | Check in, record vitals, log medication, add observations, complete the visit |
+| **Admin** | All operational records | Schedule/assign visits, view patients and nurses, acknowledge and resolve alerts |
 
 The MVP runs entirely on local infrastructure: one FastAPI process, one SQLite file, one Vite dev
 server. No external services are required.
@@ -24,8 +24,8 @@ server. No external services are required.
 ```mermaid
 flowchart TD
     Family[Family Member]
-    Caregiver[Caregiver]
-    Coordinator[Care Coordinator]
+    Nurse[Nurse]
+    Admin[Admin]
 
     UI[React Web App<br/>TypeScript + Tailwind]
     API[FastAPI REST API<br/>JWT + RBAC]
@@ -33,8 +33,8 @@ flowchart TD
     DB[(SQLite)]
 
     Family --> UI
-    Caregiver --> UI
-    Coordinator --> UI
+    Nurse --> UI
+    Admin --> UI
 
     UI -->|REST /api/v1| API
     API --> Engine
@@ -54,7 +54,7 @@ flowchart TD
 | `app/config.py` | Environment-driven settings (`DATABASE_URL`, `JWT_SECRET`, CORS, token lifetime) |
 | `app/database.py` | Engine, session factory, declarative `Base`, `now()` timestamp helper |
 | `app/core/security.py` | bcrypt hashing, JWT issue/decode |
-| `app/core/dependencies.py` | `get_current_user`, role guards, `authorize_patient`, `authorize_visit`, `authorize_caregiver_visit` |
+| `app/core/dependencies.py` | `get_current_user`, role guards, `authorize_patient`, `authorize_visit`, `authorize_nurse_visit` |
 | `app/core/exceptions.py` | Typed HTTP errors that always serialise to `{"detail": "..."}` |
 | `app/models/` | SQLAlchemy 2.x models and enums |
 | `app/schemas/` | Pydantic v2 request/response schemas (kept separate from ORM models) |
@@ -71,9 +71,9 @@ Service layer:
 | `vitals_service` | **Threshold engine**: load thresholds, compare, report breaches; vitals history |
 | `alert_service` | Alert creation (severity, message), role-scoped listing, acknowledge/resolve |
 | `medication_service` | Schedule CRUD, dose logging, adherence calculation |
-| `notification_service` | In-app notification records for family + coordinators |
+| `notification_service` | In-app notification records for family + admins |
 | `dashboard_service` | Single aggregation for the family dashboard |
-| `coordinator_service` | Operational counts and the caregiver directory |
+| `admin_service` | Operational counts and the nurse directory |
 
 ### Frontend
 
@@ -94,14 +94,14 @@ Service layer:
 ```mermaid
 erDiagram
     USERS ||--o{ PATIENTS : "family_user_id"
-    USERS ||--o| CAREGIVERS : "user_id"
+    USERS ||--o| NURSES : "user_id"
     USERS ||--o{ NOTIFICATIONS : receives
     PATIENTS ||--o{ VISITS : has
     PATIENTS ||--o{ VITALS : has
     PATIENTS ||--o{ MEDICATIONS : has
     PATIENTS ||--o{ ALERTS : has
     PATIENTS ||--o{ PATIENT_THRESHOLDS : configures
-    CAREGIVERS ||--o{ VISITS : "assigned to"
+    NURSES ||--o{ VISITS : "assigned to"
     VISITS ||--o{ VITALS : records
     VISITS ||--o{ MEDICATION_LOGS : records
     MEDICATIONS ||--o{ MEDICATION_LOGS : "logged as"
@@ -114,7 +114,7 @@ erDiagram
         string email UK
         string phone
         string password_hash
-        enum role "family|caregiver|coordinator"
+        enum role "family|nurse|admin"
         bool is_active
     }
     PATIENTS {
@@ -127,7 +127,7 @@ erDiagram
         int family_user_id FK
         enum status
     }
-    CAREGIVERS {
+    NURSES {
         int id PK
         int user_id FK
         string credential
@@ -137,7 +137,7 @@ erDiagram
     VISITS {
         int id PK
         int patient_id FK
-        int caregiver_id FK
+        int nurse_id FK
         datetime scheduled_at
         enum status "scheduled|in_progress|completed|missed|cancelled"
         datetime checkin_at
@@ -226,31 +226,31 @@ All endpoints are under `/api/v1`; Swagger UI is served at `/docs`.
 |---|---|---|---|
 | POST | `/auth/login` | public | Exchange credentials for a JWT |
 | GET | `/auth/me` | any | Current user |
-| GET | `/patients` | family, coordinator | Patient list (family sees only its own) |
+| GET | `/patients` | family, admin | Patient list (family sees only its own) |
 | GET | `/patients/{id}` | scoped | Patient profile |
 | GET | `/patients/{id}/dashboard` | scoped | **Single aggregation** for the family dashboard |
-| GET/POST | `/patients/{id}/medications` | scoped / family+coordinator | Medication schedule |
+| GET/POST | `/patients/{id}/medications` | scoped / family+admin | Medication schedule |
 | GET | `/patients/{id}/medication-adherence` | scoped | Adherence summary |
-| GET/PUT | `/patients/{id}/thresholds` | scoped / family+coordinator | Monitoring thresholds |
+| GET/PUT | `/patients/{id}/thresholds` | scoped / family+admin | Monitoring thresholds |
 | GET | `/visits` | role-filtered | Visit list |
 | GET | `/visits/today` | role-filtered | Today's worklist |
-| POST | `/visits` | coordinator | Schedule a visit |
-| POST | `/visits/{id}/assign` | coordinator | Assign a caregiver |
+| POST | `/visits` | admin | Schedule a visit |
+| POST | `/visits/{id}/assign` | admin | Assign a nurse |
 | GET | `/visits/{id}` | scoped | Visit detail (vitals, medications, logs) |
-| POST | `/visits/{id}/checkin` | assigned caregiver | `scheduled -> in_progress` |
-| POST | `/visits/{id}/vitals` | assigned caregiver | Record a reading + run the threshold engine |
-| POST | `/visits/{id}/medication-logs` | assigned caregiver | Log one dose |
-| POST | `/visits/{id}/notes` | assigned caregiver | Save observations |
-| POST | `/visits/{id}/checkout` | assigned caregiver | Record check-out |
-| POST | `/visits/{id}/complete` | assigned caregiver | `in_progress -> completed` |
+| POST | `/visits/{id}/checkin` | assigned nurse | `scheduled -> in_progress` |
+| POST | `/visits/{id}/vitals` | assigned nurse | Record a reading + run the threshold engine |
+| POST | `/visits/{id}/medication-logs` | assigned nurse | Log one dose |
+| POST | `/visits/{id}/notes` | assigned nurse | Save observations |
+| POST | `/visits/{id}/checkout` | assigned nurse | Record check-out |
+| POST | `/visits/{id}/complete` | assigned nurse | `in_progress -> completed` |
 | GET | `/alerts` | role-scoped | Alert list |
-| GET | `/alerts/{id}` | family, coordinator | Alert detail with reading + thresholds |
-| POST | `/alerts/{id}/acknowledge` | coordinator | Acknowledge |
-| POST | `/alerts/{id}/resolve` | coordinator | Resolve |
+| GET | `/alerts/{id}` | family, admin | Alert detail with reading + thresholds |
+| POST | `/alerts/{id}/acknowledge` | admin | Acknowledge |
+| POST | `/alerts/{id}/resolve` | admin | Resolve |
 | GET | `/notifications` | any | In-app notifications |
 | POST | `/notifications/{id}/read` | owner | Mark read |
-| GET | `/coordinator/summary` | coordinator | Live operational counts |
-| GET | `/caregivers` | coordinator | Caregiver directory |
+| GET | `/admin/summary` | admin | Live operational counts |
+| GET | `/nurses` | admin | Nurse directory |
 
 Errors are always `{"detail": "human readable message"}`:
 `401` unauthenticated, `403` authenticated but not permitted, `404` missing **or not visible to you**,
@@ -287,7 +287,7 @@ Authorization is centralised in `app/core/dependencies.py`:
 - `require_roles(...)` guards whole endpoints by role.
 - `authorize_patient` / `authorize_visit` enforce ownership; a record belonging to another family
   returns **404**, so the API never reveals that it exists.
-- `authorize_caregiver_visit` restricts every write during a visit to the assigned caregiver.
+- `authorize_nurse_visit` restricts every write during a visit to the assigned nurse.
 
 The frontend route guard mirrors these rules for usability only - the backend never trusts it.
 
@@ -297,8 +297,8 @@ The frontend route guard mirrors these rules for usability only - the backend ne
 
 ```mermaid
 stateDiagram-v2
-    [*] --> scheduled: coordinator schedules
-    scheduled --> in_progress: caregiver checks in
+    [*] --> scheduled: admin schedules
+    scheduled --> in_progress: nurse checks in
     in_progress --> in_progress: record vitals / log medication / notes
     in_progress --> completed: complete (requires check-in + at least one reading)
     scheduled --> cancelled
@@ -319,19 +319,19 @@ Enforced rules:
 
 ```mermaid
 sequenceDiagram
-    participant C as Caregiver UI
+    participant C as Nurse UI
     participant API as FastAPI
     participant E as Threshold Engine
     participant DB as SQLite
-    participant F as Family / Coordinator
+    participant F as Family / Admin
 
     C->>API: POST /visits/{id}/vitals (148/92, ...)
-    API->>API: validate ranges + caregiver ownership
+    API->>API: validate ranges + nurse ownership
     API->>DB: INSERT vitals
     API->>E: evaluate(vitals, patient thresholds)
     E-->>API: [systolic 148 > 140, diastolic 92 > 90]
     API->>DB: INSERT alert (severity=critical, 2 breaches)
-    API->>DB: INSERT notifications (family + all coordinators)
+    API->>DB: INSERT notifications (family + all admins)
     API-->>C: {threshold_breached: true, alerts_created: [...]}
     F->>API: GET /patients/{id}/dashboard
     API-->>F: overall_status = "Critical Alert" + active alert
@@ -340,12 +340,12 @@ sequenceDiagram
 Rules:
 
 - Thresholds are **per patient** (`patient_thresholds`), seeded with the demo configuration and
-  editable by the family member or a coordinator.
+  editable by the family member or an admin.
 - Every enabled metric is compared; **all** breaches are collected before any alert is created.
 - One reading produces **one alert** listing every breached parameter.
 - Severity: one breach -> `warning`, two or more -> `critical`. This is a software demonstration
   rule, not a clinical severity model.
-- Evaluation is synchronous inside the request, so the caregiver sees the result immediately.
+- Evaluation is synchronous inside the request, so the nurse sees the result immediately.
 - Alert copy is deliberately non-diagnostic: it states the value, the configured threshold and the
   direction, and ends with "This is a monitoring alert, not a medical diagnosis."
 
@@ -390,23 +390,23 @@ flowchart LR
 ```
 /login                                public
 
-/family                 (family)      -> /family/dashboard
+/family                     (family)  -> /family/dashboard
 /family/dashboard                     health status, vitals cards, trend chart, adherence, visits, alerts
 /family/patient/:patientId            profile, thresholds, full reading history
 /family/medications                   schedule + adherence + add medication
 /family/alerts                        active and resolved alerts, alert detail
 
-/caregiver              (caregiver)   -> /caregiver/visits
-/caregiver/visits                     today's worklist
-/caregiver/visits/:visitId            check-in, vitals form, medication logging, notes, completion
+/nurse                      (nurse)   -> /nurse/visits
+/nurse/visits                         today's worklist
+/nurse/visits/:visitId                check-in, vitals form, medication logging, notes, completion
 
-/coordinator            (coordinator) -> /coordinator/dashboard
-/coordinator/dashboard                counts, today's visits, active alerts
-/coordinator/visits                   schedule a visit, assign caregivers
-/coordinator/patients                 patient directory
-/coordinator/patients/:patientId      patient detail
-/coordinator/caregivers               caregiver directory
-/coordinator/alerts                   acknowledge / resolve
+/admin                      (admin)   -> /admin/dashboard
+/admin/dashboard                      counts, today's visits, active alerts
+/admin/visits                         schedule a visit, assign nurses
+/admin/patients                       patient directory
+/admin/patients/:patientId            patient detail
+/admin/nurses                         nurse directory
+/admin/alerts                         acknowledge / resolve
 ```
 
 Navigating to another role's route redirects to the user's own home; an expired token clears the
@@ -441,7 +441,7 @@ limiting, no immutable audit log.
 | Cache | none / in-process | Redis |
 | Async work | synchronous service call | SQS / RabbitMQ workers |
 | Notifications | `notifications` table | FCM, Twilio SMS/WhatsApp, SendGrid |
-| Caregiver client | responsive React web | React Native, offline-first (WatermelonDB) |
+| Nurse client | responsive React web | React Native, offline-first (WatermelonDB) |
 | Location | optional browser geolocation | GPS verification + geofencing |
 | Realtime | REST + 30s notification poll | WebSockets |
 | Auth | email + password JWT | OTP + MFA |
@@ -458,11 +458,11 @@ Backend (`backend/tests`, 73 tests):
 | File | Covers |
 |---|---|
 | `test_auth.py` | Login success/failure, case-insensitive email, missing/invalid/expired tokens, no hash leakage |
-| `test_authorization.py` | Cross-family isolation, caregiver visit isolation, role restrictions, coordinator access |
+| `test_authorization.py` | Cross-family isolation, nurse visit isolation, role restrictions, admin access |
 | `test_visits.py` | Scheduling, assignment, check-in/out ordering, completion prerequisites, immutability |
 | `test_vitals.py` | Validation bounds, no alert in range, single vs multiple breaches, low breaches, patient-specific thresholds, non-diagnostic copy |
 | `test_medications.py` | Schedule creation, dose logging, mandatory reasons, correction not duplication, adherence maths, "No data" |
-| `test_alerts.py` | Family/coordinator visibility, alert detail, notifications, acknowledge/resolve, history retention, summary counts |
+| `test_alerts.py` | Family/admin visibility, alert detail, notifications, acknowledge/resolve, history retention, summary counts |
 
 Each test runs against a throwaway copy of a freshly seeded database, so tests are isolated and order-independent.
 
@@ -474,10 +474,10 @@ Frontend (`frontend/src/test`, 11 tests): threshold evaluation helpers and the a
 ## 13. Known limitations
 
 - Dashboards refresh on navigation rather than in real time (only the notification bell polls).
-- Coordinator screens assume a small demo dataset - there is no pagination or search.
+- Admin screens assume a small demo dataset - there is no pagination or search.
 - Threshold editing is exposed through the API (`PUT /patients/{id}/thresholds`) but has no dedicated
   UI screen; the seeded configuration is shown read-only on the patient profile.
 - Visit `missed`/`cancelled` states exist in the model but have no UI transition.
-- One caregiver profile per user account.
+- One nurse profile per user account.
 - Timestamps are naive server-local; a multi-timezone deployment would need timezone-aware UTC.
 - Bundle is shipped as a single chunk (~630 kB) - fine locally, but production would code-split.

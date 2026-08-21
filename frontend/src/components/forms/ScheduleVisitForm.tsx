@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react'
 
 import { localInputToApi, toLocalInputValue } from '../../lib/format'
-import type { Caregiver, Patient } from '../../types'
+import type { Nurse, Patient } from '../../types'
 
 interface Props {
   patients: Patient[]
-  caregivers: Caregiver[]
+  nurses: Nurse[]
   submitting: boolean
-  onSubmit: (payload: { patient_id: number; caregiver_id: number | null; scheduled_at: string }) => Promise<void>
+  onSubmit: (payload: { patient_id: number; nurse_id: number | null; scheduled_at: string }) => Promise<void>
 }
 
 function defaultSlot(): string {
@@ -17,9 +17,9 @@ function defaultSlot(): string {
   return toLocalInputValue(date)
 }
 
-export function ScheduleVisitForm({ patients, caregivers, submitting, onSubmit }: Props) {
+export function ScheduleVisitForm({ patients, nurses, submitting, onSubmit }: Props) {
   const [patientId, setPatientId] = useState(String(patients[0]?.id ?? ''))
-  const [caregiverId, setCaregiverId] = useState(String(caregivers[0]?.id ?? ''))
+  const [nurseId, setNurseId] = useState(String(nurses[0]?.id ?? ''))
   const [scheduledAt, setScheduledAt] = useState(defaultSlot)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,7 +36,7 @@ export function ScheduleVisitForm({ patients, caregivers, submitting, onSubmit }
     setError(null)
     await onSubmit({
       patient_id: Number(patientId),
-      caregiver_id: caregiverId ? Number(caregiverId) : null,
+      nurse_id: nurseId ? Number(nurseId) : null,
       scheduled_at: localInputToApi(scheduledAt),
     })
   }
@@ -62,19 +62,19 @@ export function ScheduleVisitForm({ patients, caregivers, submitting, onSubmit }
       </div>
 
       <div>
-        <label className="field-label" htmlFor="visit-caregiver">
-          Caregiver
+        <label className="field-label" htmlFor="visit-nurse">
+          Nurse
         </label>
         <select
-          id="visit-caregiver"
+          id="visit-nurse"
           className="field-input"
-          value={caregiverId}
-          onChange={(event) => setCaregiverId(event.target.value)}
+          value={nurseId}
+          onChange={(event) => setNurseId(event.target.value)}
         >
           <option value="">Unassigned</option>
-          {caregivers.map((caregiver) => (
-            <option key={caregiver.id} value={caregiver.id}>
-              {caregiver.name} ({caregiver.credential})
+          {nurses.map((nurse) => (
+            <option key={nurse.id} value={nurse.id}>
+              {nurse.name} ({nurse.credential})
             </option>
           ))}
         </select>

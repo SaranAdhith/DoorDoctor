@@ -10,12 +10,12 @@ from ..models.enums import VisitStatus
 
 class VisitCreate(BaseModel):
     patient_id: int
-    caregiver_id: int | None = None
+    nurse_id: int | None = None
     scheduled_at: datetime
 
 
 class VisitAssign(BaseModel):
-    caregiver_id: int
+    nurse_id: int
 
 
 class CheckinRequest(BaseModel):
@@ -32,7 +32,7 @@ class VisitOut(BaseModel):
 
     id: int
     patient_id: int
-    caregiver_id: int | None = None
+    nurse_id: int | None = None
     scheduled_at: datetime
     status: VisitStatus
     checkin_at: datetime | None = None
@@ -43,7 +43,7 @@ class VisitOut(BaseModel):
 
 class VisitDetailOut(VisitOut):
     patient: dict[str, Any] | None = None
-    caregiver: dict[str, Any] | None = None
+    nurse: dict[str, Any] | None = None
     vitals: list[dict[str, Any]] = []
     medications: list[dict[str, Any]] = []
     medication_logs: list[dict[str, Any]] = []

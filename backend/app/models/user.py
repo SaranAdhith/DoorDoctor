@@ -1,4 +1,4 @@
-"""User accounts (family members, caregivers, coordinators)."""
+"""User accounts (family members, nurses, admins)."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
@@ -10,7 +10,7 @@ from ..database import Base, now
 from .enums import UserRole
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .caregiver import Caregiver
+    from .nurse import Nurse
     from .patient import Patient
 
 
@@ -30,4 +30,4 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now, nullable=False)
 
     patients: Mapped[list["Patient"]] = relationship(back_populates="family_user")
-    caregiver_profile: Mapped[Optional["Caregiver"]] = relationship(back_populates="user", uselist=False)
+    nurse_profile: Mapped[Optional["Nurse"]] = relationship(back_populates="user", uselist=False)

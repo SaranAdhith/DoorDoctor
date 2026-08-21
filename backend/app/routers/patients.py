@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
-from ..core.dependencies import CurrentUser, DbSession, authorize_patient, require_family_or_coordinator
+from ..core.dependencies import CurrentUser, DbSession, authorize_patient, require_family_or_admin
 from ..core.exceptions import ForbiddenError
 from ..models import Patient, PatientThreshold, User, UserRole, VitalMetric
 from ..schemas.medication import MedicationCreate, MedicationOut
@@ -26,9 +26,9 @@ def list_patients(current_user: CurrentUser, db: DbSession) -> list[Patient]:
     query = select(Patient).order_by(Patient.name)
     if current_user.role == UserRole.FAMILY:
         query = query.where(Patient.family_user_id == current_user.id)
-    elif current_user.role == UserRole.CAREGIVER:
-        # Caregivers reach patients through their assigned visits, not this directory.
-        raise ForbiddenError("Caregivers access patients through their assigned visits.")
+    elif current_user.role == UserRole.NURSE:
+        # Nurses reach patients through their assigned visits, not this directory.
+        raise ForbiddenError("Nurses access patients through their assigned visits.")
     return list(db.scalars(query))
 
 
@@ -61,8 +61,8 @@ def create_medication(
     db: DbSession,
     current_user: CurrentUser,
 ):
-    if current_user.role not in (UserRole.FAMILY, UserRole.COORDINATOR):
-        raise ForbiddenError("Only a family member or coordinator can change the medication schedule.")
+    if current_user.role not in (UserRole.FAMILY, UserRole.ADMIN):
+        raise ForbiddenError("Only a family member or admin can change the medication schedule.")
     patient = authorize_patient(db, current_user, patient_id)
     return medication_service.create_medication(db, patient.id, payload)
 
@@ -86,7 +86,7 @@ def list_thresholds(patient_id: int, current_user: CurrentUser, db: DbSession):
 @router.put(
     "/{patient_id}/thresholds",
     response_model=list[ThresholdOut],
-    summary="Update monitoring thresholds (family or coordinator)",
+    summary="Update monitoring thresholds (family or admin)",
 )
 def update_thresholds(
     patient_id: int,
@@ -94,8 +94,8 @@ def update_thresholds(
     db: DbSession,
     current_user: CurrentUser,
 ):
-    if current_user.role not in (UserRole.FAMILY, UserRole.COORDINATOR):
-        raise ForbiddenError("Only a family member or coordinator can configure thresholds.")
+    if current_user.role not in (UserRole.FAMILY, UserRole.ADMIN):
+        raise ForbiddenError("Only a family member or admin can configure thresholds.")
     patient = authorize_patient(db, current_user, patient_id)
 
     existing = {t.metric: t for t in vitals_service.load_thresholds(db, patient.id)}

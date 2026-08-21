@@ -6,7 +6,7 @@ from ..models.enums import UserRole
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(..., examples=["family@doordoc.demo"])
+    email: str = Field(..., examples=["family@doordoctor.in"])
     password: str = Field(..., min_length=1, examples=["Demo@123"])
 
 

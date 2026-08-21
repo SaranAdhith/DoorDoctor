@@ -25,9 +25,9 @@ from app.main import app  # noqa: E402
 from app.seed import seed  # noqa: E402
 
 DEMO_PASSWORD = "Demo@123"
-FAMILY_EMAIL = "family@doordoc.demo"
-CAREGIVER_EMAIL = "caregiver@doordoc.demo"
-COORDINATOR_EMAIL = "coordinator@doordoc.demo"
+FAMILY_EMAIL = "family@doordoctor.in"
+NURSE_EMAIL = "nurse@doordoctor.in"
+ADMIN_EMAIL = "admin@doordoctor.in"
 
 NORMAL_VITALS = {
     "systolic_bp": 130,
@@ -105,19 +105,19 @@ def family_headers(client: TestClient) -> dict[str, str]:
 
 
 @pytest.fixture
-def caregiver_headers(client: TestClient) -> dict[str, str]:
-    return auth(login(client, CAREGIVER_EMAIL))
+def nurse_headers(client: TestClient) -> dict[str, str]:
+    return auth(login(client, NURSE_EMAIL))
 
 
 @pytest.fixture
-def coordinator_headers(client: TestClient) -> dict[str, str]:
-    return auth(login(client, COORDINATOR_EMAIL))
+def admin_headers(client: TestClient) -> dict[str, str]:
+    return auth(login(client, ADMIN_EMAIL))
 
 
 @pytest.fixture
-def scheduled_visit_id(client: TestClient, caregiver_headers: dict[str, str]) -> int:
+def scheduled_visit_id(client: TestClient, nurse_headers: dict[str, str]) -> int:
     """Today's seeded visit, still in `scheduled` state."""
-    response = client.get("/api/v1/visits/today", headers=caregiver_headers)
+    response = client.get("/api/v1/visits/today", headers=nurse_headers)
     assert response.status_code == 200, response.text
     scheduled = [v for v in response.json() if v["status"] == "scheduled"]
     assert scheduled, "seed should leave at least one scheduled visit"
@@ -125,8 +125,8 @@ def scheduled_visit_id(client: TestClient, caregiver_headers: dict[str, str]) ->
 
 
 @pytest.fixture
-def started_visit_id(client: TestClient, caregiver_headers, scheduled_visit_id: int) -> int:
-    response = client.post(f"/api/v1/visits/{scheduled_visit_id}/checkin", headers=caregiver_headers)
+def started_visit_id(client: TestClient, nurse_headers, scheduled_visit_id: int) -> int:
+    response = client.post(f"/api/v1/visits/{scheduled_visit_id}/checkin", headers=nurse_headers)
     assert response.status_code == 200, response.text
     return scheduled_visit_id
 
@@ -139,7 +139,7 @@ def other_family(db: Session):
 
     user = User(
         name="Other Family",
-        email="other-family@doordoc.demo",
+        email="other-family@doordoctor.in",
         phone="+91 90000 00009",
         password_hash=hash_password(DEMO_PASSWORD),
         role=UserRole.FAMILY,

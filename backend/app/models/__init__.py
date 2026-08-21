@@ -1,11 +1,11 @@
 """ORM models. Importing this package registers every table on the declarative Base."""
 
 from .alert import Alert
-from .caregiver import Caregiver
+from .nurse import Nurse
 from .enums import (
     AlertSeverity,
     AlertStatus,
-    CaregiverStatus,
+    NurseStatus,
     MedicationLogStatus,
     NotificationType,
     PatientStatus,
@@ -25,8 +25,8 @@ __all__ = [
     "Alert",
     "AlertSeverity",
     "AlertStatus",
-    "Caregiver",
-    "CaregiverStatus",
+    "Nurse",
+    "NurseStatus",
     "Medication",
     "MedicationLog",
     "MedicationLogStatus",

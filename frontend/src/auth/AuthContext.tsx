@@ -23,8 +23,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export const ROLE_HOME: Record<Role, string> = {
   family: '/family/dashboard',
-  caregiver: '/caregiver/visits',
-  coordinator: '/coordinator/dashboard',
+  nurse: '/nurse/visits',
+  admin: '/admin/dashboard',
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

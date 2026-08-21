@@ -15,15 +15,15 @@ from fastapi.responses import JSONResponse
 
 from .config import settings
 from .database import create_all
-from .routers import alerts, auth, coordinator, medications, notifications, patients, visits
+from .routers import admin, alerts, auth, medications, notifications, patients, visits
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("doordoctor")
 
 DESCRIPTION = """
-DoorDoctor connects a scheduled caregiver visit to the family that cannot be present.
+DoorDoctor connects a scheduled nurse visit to the family that cannot be present.
 
-**Workflow:** visit -> vitals -> threshold evaluation -> alert -> family visibility -> coordinator action.
+**Workflow:** visit -> vitals -> threshold evaluation -> alert -> family visibility -> admin action.
 
 Alerts describe readings that fall outside the patient's configured monitoring
 thresholds. They are not medical diagnoses.
@@ -85,7 +85,7 @@ app.include_router(visits.router, prefix=api_prefix)
 app.include_router(medications.router, prefix=api_prefix)
 app.include_router(alerts.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
-app.include_router(coordinator.router, prefix=api_prefix)
+app.include_router(admin.router, prefix=api_prefix)
 
 
 @app.get("/", tags=["system"], summary="Service banner")

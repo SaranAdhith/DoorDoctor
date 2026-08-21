@@ -1,6 +1,6 @@
 """Authentication behaviour."""
 
-from .conftest import CAREGIVER_EMAIL, DEMO_PASSWORD, FAMILY_EMAIL, auth, login
+from .conftest import NURSE_EMAIL, DEMO_PASSWORD, FAMILY_EMAIL, auth, login
 
 
 def test_login_with_demo_credentials(client):
@@ -32,7 +32,7 @@ def test_login_with_wrong_password_is_rejected(client):
 
 def test_login_with_unknown_email_gives_the_same_error(client):
     response = client.post(
-        "/api/v1/auth/login", json={"email": "nobody@doordoc.demo", "password": DEMO_PASSWORD}
+        "/api/v1/auth/login", json={"email": "nobody@doordoctor.in", "password": DEMO_PASSWORD}
     )
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid email or password."
@@ -56,10 +56,10 @@ def test_me_rejects_an_expired_token(client):
 
 
 def test_me_returns_the_authenticated_user(client):
-    response = client.get("/api/v1/auth/me", headers=auth(login(client, CAREGIVER_EMAIL)))
+    response = client.get("/api/v1/auth/me", headers=auth(login(client, NURSE_EMAIL)))
     assert response.status_code == 200
-    assert response.json()["email"] == CAREGIVER_EMAIL
-    assert response.json()["role"] == "caregiver"
+    assert response.json()["email"] == NURSE_EMAIL
+    assert response.json()["role"] == "nurse"
 
 
 def test_health_endpoint(client):

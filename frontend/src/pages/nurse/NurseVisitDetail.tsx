@@ -35,7 +35,7 @@ async function tryGetLocation(): Promise<{ lat: number; lng: number } | undefine
   })
 }
 
-export function CaregiverVisitDetail() {
+export function NurseVisitDetail() {
   const { visitId } = useParams()
   const id = Number(visitId)
   const { notify } = useToast()
@@ -132,7 +132,7 @@ export function CaregiverVisitDetail() {
 
   return (
     <div className="space-y-5">
-      <Link to="/caregiver/visits" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-navy-800">
+      <Link to="/nurse/visits" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-navy-800">
         <span aria-hidden="true">&larr;</span> Back to visits
       </Link>
 

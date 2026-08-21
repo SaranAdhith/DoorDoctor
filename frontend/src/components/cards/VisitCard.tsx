@@ -32,8 +32,8 @@ export function VisitCard({ visit, actionLabel, to }: Props) {
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <VisitStatusBadge status={visit.status} />
-            {visit.caregiver?.name && (
-              <span className="text-xs text-slate-500">Caregiver: {visit.caregiver.name}</span>
+            {visit.nurse?.name && (
+              <span className="text-xs text-slate-500">Nurse: {visit.nurse.name}</span>
             )}
           </div>
         </div>

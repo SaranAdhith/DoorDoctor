@@ -5,9 +5,9 @@ import pytest
 from .conftest import ABNORMAL_VITALS, NORMAL_VITALS, SINGLE_BREACH_VITALS
 
 
-def test_normal_vitals_are_saved_without_an_alert(client, caregiver_headers, started_visit_id):
+def test_normal_vitals_are_saved_without_an_alert(client, nurse_headers, started_visit_id):
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=NORMAL_VITALS, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=NORMAL_VITALS, headers=nurse_headers
     )
     assert response.status_code == 201
     body = response.json()
@@ -16,9 +16,9 @@ def test_normal_vitals_are_saved_without_an_alert(client, caregiver_headers, sta
     assert body["vitals"]["systolic_bp"] == 130
 
 
-def test_abnormal_vitals_create_one_alert_with_every_breach(client, caregiver_headers, started_visit_id):
+def test_abnormal_vitals_create_one_alert_with_every_breach(client, nurse_headers, started_visit_id):
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=ABNORMAL_VITALS, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=ABNORMAL_VITALS, headers=nurse_headers
     )
     assert response.status_code == 201
     body = response.json()
@@ -34,11 +34,11 @@ def test_abnormal_vitals_create_one_alert_with_every_breach(client, caregiver_he
     assert alert["vitals_id"] == body["vitals"]["id"]
 
 
-def test_a_single_breach_is_a_warning(client, caregiver_headers, started_visit_id):
+def test_a_single_breach_is_a_warning(client, nurse_headers, started_visit_id):
     response = client.post(
         f"/api/v1/visits/{started_visit_id}/vitals",
         json=SINGLE_BREACH_VITALS,
-        headers=caregiver_headers,
+        headers=nurse_headers,
     )
     assert response.status_code == 201
     alert = response.json()["alerts_created"][0]
@@ -46,10 +46,10 @@ def test_a_single_breach_is_a_warning(client, caregiver_headers, started_visit_i
     assert len(alert["breached_parameters"]) == 1
 
 
-def test_low_readings_breach_the_low_threshold(client, caregiver_headers, started_visit_id):
+def test_low_readings_breach_the_low_threshold(client, nurse_headers, started_visit_id):
     payload = {**NORMAL_VITALS, "spo2": 91}
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=nurse_headers
     )
     assert response.status_code == 201
     breach = response.json()["alerts_created"][0]["breached_parameters"][0]
@@ -58,9 +58,9 @@ def test_low_readings_breach_the_low_threshold(client, caregiver_headers, starte
     assert breach["threshold"] == 94
 
 
-def test_alert_message_stays_non_diagnostic(client, caregiver_headers, started_visit_id):
+def test_alert_message_stays_non_diagnostic(client, nurse_headers, started_visit_id):
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=ABNORMAL_VITALS, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=ABNORMAL_VITALS, headers=nurse_headers
     )
     message = response.json()["alerts_created"][0]["message"].lower()
     assert "not a medical diagnosis" in message
@@ -81,35 +81,35 @@ def test_alert_message_stays_non_diagnostic(client, caregiver_headers, started_v
         ("blood_glucose", 5000),
     ],
 )
-def test_impossible_values_are_rejected(client, caregiver_headers, started_visit_id, field, value):
+def test_impossible_values_are_rejected(client, nurse_headers, started_visit_id, field, value):
     payload = {**NORMAL_VITALS, field: value}
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=nurse_headers
     )
     assert response.status_code == 422
     assert field in response.json()["detail"]
 
 
-def test_missing_values_are_rejected(client, caregiver_headers, started_visit_id):
+def test_missing_values_are_rejected(client, nurse_headers, started_visit_id):
     payload = {k: v for k, v in NORMAL_VITALS.items() if k != "spo2"}
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=nurse_headers
     )
     assert response.status_code == 422
     assert "spo2" in response.json()["detail"]
 
 
-def test_non_numeric_values_are_rejected(client, caregiver_headers, started_visit_id):
+def test_non_numeric_values_are_rejected(client, nurse_headers, started_visit_id):
     payload = {**NORMAL_VITALS, "heart_rate": "fast"}
     response = client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=payload, headers=nurse_headers
     )
     assert response.status_code == 422
 
 
-def test_recorded_vitals_reach_the_family_dashboard(client, caregiver_headers, family_headers, started_visit_id):
+def test_recorded_vitals_reach_the_family_dashboard(client, nurse_headers, family_headers, started_visit_id):
     client.post(
-        f"/api/v1/visits/{started_visit_id}/vitals", json=ABNORMAL_VITALS, headers=caregiver_headers
+        f"/api/v1/visits/{started_visit_id}/vitals", json=ABNORMAL_VITALS, headers=nurse_headers
     )
     dashboard = client.get("/api/v1/patients/1/dashboard", headers=family_headers).json()
 
@@ -120,7 +120,7 @@ def test_recorded_vitals_reach_the_family_dashboard(client, caregiver_headers, f
     assert dashboard["vitals_history"][-1]["systolic_bp"] == 148
 
 
-def test_thresholds_are_patient_specific(client, family_headers, caregiver_headers, started_visit_id):
+def test_thresholds_are_patient_specific(client, family_headers, nurse_headers, started_visit_id):
     """Raising the configured range removes the breach for the same reading."""
     thresholds = client.get("/api/v1/patients/1/thresholds", headers=family_headers).json()
     payload = [
@@ -137,6 +137,6 @@ def test_thresholds_are_patient_specific(client, family_headers, caregiver_heade
     response = client.post(
         f"/api/v1/visits/{started_visit_id}/vitals",
         json=SINGLE_BREACH_VITALS,
-        headers=caregiver_headers,
+        headers=nurse_headers,
     )
     assert response.json()["threshold_breached"] is False

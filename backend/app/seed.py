@@ -3,7 +3,7 @@
     python -m app.seed
 
 Drops every table, recreates the schema and loads the fictional demo dataset:
-three accounts, one patient, one caregiver, a medication schedule, four
+three accounts, one patient, one nurse, a medication schedule, four
 completed historical visits and one visit left `scheduled` so the evaluator can
 run the live workflow.
 
@@ -21,8 +21,8 @@ from .config import settings
 from .database import Base, SessionLocal, engine, now
 from .core.security import hash_password
 from .models import (
-    Caregiver,
-    CaregiverStatus,
+    Nurse,
+    NurseStatus,
     Medication,
     MedicationLog,
     MedicationLogStatus,
@@ -44,26 +44,26 @@ DEMO_PASSWORD = "Demo@123"
 DEMO_USERS = [
     {
         "name": "Darren D'Souza",
-        "email": "family@doordoc.demo",
+        "email": "family@doordoctor.in",
         "phone": "+91 90000 00001",
         "role": UserRole.FAMILY,
     },
     {
         "name": "Anitha Kumar",
-        "email": "caregiver@doordoc.demo",
+        "email": "nurse@doordoctor.in",
         "phone": "+91 90000 00002",
-        "role": UserRole.CAREGIVER,
+        "role": UserRole.NURSE,
     },
     {
         "name": "Ravi Menon",
-        "email": "coordinator@doordoc.demo",
+        "email": "admin@doordoctor.in",
         "phone": "+91 90000 00003",
-        "role": UserRole.COORDINATOR,
+        "role": UserRole.ADMIN,
     },
 ]
 
 # Historical readings, all inside the configured thresholds. The live demo
-# supplies the out-of-range reading (148/92) through the caregiver UI.
+# supplies the out-of-range reading (148/92) through the nurse UI.
 HISTORY = [
     # days_ago, systolic, diastolic, hr, glucose, spo2, temp, weight
     (8, 126, 78, 76, 104, 98, 98.0, 64.0),
@@ -129,13 +129,13 @@ def seed(db: Session) -> dict[str, object]:
         users[spec["role"]] = user
     db.flush()
 
-    caregiver = Caregiver(
-        user_id=users[UserRole.CAREGIVER].id,
+    nurse = Nurse(
+        user_id=users[UserRole.NURSE].id,
         credential="RN/ANM",
         verification_status=VerificationStatus.VERIFIED,
-        status=CaregiverStatus.ACTIVE,
+        status=NurseStatus.ACTIVE,
     )
-    db.add(caregiver)
+    db.add(nurse)
 
     patient = Patient(
         name="Lakshmi D'Souza",
@@ -179,7 +179,7 @@ def seed(db: Session) -> dict[str, object]:
         scheduled_at = _at(days_ago)
         visit = Visit(
             patient_id=patient.id,
-            caregiver_id=caregiver.id,
+            nurse_id=nurse.id,
             scheduled_at=scheduled_at,
             status=VisitStatus.COMPLETED,
             checkin_at=scheduled_at,
@@ -214,7 +214,7 @@ def seed(db: Session) -> dict[str, object]:
                     status=MedicationLogStatus(status_value),
                     reason=SKIP_REASONS.get(status_value),
                     recorded_at=scheduled_at + timedelta(minutes=20),
-                    recorded_by=users[UserRole.CAREGIVER].id,
+                    recorded_by=users[UserRole.NURSE].id,
                 )
             )
 
@@ -227,25 +227,25 @@ def seed(db: Session) -> dict[str, object]:
                 status=MedicationLogStatus(status_value),
                 reason=None,
                 recorded_at=_at(7 - offset, hour=20, minute=0),
-                recorded_by=users[UserRole.CAREGIVER].id,
+                recorded_by=users[UserRole.NURSE].id,
             )
         )
 
     # ---- today's visit, left scheduled for the live demo ------------------
     today_visit = Visit(
         patient_id=patient.id,
-        caregiver_id=caregiver.id,
+        nurse_id=nurse.id,
         scheduled_at=_at(0, hour=10, minute=30),
         status=VisitStatus.SCHEDULED,
         location_source="demo/unverified",
     )
     db.add(today_visit)
 
-    # ---- a second scheduled visit for coordinator screens -----------------
+    # ---- a second scheduled visit for admin screens -----------------
     db.add(
         Visit(
             patient_id=patient.id,
-            caregiver_id=caregiver.id,
+            nurse_id=nurse.id,
             scheduled_at=_at(-2, hour=10, minute=30),
             status=VisitStatus.SCHEDULED,
             location_source="demo/unverified",
@@ -256,7 +256,7 @@ def seed(db: Session) -> dict[str, object]:
 
     return {
         "patient_id": patient.id,
-        "caregiver_id": caregiver.id,
+        "nurse_id": nurse.id,
         "today_visit_id": today_visit.id,
     }
 
@@ -281,14 +281,14 @@ def main() -> None:
         result = seed(db)
 
     print("Demo data seeded.")
-    print(f"  Patient   : Lakshmi D'Souza (id={result['patient_id']})")
-    print(f"  Caregiver : Anitha Kumar (id={result['caregiver_id']})")
+    print(f"  Patient : Lakshmi D'Souza (id={result['patient_id']})")
+    print(f"  Nurse   : Anitha Kumar (id={result['nurse_id']})")
     print(f"  Today's visit id={result['today_visit_id']} (status=scheduled)")
     print()
     print("Demo accounts (password for all three: Demo@123)")
-    print("  family@doordoc.demo       - family member")
-    print("  caregiver@doordoc.demo    - caregiver")
-    print("  coordinator@doordoc.demo  - care coordinator")
+    print("  family@doordoctor.in - family member")
+    print("  nurse@doordoctor.in  - nurse")
+    print("  admin@doordoctor.in  - admin")
     print()
     print("Demo alert scenario: record 148/92 during today's visit to trigger the threshold engine.")
 

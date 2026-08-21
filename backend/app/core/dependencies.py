@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Caregiver, Patient, User, UserRole, Visit
+from ..models import Nurse, Patient, User, UserRole, Visit
 from .exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from .security import decode_access_token
 
@@ -60,30 +60,30 @@ def require_roles(*roles: UserRole) -> Callable[[User], User]:
 
 
 require_family = require_roles(UserRole.FAMILY)
-require_caregiver = require_roles(UserRole.CAREGIVER)
-require_coordinator = require_roles(UserRole.COORDINATOR)
-require_family_or_coordinator = require_roles(UserRole.FAMILY, UserRole.COORDINATOR)
+require_nurse = require_roles(UserRole.NURSE)
+require_admin = require_roles(UserRole.ADMIN)
+require_family_or_admin = require_roles(UserRole.FAMILY, UserRole.ADMIN)
 
 FamilyUser = Annotated[User, Depends(require_family)]
-CaregiverUser = Annotated[User, Depends(require_caregiver)]
-CoordinatorUser = Annotated[User, Depends(require_coordinator)]
+NurseUser = Annotated[User, Depends(require_nurse)]
+AdminUser = Annotated[User, Depends(require_admin)]
 
 
-def get_caregiver_profile(db: Session, user: User) -> Caregiver:
-    """Caregiver profile for a caregiver user account."""
-    caregiver = db.scalar(select(Caregiver).where(Caregiver.user_id == user.id))
-    if caregiver is None:
-        raise ForbiddenError("No caregiver profile is linked to this account.")
-    return caregiver
+def get_nurse_profile(db: Session, user: User) -> Nurse:
+    """Nurse profile for a nurse user account."""
+    nurse = db.scalar(select(Nurse).where(Nurse.user_id == user.id))
+    if nurse is None:
+        raise ForbiddenError("No nurse profile is linked to this account.")
+    return nurse
 
 
-def _caregiver_has_patient_access(db: Session, user: User, patient_id: int) -> bool:
-    """A caregiver may read a patient only while assigned to one of their visits."""
-    caregiver = db.scalar(select(Caregiver).where(Caregiver.user_id == user.id))
-    if caregiver is None:
+def _nurse_has_patient_access(db: Session, user: User, patient_id: int) -> bool:
+    """A nurse may read a patient only while assigned to one of their visits."""
+    nurse = db.scalar(select(Nurse).where(Nurse.user_id == user.id))
+    if nurse is None:
         return False
     visit = db.scalar(
-        select(Visit.id).where(Visit.patient_id == patient_id, Visit.caregiver_id == caregiver.id)
+        select(Visit.id).where(Visit.patient_id == patient_id, Visit.nurse_id == nurse.id)
     )
     return visit is not None
 
@@ -98,11 +98,11 @@ def authorize_patient(db: Session, user: User, patient_id: int) -> Patient:
     if patient is None:
         raise NotFoundError("Patient not found.")
 
-    if user.role == UserRole.COORDINATOR:
+    if user.role == UserRole.ADMIN:
         return patient
     if user.role == UserRole.FAMILY and patient.family_user_id == user.id:
         return patient
-    if user.role == UserRole.CAREGIVER and _caregiver_has_patient_access(db, user, patient_id):
+    if user.role == UserRole.NURSE and _nurse_has_patient_access(db, user, patient_id):
         return patient
 
     raise NotFoundError("Patient not found.")
@@ -114,25 +114,25 @@ def authorize_visit(db: Session, user: User, visit_id: int) -> Visit:
     if visit is None:
         raise NotFoundError("Visit not found.")
 
-    if user.role == UserRole.COORDINATOR:
+    if user.role == UserRole.ADMIN:
         return visit
     if user.role == UserRole.FAMILY:
         if visit.patient is not None and visit.patient.family_user_id == user.id:
             return visit
         raise NotFoundError("Visit not found.")
-    if user.role == UserRole.CAREGIVER:
-        caregiver = db.scalar(select(Caregiver).where(Caregiver.user_id == user.id))
-        if caregiver is not None and visit.caregiver_id == caregiver.id:
+    if user.role == UserRole.NURSE:
+        nurse = db.scalar(select(Nurse).where(Nurse.user_id == user.id))
+        if nurse is not None and visit.nurse_id == nurse.id:
             return visit
         raise NotFoundError("Visit not found.")
 
     raise NotFoundError("Visit not found.")
 
 
-def authorize_caregiver_visit(db: Session, user: User, visit_id: int) -> tuple[Visit, Caregiver]:
-    """Load a visit the caregiver owns, for write operations during the visit."""
-    caregiver = get_caregiver_profile(db, user)
+def authorize_nurse_visit(db: Session, user: User, visit_id: int) -> tuple[Visit, Nurse]:
+    """Load a visit the nurse owns, for write operations during the visit."""
+    nurse = get_nurse_profile(db, user)
     visit = db.get(Visit, visit_id)
-    if visit is None or visit.caregiver_id != caregiver.id:
+    if visit is None or visit.nurse_id != nurse.id:
         raise NotFoundError("Visit not found.")
-    return visit, caregiver
+    return visit, nurse

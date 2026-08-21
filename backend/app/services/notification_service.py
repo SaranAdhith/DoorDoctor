@@ -33,12 +33,12 @@ def create_notification(
 
 
 def notify_alert_recipients(db: Session, alert: Alert, patient: Patient) -> list[Notification]:
-    """Notify the patient's family member and every coordinator about a new alert."""
+    """Notify the patient's family member and every admin about a new alert."""
     recipients: list[int] = [patient.family_user_id]
-    coordinator_ids = db.scalars(
-        select(User.id).where(User.role == UserRole.COORDINATOR, User.is_active.is_(True))
+    admin_ids = db.scalars(
+        select(User.id).where(User.role == UserRole.ADMIN, User.is_active.is_(True))
     ).all()
-    recipients.extend(int(cid) for cid in coordinator_ids)
+    recipients.extend(int(cid) for cid in admin_ids)
 
     created: list[Notification] = []
     for user_id in dict.fromkeys(recipients):  # de-duplicate, keep order

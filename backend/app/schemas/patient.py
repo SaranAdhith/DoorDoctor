@@ -40,7 +40,7 @@ class ThresholdUpdate(BaseModel):
     enabled: bool = True
 
 
-class CaregiverOut(BaseModel):
+class NurseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -72,6 +72,6 @@ class DashboardOut(BaseModel):
     upcoming_visits: list[dict[str, Any]] = []
     recent_visits: list[dict[str, Any]] = []
     active_alerts: list[dict[str, Any]] = []
-    caregiver: CaregiverOut | None = None
+    nurse: NurseOut | None = None
     overall_status: str
     thresholds: list[ThresholdOut] = []
