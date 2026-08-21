@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/doordoctor-logo-full.png" alt="DoorDoctor" width="260" />
+</p>
+
 <h1 align="center">DoorDoctor - Elderly Healthcare Platform (MVP)</h1>
 
 <p align="center">
@@ -98,6 +102,7 @@ DoorDoctor/
 ├── DESIGN.md
 ├── docker-compose.yml            # optional one-command startup
 ├── .env.example
+├── assets/                       # brand assets (logo)
 │
 ├── backend/
 │   ├── requirements.txt
