@@ -43,6 +43,17 @@ ABNORMAL_VITALS = {**NORMAL_VITALS, "systolic_bp": 148, "diastolic_bp": 92, "blo
 SINGLE_BREACH_VITALS = {**NORMAL_VITALS, "systolic_bp": 148}
 
 
+@pytest.fixture(autouse=True)
+def clean_rate_limiter():
+    """The rate limiter is process-global, so without this test order would
+    decide test outcomes."""
+    from app.core.ratelimit import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()
+
+
 @pytest.fixture(scope="session")
 def template_db() -> Path:
     """A seeded database built once and copied per test."""

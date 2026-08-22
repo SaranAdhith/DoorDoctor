@@ -14,6 +14,20 @@ export interface LoginResponse {
   user: User
 }
 
+export interface ForgotPasswordResponse {
+  message: string
+  /** Development builds only, so the demo works without a mail provider. */
+  debug_reset_url: string | null
+}
+
+export interface ResetPasswordResponse {
+  message: string
+}
+
+export interface ResetTokenStatus {
+  valid: boolean
+}
+
 export interface Patient {
   id: number
   name: string

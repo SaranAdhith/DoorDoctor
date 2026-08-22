@@ -51,6 +51,21 @@ class AlertStatus(str, Enum):
     RESOLVED = "resolved"
 
 
+class DeliveryChannelName(str, Enum):
+    EMAIL = "email"
+    SMS = "sms"
+    WHATSAPP = "whatsapp"
+    PUSH = "push"
+
+
+class DeliveryStatus(str, Enum):
+    """No provider is wired in this build, so a handed-off message is `simulated`."""
+
+    SIMULATED = "simulated"
+    SENT = "sent"
+    FAILED = "failed"
+
+
 class NotificationType(str, Enum):
     ALERT = "alert"
     VISIT = "visit"

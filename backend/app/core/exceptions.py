@@ -40,3 +40,13 @@ class NotFoundError(AppError):
 
 class ConflictError(AppError):
     status_code_default = status.HTTP_409_CONFLICT
+
+
+class TooManyRequestsError(AppError):
+    """Rate limit exceeded. Carries `Retry-After` so a client can back off politely."""
+
+    status_code_default = status.HTTP_429_TOO_MANY_REQUESTS
+
+    def __init__(self, detail: str = "Too many requests. Please try again later.", retry_after: int = 60) -> None:
+        super().__init__(detail)
+        self.headers = {"Retry-After": str(max(1, retry_after))}

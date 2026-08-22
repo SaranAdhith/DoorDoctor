@@ -46,3 +46,27 @@ def decode_access_token(token: str) -> Optional[dict[str, Any]]:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         return None
+
+
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+PASSWORD_RULE = "At least 8 characters, including one letter and one number."
+
+
+def password_problem(password: str) -> Optional[str]:
+    """Return why a password is unacceptable, or None when it is fine.
+
+    One function so the reset endpoint and any later signup cannot drift apart.
+    `frontend/src/lib/password.ts` mirrors these rules for inline feedback; this
+    one is the authority.
+    """
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
+    # bcrypt reads 72 bytes; the cap keeps the truncation from being a surprise.
+    if len(password) > PASSWORD_MAX_LENGTH:
+        return f"Password must be at most {PASSWORD_MAX_LENGTH} characters."
+    if not any(character.isalpha() for character in password):
+        return "Password must include at least one letter."
+    if not any(character.isdigit() for character in password):
+        return "Password must include at least one number."
+    return None

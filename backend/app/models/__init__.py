@@ -2,9 +2,12 @@
 
 from .alert import Alert
 from .nurse import Nurse
+from .delivery import DeliveryLog
 from .enums import (
     AlertSeverity,
     AlertStatus,
+    DeliveryChannelName,
+    DeliveryStatus,
     NurseStatus,
     MedicationLogStatus,
     NotificationType,
@@ -16,6 +19,7 @@ from .enums import (
 )
 from .medication import Medication, MedicationLog
 from .notification import Notification
+from .password_reset import PasswordResetToken
 from .patient import Patient, PatientThreshold
 from .user import User
 from .visit import Visit
@@ -25,6 +29,9 @@ __all__ = [
     "Alert",
     "AlertSeverity",
     "AlertStatus",
+    "DeliveryChannelName",
+    "DeliveryLog",
+    "DeliveryStatus",
     "Nurse",
     "NurseStatus",
     "Medication",
@@ -32,6 +39,7 @@ __all__ = [
     "MedicationLogStatus",
     "Notification",
     "NotificationType",
+    "PasswordResetToken",
     "Patient",
     "PatientStatus",
     "PatientThreshold",

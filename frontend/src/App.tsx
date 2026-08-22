@@ -3,7 +3,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ROLE_HOME, useAuth } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
+import { ForgotPassword } from './pages/ForgotPassword'
 import { Login } from './pages/Login'
+import { ResetPassword } from './pages/ResetPassword'
 import { NurseVisitDetail } from './pages/nurse/NurseVisitDetail'
 import { NurseVisits } from './pages/nurse/NurseVisits'
 import { AdminAlerts } from './pages/admin/AdminAlerts'
@@ -26,6 +28,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route
         path="/family"

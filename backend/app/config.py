@@ -20,11 +20,18 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=1440, alias="JWT_EXPIRE_MINUTES")
     cors_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173", alias="CORS_ORIGINS")
+    # Where password-reset links point. The API never serves that page.
+    frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")
 
     @field_validator("cors_origins")
     @classmethod
     def _strip_origins(cls, value: str) -> str:
         return value.strip()
+
+    @property
+    def is_development(self) -> bool:
+        """Gates development-only affordances such as `debug_reset_url`."""
+        return self.environment.strip().lower() == "development"
 
     @property
     def cors_origin_list(self) -> list[str]:

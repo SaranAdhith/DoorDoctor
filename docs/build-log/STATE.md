@@ -39,8 +39,8 @@ The full build specification lives in the founder's original prompt. The phase p
 |---|---|---|
 | 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `53fdb4d` |
 | 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
-| 3 | Forgot password + login rebuild | ⬜ **next** |
-| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ⬜ |
+| 3 | Forgot password + login rebuild | ✅ done — see below |
+| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ⬜ **next** |
 | 5 | Realistic seed data | ⬜ |
 | 6 | Plain-language summary + reports | ⬜ |
 | 7 | AI assistant (family + admin) | ⬜ |
@@ -56,11 +56,11 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 73 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 96 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 11 passing today
+cd frontend && npx vitest run                      # 29 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -88,6 +88,7 @@ Log in at `http://127.0.0.1:5173/login`, fill email + `Demo@123`, submit. Check 
 | `JWT_EXPIRE_MINUTES` | baseline | `1440` | Access token lifetime |
 | `CORS_ORIGINS` | baseline | `http://localhost:5173,...` | CORS allow-list |
 | `VITE_API_BASE_URL` | baseline | `http://localhost:8000/api/v1` | Frontend API base |
+| `FRONTEND_BASE_URL` | Phase 3 | `http://localhost:5173` | Where password-reset links point |
 
 Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's system libraries
 (pango, cairo, harfbuzz, gobject) are verified present for Phase 6. PyPI and npm are reachable.
@@ -135,6 +136,36 @@ Still planned: `weasyprint`, `apscheduler`, `alembic` (backend); `react-helmet-a
   Reuse it for every chart added later.
 - Verified in a real browser at 375 / 768 / 1024 / 1440.
 
+### Phase 3 — password reset, delivery channels, rebuilt login → (this commit)
+- **Reset tokens**: `secrets.token_urlsafe(32)`, stored **only** as sha256. 30-minute expiry, single
+  use, and a new request stamps `used_at` on the outstanding siblings so the newest link is the only
+  working one. A completed reset kills every other open link for that account.
+- **`POST /auth/forgot-password` always returns 200** with an identical body — the endpoint never
+  answers "does this person have an account?". An inactive account is treated exactly like an
+  unknown one. `debug_reset_url` appears only when `settings.is_development`.
+- **`core/ratelimit.py`** — in-memory sliding window, **5/email/hr** and **20/IP/hr**, raising the
+  new `TooManyRequestsError` (429 + `Retry-After`). Process-global, so `tests/conftest.py` has an
+  **autouse fixture that resets it** — without that, test order decides test outcomes. Reusable by
+  Phase 8's lead form.
+- **`services/notification_delivery.py`** — `EmailChannel | SmsChannel | WhatsAppChannel |
+  PushChannel` behind one protocol, writing a real `delivery_log` row and reporting `simulated`
+  (no provider is bought in this build). This is the seam Phase 10's routing/preferences/quiet hours
+  extends; don't build a second one.
+- **Secrets are redacted before they are persisted.** `deliver(..., sensitive=[link])` replaces the
+  value with `[redacted]` in the stored body. Otherwise `delivery_log` would be a table of live
+  account takeovers. A test asserts the raw token never appears in any stored body — **keep it.**
+- **One password rule**, `core/security.password_problem`, mirrored (not re-invented) in
+  `frontend/src/lib/password.ts`. Both sides are asserted against the same cases, so drift fails a
+  test on one side or the other.
+- **`SegmentedControl` is a new primitive**, not inline markup: a `role="radiogroup"` needs roving
+  tabindex and arrow keys, which the first inline version did not have. Phase 4's monthly/annual
+  toggle and Phase 6's 7d/30d/90d picker should use it.
+- **`AuthLayout`** now backs all three auth screens; `Login` was rebuilt onto it (segmented role
+  picker, trust row, collapsed `<details>` demo access). The role picker is **presentation only** —
+  the server decides the role. Commented in the source.
+- Verified live in Chrome at 375/768/1024/1440, full journey end to end, and the 429 was confirmed
+  against the running server (`retry-after: 3248`), not only in tests.
+
 ---
 
 ## ⚠️ Incident — external `git filter-branch` during Phase 2
@@ -167,8 +198,8 @@ uncommitted in the working tree.**
 - **Care manager role.** §4.4 gives care managers their own ratios and worklist. Plan is to model
   them as a profile on an admin user rather than a fourth `UserRole`, which keeps the three-way
   route guard intact. Flagged for Phase 9; cheap to agree on early.
-- **Login page** was migrated onto the primitives in Phase 2 but still has its original layout —
-  Phase 3 rebuilds it fully (§2.5).
+- **Login footer back-link deferred to Phase 8.** §2.5 asks for a back-link to the public site; `/`
+  currently redirects to `/login`, so the link would be a loop. Add it when `pages/public/` lands.
 - **Business documents** were never supplied. All prices/tiers will be centralised in one constants
   module in Phase 4 so any later reconciliation is a one-file change.
 - **Seed data is thin** (1 patient, 1 nurse), so charts and lists look sparse. Phase 5 fixes this;
