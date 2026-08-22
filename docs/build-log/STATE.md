@@ -369,19 +369,74 @@ assumed entitlements. Reconcile §3 first, then enforce.
 
 ---
 
-## ▶ Starting Phase 6 — plain-language summary + reports
+## ▶ Starting Phase 6 — plain-language summary + reports (§2.2, §4.1)
 
-Read the plan file's Phase 6 paragraph. Two things from this phase carry directly into it:
+**Read this section, then the plan file's Phase 6 paragraph.** Everything below is what a cold
+session would otherwise have to re-derive by reading the codebase.
 
-1. **`SegmentedControl` already exists** (Phase 3) and is what the 7d/30d/90d window picker should
-   use. Do not build a second one.
-2. **The seed now has 90 days of trajectories per patient**, so a 7d / 30d / 90d summary has genuinely
-   different content in each window — a drifting patient reads differently at 90d than at 7d. That is
-   the dataset the summary generator should be developed against; use `--small` only for the tests
-   that assert exact strings.
+### Build order — the deterministic generator first, and it ships alone if Groq never arrives
 
-WeasyPrint 69.0 is already installed and proven by Phase 4's invoice PDFs. Reuse the
-`app/templates/<kind>/` convention rather than inventing a second one.
+1. `services/summary_service.py` — a **deterministic** generator over the same data
+   `dashboard_service.build_dashboard` already assembles. Tested against a **banned-word list**:
+   systolic, diastolic, SpO2, adherence, threshold, breach, vitals, metric, escalation. The test is
+   the specification — a family member reads "her blood pressure has been steady this week", not
+   "no systolic threshold breaches".
+2. `GET /patients/{id}/plain-summary?window=7d|30d|90d`. Authorization goes through the existing
+   `authorize_patient` path in `core/dependencies.py`; someone else's patient is a **404, not a 403**
+   (Phase 4 set that precedent deliberately — a 403 confirms the record exists).
+3. `components/family/PlainSummary.tsx` becomes the **first** thing on the family dashboard. The
+   entire existing dashboard survives **untouched** below a "See the detailed health dashboard"
+   divider under the heading "Detailed health record". Do not rebuild `FamilyDashboard.tsx`.
+4. Only then the Groq rewrite behind `services/llm_client.py`, **2s timeout**, 15-minute
+   per-patient-per-window cache, silent fallback to step 1. The demo must work with no key and no
+   network — verify that by running it with `GROQ_API_KEY` unset before you call the phase done.
+5. Then `models/report.py` + `services/report_service.py` + WeasyPrint + APScheduler (Sunday 18:00
+   IST weekly, monthly on the 1st) + `POST /patients/{id}/reports/generate` for the live demo.
+
+### Facts you need
+
+- **LLM provider is Groq, not Anthropic.** The full contract is in "Locked decisions" at the top of
+  this file — endpoint, env vars, timeouts. Call it with **`httpx`, already in requirements.txt**.
+  No new dependency, no `anthropic` package, no Claude API key. Ask the founder for the key when you
+  reach step 4; steps 1-3 do not need it.
+- **New env vars go in `app/config.py`** as `Field(default=..., alias="UPPER_CASE")` on `Settings`,
+  and get a row in the Environment table above. `settings.is_development` already exists.
+- **WeasyPrint 69.0 is installed and proven** by Phase 4's invoice PDFs — `billing_service.render_pdf`
+  and `_render_invoice_html` are the working example. Templates live in
+  `app/templates/<kind>/`; today that is `app/templates/invoices/invoice.html`. Add
+  `app/templates/reports/`, do not invent a second convention.
+- **APScheduler is the one new dependency.** The venv has **no `pip`** — install with
+  `uv pip install --python .venv/bin/python apscheduler`.
+- **`SegmentedControl` already exists** (Phase 3, `components/ui/`) with roving tabindex and arrow
+  keys. It is what the 7d/30d/90d picker uses. Phase 4's monthly/annual toggle is the working
+  example. Do not build a second one.
+- **`format_inr` / `lib/money.ts` and `password_problem` / `lib/password.ts`** are the established
+  pattern for a rule that exists on both sides: mirror it, then assert both against the same cases so
+  drift fails a test. If the summary needs any client-side text rule, follow that.
+
+### The seed is now the right dataset to develop against
+
+`python -m app.seed` gives every patient **90 days of trajectories**, so 7d / 30d / 90d windows have
+genuinely different content — a `drifting` patient reads differently at 90d than at 7d, and an
+`episodic` one has a discrete event to describe. Develop against `FULL`; use `--small` only for tests
+that assert exact strings, which is what `tests/conftest.py` already seeds.
+
+Useful patients for a summary that has something to say (slots are stable, ids follow):
+`Mahesh Sharma` (drifting, open BP alert), `Om Prakash Gupta` (COPD, open SpO2 alert),
+`Rukmini Nayar` (heart failure, open fever alert), `Lakshmi D'Souza` (stable, two resolved alerts,
+87% adherence — the one the demo script uses).
+
+`--demo-reset` rewinds the 148/92 path between runs without renumbering fourteen months of invoices.
+
+### Do not break these
+
+`tests/test_seed.py` pins them, but they are easy to break from outside the seed:
+
+- Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
+  **Lakshmi carries no open alert**. Break either of the last two and the alert tests still pass —
+  against the wrong patient.
+- `tests/conftest.py` seeds `SMALL`. If a Phase 6 test needs the full population, copy the
+  module-scoped fixture pattern at the top of `tests/test_seed.py` rather than switching conftest.
 
 ## Open items and deferrals
 
