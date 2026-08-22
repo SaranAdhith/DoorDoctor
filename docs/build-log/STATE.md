@@ -675,6 +675,81 @@ API-key ingest, `scripts/simulate_wearable.py`, SpO2 <90% or HR out of range →
 actions), and escalation events with a visible parallel-notification timeline plus a permanent
 "In an emergency, call 108" block on every clinical screen.
 
+
+### ⚠️ Expect §4 to be missing too — apply the Phase 4/7 pattern from the start
+
+§3 was never supplied (Phase 4) and §2.3's intent list was never supplied (Phase 7). **Assume the
+same for §4.2–4.9 and plan for it rather than discovering it mid-phase.** Both earlier phases
+survived it the same way, and it worked both times:
+
+1. Put every invented value in **one file** — `core/pricing.py` for Phase 4, `assistant_intents.py`
+   for Phase 7. Phase 9 needs at least `services/safety_score.py` (the weight block) and probably a
+   `core/clinical.py` for lab panel definitions and SLA durations.
+2. Mark each one `ASSUMED` in the source, in the same style.
+3. Put a reconciliation table in STATE.md when the phase closes.
+4. **Never inline an assumed value anywhere else.** The moment a weight is typed into a second file,
+   the one-file promise is broken and reconciling stops being cheap.
+
+Sorting the recorded from the invented, from the plan file:
+
+| Recorded — publish and enforce as-is | Not recorded — will be `ASSUMED` |
+|---|---|
+| Care manager **1:20 shared / 1:10 dedicated** | Which tier gets which (already assumed in Phase 4) |
+| Safety score is **0–100 and deterministic** | Every **weight** in it, and every band boundary |
+| **10+ point drop in 30 days** raises an alert | What the alert says, and its severity |
+| Labs: abnormal → alert **+ 24-hour follow-up task** | What a "panel" contains; which values are abnormal |
+| Telemedicine **2/month on Premium** | Consult duration, cancellation window, who the doctor is |
+| Wearables: **SpO2 <90% or HR out of range** | The HR range itself |
+| **PHQ-2** (a real published instrument — use the real two questions and the real 0–6 scoring) | Screening cadence, and the score that triggers follow-up |
+| Blood panel **₹499**, pill organiser **₹199** | Everything about how one is ordered |
+| Escalation is **108 → nurse → admin** (Phase 7 pinned this) | SLA durations for the hospital-booking queue |
+
+**⚠️ "the documented three actions"** — the plan says a wearable breach triggers "the documented
+three actions" and **never lists them**. That text is in §4.8, which has not been supplied. Ask for
+it; if it does not arrive, derive three and mark them `ASSUMED` like everything else. Do not quietly
+invent three and present them as recorded.
+
+### Verified signatures, so you do not have to go looking
+
+```python
+subscription_service.entitlement(subscription, key, default=None)   # reads Plan.entitlements JSON
+subscription_service.has_entitlement(subscription, key) -> bool
+subscription_service.consume_quota(db, subscription, quota, amount=1, as_of=None) -> QuotaUsage
+#   ^ raises ConflictError (409), NOT 403 — the caller is allowed, they have just used it all up.
+#     Quota names come from pricing.QUOTAS_BY_NAME: "visits" | "telemedicine" | "lab_panels".
+alert_service.create_threshold_alert(...)   # the ONLY thing that may create an Alert row
+alert_service.resolve(db, alert, user)      # takes no note — see the gap below
+alert_service.METRIC_LABELS                 # clinical wording, correct for admins
+summary_service.plain_metric_label(metric)  # family wording, for anything a family reads
+```
+
+### Phase 9 is the largest remaining scope — stage it
+
+§4.2–4.9 is eight feature areas, several with their own model, service, router and screens. Phases 4
+and 6 were both smaller and both took a full session. **Write `phase-9.md` with an explicit internal
+order and commit at meaningful points inside the phase**, rather than treating it as one atomic
+drop — the Phase 2 incident note above is what an uncommitted pile of work costs when something goes
+wrong. A defensible order, dependency-first:
+
+1. **Safety score** — pure, deterministic, no new inbound surface, and everything else can display it.
+2. **Labs** — first buyer of the add-on flow Phase 4 left ready, and the first new alert source.
+3. **Telemedicine** — the first genuinely enforced quota.
+4. **Care manager + `CareInteraction`** — a profile on an admin user, not a fourth role.
+5. **PHQ-2** — small, self-contained.
+6. **Wearables + ingest** — new inbound surface; do it once the alert sources above are proven.
+7. **Hospital booking + SLA queue**, then **escalation events + timeline** — these consume everything above.
+
+### Operational notes from the Phase 8 session
+
+- **`npm install <anything>` drops the `--no-save` `playwright-core`.** Reinstall it with
+  `npm install --no-save playwright-core` before any browser verification, and check `git diff
+  package.json` afterwards to confirm only your intended dependency was added.
+- **The rate limiter is process-global and its windows are hourly.** A browser verification that
+  exercises a rate-limited endpoint will poison the next run for an hour. **Restart uvicorn between
+  verification runs**, or the second run fails in a way that looks like a product bug and is not.
+- **The full backend suite takes ~4m15s**, almost all bcrypt. Run targeted files while iterating.
+- Start the API detached with `nohup ... & disown` — a plain `&` gets killed with the tool call.
+
 ### Reuse these — do not rebuild them
 
 - **`subscription_service.entitlement()`** for lab panels, telemedicine limits and the care-manager
