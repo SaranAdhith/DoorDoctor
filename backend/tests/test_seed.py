@@ -228,10 +228,55 @@ def test_adherence_covers_the_recorded_range(full_db: Session):
 # --------------------------------------------------------------------------
 
 
-def test_the_alert_queue_has_thirty_resolved_and_four_open(full_db: Session):
-    statuses = Counter(status for (status,) in full_db.execute(select(Alert.status)))
+def test_the_threshold_engine_accounts_for_thirty_resolved_and_four_open(full_db: Session):
+    """§2.4's recorded figure, and it is about the **threshold engine**.
+
+    Scoped to `vital_threshold_breach` since Phase 9. Until then, breaches were
+    the only source of an alert and "all alerts" and "threshold alerts" were the
+    same set; an abnormal lab and a wearable breach are now alerts too, and
+    counting them here would make this assertion drift every time a clinical
+    feature is added. `demo_data.EXCURSIONS` is still exactly thirty-four and
+    still the only thing that can produce one of these.
+    """
+    statuses = Counter(
+        status
+        for (status,) in full_db.execute(
+            select(Alert.status).where(Alert.alert_type == "vital_threshold_breach")
+        )
+    )
     assert statuses[AlertStatus.RESOLVED] == 30
     assert statuses[AlertStatus.ACTIVE] == 4
+
+
+def test_the_clinical_layer_adds_its_own_alerts_from_its_own_sources(full_db: Session):
+    """Phase 9's three new sources, each with something in the queue to show."""
+    by_type = Counter(
+        alert_type for (alert_type,) in full_db.execute(select(Alert.alert_type))
+    )
+    assert by_type["lab_result_abnormal"] == 3
+    assert by_type["wearable_breach"] == 1
+    assert by_type["safety_score_drop"] >= 1
+
+    open_now = Counter(
+        alert_type
+        for (alert_type,) in full_db.execute(
+            select(Alert.alert_type).where(Alert.status == AlertStatus.ACTIVE)
+        )
+    )
+    # One of each still open, so every source is visible in the admin queue.
+    assert open_now["lab_result_abnormal"] == 1
+    assert open_now["wearable_breach"] == 1
+    assert open_now["safety_score_drop"] == 1
+
+
+def test_no_clinical_alert_was_written_by_hand(full_db: Session):
+    """Every one went through `alert_service`, so every one notified somebody
+    or was deliberately seeded quiet — and none of them is a bare row."""
+    for alert in full_db.scalars(
+        select(Alert).where(Alert.alert_type != "vital_threshold_breach")
+    ):
+        assert alert.title and alert.message
+        assert "not a medical diagnosis" in alert.message.lower()
 
 
 def test_every_out_of_range_reading_raised_an_alert(full_db: Session):
@@ -273,7 +318,10 @@ def test_only_the_open_alerts_are_still_asking_for_attention(full_db: Session):
         select(Notification).where(Notification.user_id == admin.id, Notification.read.is_(False))
     ).all()
 
-    assert len(unread) == 4
+    # Derived, not a literal: the rule is "unread means still open", and
+    # pinning a number here would only record how many features raise alerts.
+    active = full_db.scalars(select(Alert).where(Alert.status == AlertStatus.ACTIVE)).all()
+    assert len(unread) == len(active)
     for notification in unread:
         alert = full_db.get(Alert, notification.alert_id)
         assert alert.status == AlertStatus.ACTIVE
@@ -312,7 +360,9 @@ def test_the_operations_dashboard_agrees_with_the_board(full_client: TestClient)
 
     assert summary["today_visits"] == len(board)
     assert summary["completed_today"] == len([v for v in board if v["status"] == "completed"])
-    assert summary["active_alerts"] == 4
+    # Four from the threshold engine plus one each from Phase 9's three clinical
+    # sources: an abnormal lab, a wearable breach and a safety-score drop.
+    assert summary["active_alerts"] == 7
     assert summary["patients"] == 28
 
 
@@ -340,7 +390,7 @@ def test_demo_reset_rewinds_the_demo_path_and_nothing_else(full_client: TestClie
         headers=nurse,
     )
     assert raised.status_code == 201
-    assert full_client.get("/api/v1/admin/summary", headers=admin).json()["active_alerts"] == 5
+    assert full_client.get("/api/v1/admin/summary", headers=admin).json()["active_alerts"] == 8
 
     with full_factory() as session:
         changed = demo_reset(session)
@@ -348,7 +398,7 @@ def test_demo_reset_rewinds_the_demo_path_and_nothing_else(full_client: TestClie
     assert changed["readings_removed"] == 1
 
     summary = full_client.get("/api/v1/admin/summary", headers=admin).json()
-    assert summary["active_alerts"] == 4, "the demo alert is gone"
+    assert summary["active_alerts"] == 7, "the demo alert is gone"
     assert summary["patients"] == before_patients, "nobody was deleted"
     assert len(full_client.get("/api/v1/invoices", headers=admin).json()) == before_invoices
 
@@ -536,3 +586,211 @@ def test_the_small_profile_seeds_no_leads(db: Session):
     """`SMALL` is what `tests/conftest.py` uses. `tests/test_leads.py` asserts
     exact counts against an empty queue, so a lead seeded here would break it."""
     assert db.scalar(select(func.count(Lead.id))) == 0
+
+
+# --------------------------------------------------------------------------
+# The clinical layer (Phase 9) — FULL only
+# --------------------------------------------------------------------------
+
+
+def test_the_small_profile_seeds_no_clinical_layer(db: Session):
+    """`tests/conftest.py` seeds SMALL, and 608 tests assert against it.
+
+    A care manager or a device reading in the fixture would rewrite the safety
+    score's missing-data assertions without making one test stronger. Same rule
+    Phase 8 applied to leads.
+    """
+    from app.models import CareManager, Consult, Device, LabOrder, SafetyScore, Screening
+
+    for model in (CareManager, Device, LabOrder, Consult, Screening, SafetyScore):
+        assert db.scalars(select(model)).first() is None, model.__name__
+
+
+def test_the_full_profile_staffs_care_managers_inside_the_recorded_ratios(full_db: Session):
+    from app.core import pricing
+    from app.models import CareManager, CareManagerKind
+    from app.services import care_service
+
+    managers = full_db.scalars(select(CareManager)).all()
+    assert managers
+
+    for manager in managers:
+        expected = (
+            pricing.RATIO_DEDICATED
+            if manager.kind == CareManagerKind.DEDICATED
+            else pricing.RATIO_SHARED
+        )
+        assert manager.capacity == expected
+        # Assigned through `auto_assign`, so the seed obeys its own rule. A
+        # roster that quietly exceeded its ratio would demo a broken promise.
+        assert care_service.caseload(full_db, manager.id) <= manager.capacity
+
+
+def test_every_patient_has_a_care_manager(full_db: Session):
+    from app.models import Patient
+    from app.services import care_service
+
+    for patient in full_db.scalars(select(Patient)):
+        assert care_service.current_assignment(full_db, patient.id) is not None, patient.name
+
+
+def test_three_lab_panels_came_back_abnormal_and_each_opened_one_task(full_db: Session):
+    from app.models import FollowUpTask, LabFlag, LabOrder, TaskKind
+
+    abnormal = [
+        order
+        for order in full_db.scalars(select(LabOrder))
+        if any(LabFlag(r.flag).is_abnormal for r in order.results)
+    ]
+    assert len(abnormal) == 3
+
+    tasks = full_db.scalars(
+        select(FollowUpTask).where(FollowUpTask.kind == TaskKind.LAB_FOLLOW_UP)
+    ).all()
+    assert len(tasks) == len(abnormal)
+    assert {t.source_id for t in tasks} == {o.id for o in abnormal}
+
+
+def test_no_seeded_lab_result_is_critically_abnormal(full_db: Session):
+    """A demo that fabricates an emergency is a demo nobody should trust.
+
+    The seeded abnormal values sit outside the reference range and inside the
+    critical one, so the queue shows a warning-level finding.
+    """
+    from app.models import LabFlag, LabResult
+
+    for result in full_db.scalars(select(LabResult)):
+        assert not LabFlag(result.flag).is_critical, result.label
+
+
+def test_the_wearable_breach_ran_all_three_recorded_actions(full_db: Session):
+    from app.core import clinical
+    from app.models import (
+        EscalationEvent,
+        EscalationTrigger,
+        FollowUpTask,
+        TaskKind,
+    )
+
+    alert = full_db.scalar(select(Alert).where(Alert.alert_type == "wearable_breach"))
+    assert alert is not None and alert.severity.value == "critical"
+
+    event = full_db.scalar(
+        select(EscalationEvent).where(
+            EscalationEvent.trigger == EscalationTrigger.WEARABLE_BREACH
+        )
+    )
+    assert event is not None and event.alert_id == alert.id
+    # The fan-out actually happened: several people, one sequence.
+    fanned = [step for step in event.steps if step.sequence == 1]
+    assert len(fanned) >= 2
+
+    task = full_db.scalar(
+        select(FollowUpTask).where(FollowUpTask.kind == TaskKind.WEARABLE_CHECK)
+    )
+    assert task is not None
+    assert len(clinical.WEARABLE_ACTIONS) == 3
+
+
+def test_the_hospital_queue_has_something_in_every_state(full_db: Session):
+    from app.models import HospitalBooking, HospitalBookingStatus
+
+    statuses = {b.status for b in full_db.scalars(select(HospitalBooking))}
+    assert HospitalBookingStatus.CONFIRMED in statuses
+    assert HospitalBookingStatus.COORDINATING in statuses
+    assert HospitalBookingStatus.REQUESTED in statuses
+
+
+def test_every_safety_score_is_explainable(full_db: Session):
+    """A score a family cannot have broken down for them is worse than no score.
+
+    Every stored row must carry components that add up to what it says, over the
+    weight it claims to cover.
+    """
+    from app.models import SafetyScore
+
+    scores = full_db.scalars(select(SafetyScore)).all()
+    assert scores
+
+    for score in scores:
+        components = score.components
+        assert components, score.id
+        with_data = [c for c in components if c["has_data"]]
+        assert sum(c["weight"] for c in with_data) == score.covered_weight
+        earned = sum(c["points"] for c in with_data)
+        assert abs(round(earned / score.covered_weight * 100) - score.score) <= 1
+
+
+def test_seeded_scores_were_produced_by_the_live_calculator(full_db: Session):
+    """Not typed by hand. The newest stored score must match what `compute`
+    produces from the same data — a seeded number that the calculator would not
+    reproduce is exactly the unexplainable score the breakdown exists to
+    prevent."""
+    from app.models import Patient, SafetyScore
+    from app.services import safety_score
+
+    patient = full_db.get(Patient, 1)
+    stored = full_db.scalar(
+        select(SafetyScore)
+        .where(SafetyScore.patient_id == patient.id)
+        .order_by(SafetyScore.calculated_at.desc(), SafetyScore.id.desc())
+        .limit(1)
+    )
+    live = safety_score.compute(full_db, patient, as_of=stored.calculated_at)
+    assert live["score"] == stored.score
+
+
+def test_the_demo_patient_still_has_a_clean_clinical_record(full_db: Session):
+    """Phase 9 adds three alert sources, and this is how the "Lakshmi carries no
+    open alert" invariant gets broken. Her labs are normal, her home readings
+    are in range and her score does not fall."""
+    from app.models import LabFlag, Patient
+
+    patient = full_db.get(Patient, 1)
+    assert patient.lab_orders
+    assert not any(
+        LabFlag(r.flag).is_abnormal for order in patient.lab_orders for r in order.results
+    )
+    assert patient.devices
+    assert not any(r.triggered for device in patient.devices for r in device.readings)
+    assert not any(s.positive for s in patient.screenings)
+    assert not full_db.scalars(
+        select(Alert).where(Alert.patient_id == patient.id, Alert.status == AlertStatus.ACTIVE)
+    ).all()
+
+
+def test_the_demo_patient_scores_on_every_component(full_db: Session):
+    """The demo account is the one a founder shows. All six components having
+    data is what makes the breakdown worth opening."""
+    from app.core import clinical
+    from app.models import Patient
+    from app.services import safety_score
+
+    live = safety_score.compute(full_db, full_db.get(Patient, 1))
+    assert live["available"] is True
+    assert live["covered_weight"] == clinical.SCORE_MAX
+    assert all(c["has_data"] for c in live["components"])
+
+
+def test_clinical_history_is_not_all_dated_today(full_db: Session):
+    """`create_alert` and the services stamp the real clock; the seed backdates.
+    Without it, two months of clinical work arrives this morning."""
+    from app.models import CareInteraction, LabOrder, SafetyScore
+
+    assert len({o.ordered_at.date() for o in full_db.scalars(select(LabOrder))}) > 5
+    assert len({i.occurred_at.date() for i in full_db.scalars(select(CareInteraction))}) > 10
+    assert len({s.calculated_at.date() for s in full_db.scalars(select(SafetyScore))}) >= 5
+
+
+def test_the_seed_is_deterministic_across_runs(full_db: Session):
+    """A fixed seed, so two runs of `python -m app.seed` agree. Asserted through
+    a value that depends on several of the streams at once."""
+    from app.models import Patient
+    from app.services import safety_score
+
+    first = safety_score.compute(full_db, full_db.get(Patient, 1))
+    second = safety_score.compute(full_db, full_db.get(Patient, 1))
+    assert first["score"] == second["score"]
+    assert [c["points"] for c in first["components"]] == [
+        c["points"] for c in second["components"]
+    ]

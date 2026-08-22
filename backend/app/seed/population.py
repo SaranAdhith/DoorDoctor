@@ -54,7 +54,7 @@ from ..models import (
     Vital,
 )
 from ..services import alert_service, vitals_service
-from . import business, demo_data, generators
+from . import business, clinical, demo_data, generators
 from .core import CORE_HISTORY_DAYS, HISTORY as CORE_HISTORY, CoreResult, at, demo_password_hash
 
 # Thresholds are identical for every patient in this demo, so the clamp table
@@ -663,6 +663,10 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
 
     _build_today(db, records, nurses_by_zone, core)
     leads = _build_leads(db, admins)
+    # Last, and deliberately: the safety score reads visits, doses, alerts,
+    # screenings and device readings, so everything above has to exist first or
+    # every score is computed with two of its six components missing.
+    clinical_summary = clinical.build(db, records)
     db.flush()
 
     return {
@@ -675,4 +679,5 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
         "alerts_resolved": resolved,
         "alerts_active": active,
         "leads": leads,
+        **clinical_summary,
     }
