@@ -84,3 +84,10 @@ ASSISTANT_PER_USER = (30, 3600)
 # the form, mistyping a phone number and resubmitting is never refused.
 LEADS_PER_IP = (10, 3600)
 LEADS_PER_EMAIL = (3, 3600)
+
+# Budget for wearable ingest (§4.8). A device key is a credential on somebody's
+# wrist: it can be lifted off the device, and a stolen one that could write
+# unboundedly would be a way to fill the readings table or to force the three
+# wearable actions to fire in a loop. Generous enough for a minute-by-minute
+# pulse oximeter reporting in small batches, and nowhere near unbounded.
+DEVICE_INGEST_PER_DEVICE = (120, 3600)

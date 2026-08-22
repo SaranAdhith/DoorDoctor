@@ -395,6 +395,14 @@ ESCALATION_LADDER: Final[tuple[str, ...]] = (
 # The permanent block every clinical screen carries. One string so the number
 # and the wording cannot drift between eight screens.
 EMERGENCY_BLOCK_TITLE: Final = f"In an emergency, call {EMERGENCY_NUMBER}"
+# What the timeline's first step says. DoorDoctor does **not** dial 108 on
+# anyone's behalf, and a timeline that implied it had would be the most
+# consequential lie this product could tell — so the wording is fixed here and
+# the step is recorded as advisory rather than as an action taken.
+EMERGENCY_LADDER_ADVICE: Final = (
+    f"call {EMERGENCY_NUMBER} for an ambulance. DoorDoctor does not place this call for you."
+)
+
 EMERGENCY_BLOCK_BODY: Final = (
     f"DoorDoctor monitors and coordinates care. It is not an emergency service. "
     f"If something is seriously wrong right now, call {EMERGENCY_NUMBER} for an ambulance first, "
