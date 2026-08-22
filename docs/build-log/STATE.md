@@ -44,7 +44,7 @@ The full build specification lives in the founder's original prompt. The phase p
 | 5 | Realistic seed data | ✅ done — `d840578` |
 | 6 | Plain-language summary + reports | ✅ done — `052841f` |
 | 7 | AI assistant (family + admin) | ✅ done — `8d91748` |
-| 8 | Public marketing site + leads | ✅ done — `PENDING` |
+| 8 | Public marketing site + leads | ✅ done — `b40cefb` |
 | 9 | Clinical features (labs → escalation) | ⬜ **next** |
 | 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
 | 11 | Multi-family, hardening, tests, docs | ⬜ |
@@ -567,7 +567,7 @@ disclaimer"** rules are all recorded in the plan and are *not* assumed.
 
 ---
 
-### Phase 8 — public marketing site, lead capture, SEO → `PENDING`
+### Phase 8 — public marketing site, lead capture, SEO → `b40cefb`
 
 - **Decisions taken with the founder before any code (2026-08-22):** §3 was never supplied, and the
   answer was **ship the `ASSUMED` values as they stand, label nothing**, and **leave the 4 / 8 / 12
