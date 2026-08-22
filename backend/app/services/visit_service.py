@@ -3,7 +3,7 @@
 from datetime import datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..core.exceptions import BadRequestError, ForbiddenError, NotFoundError
@@ -27,43 +27,69 @@ def _day_bounds(day: datetime) -> tuple[datetime, datetime]:
     return start, start + timedelta(days=1)
 
 
-def list_visits_for_user(db: Session, user: User, status: str | None = None) -> list[Visit]:
+# The visit list is capped so one request cannot pull a whole year of care.
+# Phase 10's visit board replaces this with a windowed, paginated query; until
+# then the cap has to clear a forward week plus enough history to be useful,
+# because the rows come back newest-first.
+VISIT_LIST_LIMIT = 250
+
+
+def _visible_visits(db: Session, user: User):
+    """The base query for what this user may see. `None` means: nothing at all."""
     query = select(Visit).options(selectinload(Visit.patient), selectinload(Visit.nurse))
 
     if user.role == UserRole.FAMILY:
-        query = query.join(Patient, Visit.patient_id == Patient.id).where(
+        return query.join(Patient, Visit.patient_id == Patient.id).where(
             Patient.family_user_id == user.id
         )
-    elif user.role == UserRole.NURSE:
+    if user.role == UserRole.NURSE:
         nurse = db.scalar(select(Nurse).where(Nurse.user_id == user.id))
         if nurse is None:
-            return []
-        query = query.where(Visit.nurse_id == nurse.id)
+            return None
+        return query.where(Visit.nurse_id == nurse.id)
+    return query
+
+
+def list_visits_for_user(db: Session, user: User, status: str | None = None) -> list[Visit]:
+    query = _visible_visits(db, user)
+    if query is None:
+        return []
 
     if status:
         query = query.where(Visit.status == status)
 
-    return list(db.scalars(query.order_by(Visit.scheduled_at.desc()).limit(100)))
+    return list(db.scalars(query.order_by(Visit.scheduled_at.desc()).limit(VISIT_LIST_LIMIT)))
 
 
 def list_today_visits(db: Session, user: User) -> list[Visit]:
     """Visits scheduled for today.
 
-    A nurse also keeps any still-open visit from an earlier day on their
-    worklist, so unfinished work is never silently dropped. Admin screens
-    stay strictly on today so the dashboard counts and the table agree.
+    A nurse also keeps any still-open visit from an *earlier* day on their
+    worklist, so unfinished work is never silently dropped. Admin screens stay
+    strictly on today so the dashboard counts and the table agree.
+
+    The day window is applied in the query, not to a page of results. Filtering
+    a newest-first page of 100 rows worked while the database held six visits
+    and returned an empty board once a forward schedule pushed more than 100
+    visits past today — the day the demo grew to a real dataset, the operations
+    dashboard would have shown nothing.
     """
     start, end = _day_bounds(now())
-    visits = list_visits_for_user(db, user)
-    keep_open = user.role == UserRole.NURSE
+    query = _visible_visits(db, user)
+    if query is None:
+        return []
 
-    today: list[Visit] = []
-    for visit in visits:
-        in_today = start <= visit.scheduled_at < end
-        still_open = visit.status in (VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS)
-        if in_today or (keep_open and still_open):
-            today.append(visit)
-    return sorted(today, key=lambda v: v.scheduled_at)
+    today = and_(Visit.scheduled_at >= start, Visit.scheduled_at < end)
+    if user.role == UserRole.NURSE:
+        unfinished = and_(
+            Visit.scheduled_at < start,
+            Visit.status.in_([VisitStatus.SCHEDULED, VisitStatus.IN_PROGRESS]),
+        )
+        query = query.where(or_(today, unfinished))
+    else:
+        query = query.where(today)
+
+    return list(db.scalars(query.order_by(Visit.scheduled_at)))
 
 
 def create_visit(

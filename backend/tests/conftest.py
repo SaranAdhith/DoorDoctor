@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.seed import seed  # noqa: E402
+from app.seed import SMALL, seed  # noqa: E402
 
 DEMO_PASSWORD = "Demo@123"
 FAMILY_EMAIL = "family@doordoctor.in"
@@ -56,12 +56,22 @@ def clean_rate_limiter():
 
 @pytest.fixture(scope="session")
 def template_db() -> Path:
-    """A seeded database built once and copied per test."""
+    """A seeded database built once and copied per test.
+
+    Seeded with `SMALL` — the demo core and its full billing history, and nothing
+    else. These tests exercise the *application*, and they assert against it by
+    hand (`total == 15` doses, `paid_months == 14`, `active_subscriptions == 4`).
+    Rewriting them to tolerate 28 patients would weaken them for no gain, and
+    copying a full-population database once per test would put megabytes of I/O
+    between every assertion.
+
+    `tests/test_seed.py` covers the `FULL` profile, once, on its own fixtures.
+    """
     path = _TMP / "template.db"
     engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
-        seed(db)
+        seed(db, SMALL)
     engine.dispose()
     return path
 

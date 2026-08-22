@@ -41,8 +41,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
 | 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
-| 5 | Realistic seed data | ⬜ **next** |
-| 6 | Plain-language summary + reports | ⬜ |
+| 5 | Realistic seed data | ✅ done — see Phase 5 results |
+| 6 | Plain-language summary + reports | ⬜ **next** |
 | 7 | AI assistant (family + admin) | ⬜ |
 | 8 | Public marketing site + leads | ⬜ |
 | 9 | Clinical features (labs → escalation) | ⬜ |
@@ -56,8 +56,10 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 183 passing today; the count only grows
-cd backend  && .venv/bin/python -m app.seed        # must run clean
+cd backend  && .venv/bin/python -m pytest          # 210 passing today; the count only grows
+cd backend  && .venv/bin/python -m app.seed        # must run clean (~5.4 s, full population)
+cd backend  && .venv/bin/python -m app.seed --small        # the dataset the test suite uses
+cd backend  && .venv/bin/python -m app.seed --demo-reset   # rewind the 148/92 path between demos
 cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
@@ -282,40 +284,104 @@ uncommitted in the working tree.**
 
 ---
 
-## ▶ Starting Phase 5 — realistic seed data
+### Phase 5 — realistic seed data → see `docs/build-log/phase-5.md`
 
-Read `/home/saran/.claude/plans/doordoctor-platform-clever-hippo.md` (Phase 5 paragraph) for the
-target dataset: `seed.py` → `backend/app/seed/` package, deterministic, 3 admins, 14 nurses, 28
-patients across 6 Bangalore zones, 18 family users, ~1,400 visits over 90 days, vitals as
-trajectories rather than noise, 30 resolved + 4 active alerts, and the 148/92 breach path preserved.
+- **`seed.py` became `backend/app/seed/`** via `git mv` (history preserved): `demo_data.py` (rosters,
+  no logic), `generators.py` (pure functions, no db and no clock), `core.py` (the Phase-4 demo core),
+  `population.py` (the wider business), `business.py` (Phase 4's billing seed, carried across),
+  `reset.py`, `__main__.py`. `python -m app.seed` and `from app.seed import seed` both still work.
+- **Two profiles from one code path.** `SMALL` is the Phase-4 dataset *exactly*; `FULL` is `SMALL`
+  **plus** a population, never a second construction of the demo core. `tests/conftest.py` seeds
+  `SMALL`, so **all 183 existing tests pass untouched** — they assert `total == 15` doses,
+  `paid_months == 14`, `active_subscriptions == 4`, and they test the *application*, not the
+  population. Rewriting them to tolerate 28 patients would have weakened them for nothing.
+- **`tests/test_seed.py` (27 new tests) covers `FULL`**, seeding it once for the module. It asserts
+  the four invariants the rest of the suite depends on but cannot see: patient 1 is Lakshmi, nurse 1
+  is Anitha, **Anitha holds exactly one open visit today**, and **Lakshmi carries no open alert**.
+  Break either of the last two and the alert tests still pass — against the wrong patient.
+- **28 patients · 14 nurses · 18 families · 3 admins · 6 Bangalore zones · 1,453 visits ·
+  1,290 readings · 3,490 doses · 34 alerts (30 resolved, 4 open) · 182 invoices · MRR ₹2,30,250.**
+  Seeds in **5.4 s**.
+- **Vitals are trajectories, not noise.** Four arcs (stable / improving / drifting / episodic) plus a
+  sine wobble over the visit index, so consecutive readings stay related and a 90-day chart has a
+  shape. Baselines follow the condition list — a patient recorded as diabetic does not sit at 95
+  mg/dL for three months.
+- **The alert count is exact by construction.** Every generated reading is clamped inside the
+  patient's thresholds, so only `demo_data.EXCURSIONS` — a table of exactly 34 — can breach. Alerts
+  are then raised by **`alert_service.create_threshold_alert`**, the real engine; nothing writes an
+  `Alert` row. "A breaching reading always has an alert" is therefore true of the seed for the same
+  reason it is true in production, and a test asserts it over every reading.
+- **⚠️ The clamp flattened the charts, and nearly shipped that way.** A treated hypertensive's first
+  baseline was 132 against a ceiling of 136, so **27% of systolic readings came out pinned** and
+  those patients' charts drew a flat line — the trajectory existed in the arithmetic and was sheared
+  off before it reached the database. Amplitudes are now sized *against* the clamp and baselines
+  lowered to what a patient under treatment reads. 336 → 29 pinned of 1,256.
+  **If you touch `_DRIFT`, `_WOBBLE` or `baseline_for`, re-run that check** —
+  `test_generated_readings_are_not_pinned_to_the_clamp` is what keeps it honest.
+- **bcrypt costs 0.729 s per hash**, so the digest of `Demo@123` is computed **once** and reused for
+  all ~35 demo accounts. Identical `password_hash` values are acceptable here (the password is
+  published) and would not be in production. Seeded invoices also pass an explicit `reference=`,
+  because `payment_gateway.charge()` mints `MAN-<random>` and a fixed-seed dataset cannot hold one.
+- **Billing tenures are spread, not uniform** — 1 to 18 months across the 18 families, plus one
+  annual NRI account, one past-due account and one cancelling at period end. Uniform 14-month
+  histories would have been ~250 invoices of identical data and a worse demo.
+- **Two real `visit_service` bugs surfaced, neither reachable at six visits:**
+  `list_today_visits` filtered a newest-100 page *after* fetching it, so a forward week of scheduling
+  pushed today off the end and **the admin operations dashboard rendered an empty board**; and it
+  kept a nurse's *future* visits on their worklist, contradicting its own docstring. The day window
+  is now in the query. `list_visits_for_user`'s cap went 100 → 250 — a stopgap until Phase 10's
+  visit board makes that list windowed and paginated.
+- **`_bill_history` could not bill an annual subscriber** (`ConflictError: already been paid`) — it
+  billed the period still running, then found that same paid row as the current invoice. It now bills
+  only periods whose end has passed. Latent since Phase 4; nothing was sold annually until now.
+- `--demo-reset` rewinds only what a demo run changes: Lakshmi's visit back to `scheduled`, its
+  readings and dose logs deleted, its alerts and notifications gone. Users, subscriptions, invoices
+  and 90 days of history are untouched. It deletes alerts *before* the readings they reference —
+  SQLite does not enforce foreign keys unless asked, so a dangling row would survive silently.
+- Verified live in Chrome at 375/768/1024/1440 across all three roles and twelve screens, zero
+  console errors.
 
-Four things measured at the end of Phase 4 that will bite otherwise:
+#### ⚠️ Evidence about the real §3, from the recorded visit volume
 
-1. **bcrypt costs 0.729 s per hash on this machine.** Today's 5 demo users are 3.6 s of the 5.4 s
-   seed. Phase 5's ~35 users would be **~25 s every seed run** — and `tests/conftest.py` seeds the
-   template database once per session, so the whole suite pays it. Every demo account shares
-   `Demo@123`, so **hash it once and reuse the digest** for all of them. Identical `password_hash`
-   values across demo users is fine here (the password is published in this file); it would not be
-   in production.
+§2.4 records **~1,400 visits over 90 days for 28 patients — 16.7 visits per patient per month.**
+Phase 4's entitlements are **4 / 8 / 12 per month** and are marked `ASSUMED`. The recorded volume is
+roughly **double the highest assumed tier**, which is real evidence that the true per-tier allowance
+is nearer alternate-day to daily care. Add this to the reconciliation list above.
 
-2. **`payment_gateway.charge()` is not deterministic** — it mints `MAN-<random>` via `secrets`.
-   Phase 5 requires a fixed seed, so either pass an explicit `reference=` to
-   `billing_service.mark_paid()` for seeded invoices, or accept that payment references vary between
-   runs and assert nothing about them.
+Consequence: **quota enforcement at the point of use stays deferred.** Enforcing an invented limit
+against a recorded volume would refuse the visits the demo is specified to contain. The seed's
+cadences (`demo_data.VISITS_PER_WEEK`: 2 / 4 / 6 per week) follow the recorded volume, not the
+assumed entitlements. Reconcile §3 first, then enforce.
 
-3. **Billing history multiplies.** Today: 4 subscriptions → 36 invoices, in ~1.8 s of non-bcrypt
-   work. Giving all 18 family users 14 months of history is ~250 invoices. Decide the spread
-   deliberately — a mix of tenures (some 1 month old, some 14) is both faster and a better demo than
-   giving everyone the same long history.
+#### Deliberately deferred out of Phase 5
 
-4. **Carry `_seed_business()` across intact.** It builds its history by calling `billing_service`
-   and `subscription_service`, which is what proves the loyalty and credit arithmetic on every run.
-   Reimplementing it with literal invoice rows would silently stop testing that.
-
-Phase 4 left `--keep`; Phase 5 adds `--small` and `--demo-reset`. Keep `python -m app.seed` working
-as the entry point — `tests/conftest.py` imports `seed` from it.
+- **A real `zone` column** on `Patient` and `Nurse`. Zones live in this seed as addresses plus the
+  nurse→zone roster in `demo_data.ZONES` / `EXTRA_NURSES`, which is enough for six recognisable
+  Bangalore areas across the patient list. Phase 10 owns the zone view and the ~30–45 subscriber
+  break-even and should lift that table into a column then.
+- **A resolution note on `Alert`.** §8's journey 3 says the admin "resolves it with a note", and
+  there is nowhere to put one — `alert_service.resolve` takes no note and the model has no column.
+  Phase 10's alert queue with SLA is the right place. A drafted table of resolution notes was deleted
+  rather than left as data with no home.
+- **The suite takes 2m13s, and almost all of it is bcrypt.** ~180 logins × 0.73 s per verify. Phase 5
+  removed the *seed's* share of that cost; the login share needs a test-only cost factor, which is a
+  change to `core/security.py` and belongs with Phase 11's hardening.
 
 ---
+
+## ▶ Starting Phase 6 — plain-language summary + reports
+
+Read the plan file's Phase 6 paragraph. Two things from this phase carry directly into it:
+
+1. **`SegmentedControl` already exists** (Phase 3) and is what the 7d/30d/90d window picker should
+   use. Do not build a second one.
+2. **The seed now has 90 days of trajectories per patient**, so a 7d / 30d / 90d summary has genuinely
+   different content in each window — a drifting patient reads differently at 90d than at 7d. That is
+   the dataset the summary generator should be developed against; use `--small` only for the tests
+   that assert exact strings.
+
+WeasyPrint 69.0 is already installed and proven by Phase 4's invoice PDFs. Reuse the
+`app/templates/<kind>/` convention rather than inventing a second one.
 
 ## Open items and deferrals
 
@@ -336,13 +402,14 @@ as the entry point — `tests/conftest.py` imports `seed` from it.
   `subscription_service.entitlement()`. Phase 9 reads it for care-manager ratios (1:20 shared,
   1:10 dedicated), telemedicine limits and lab panels. Nothing branches on a tier name; keep it
   that way.
-- **Seed data is thin on the clinical side** (1 patient, 1 nurse), so charts and vitals lists look
-  sparse. Phase 5 fixes this; do not treat it as a bug before then. The *commercial* side is no
-  longer thin — Phase 4 seeds 4 subscriptions, ~40 invoices, credits and a converted referral.
-- **Phase 5 must not lose the billing seed.** `_seed_business()` in `seed.py` builds its history by
-  calling `billing_service` and `subscription_service`. When `seed.py` becomes the
-  `backend/app/seed/` package, carry that function across intact rather than reimplementing it with
-  literal rows — it is what proves the loyalty and credit arithmetic on every run.
+- ✅ **Seed data is thin on the clinical side** — done in Phase 5. 28 patients, 14 nurses, 1,453
+  visits and 1,290 readings across 90 days.
+- ✅ **The billing seed survived the move.** `business.seed_business()` still builds its history by
+  calling `billing_service` and `subscription_service`, so the loyalty and credit arithmetic is
+  re-proved on every seed run. Keep it that way.
+- **`/visits` returns the newest 250 visits, newest first**, so the admin visit table now leads with
+  next week rather than today. Phase 10's visit board should replace it with a windowed, paginated
+  query rather than raising the cap again.
 
 ---
 
