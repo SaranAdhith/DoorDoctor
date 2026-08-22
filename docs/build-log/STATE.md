@@ -202,6 +202,15 @@ uncommitted in the working tree.**
   currently redirects to `/login`, so the link would be a loop. Add it when `pages/public/` lands.
 - **Business documents** were never supplied. All prices/tiers will be centralised in one constants
   module in Phase 4 so any later reconciliation is a one-file change.
+- **Where the prices are written down.** The plan file records every price verbatim in its **Phase 8**
+  section (marketing site), but **Phase 4** is what builds the constants module they belong in.
+  Read the Phase 8 paragraph before writing that module — do not invent tier prices, and do not
+  re-derive them. Phase 8 then imports the constants rather than restating the numbers, so the
+  pricing page and the billing engine cannot disagree.
+- **Entitlements that later phases expect.** Phase 4's tier definitions are what Phase 9 reads for
+  care-manager ratios (1:20 shared, 1:10 dedicated), telemedicine limits (Premium: 2/month) and lab
+  panels. Model entitlements as data on the plan, not as `if tier == "premium"` scattered through
+  services.
 - **Seed data is thin** (1 patient, 1 nurse), so charts and lists look sparse. Phase 5 fixes this;
   do not treat it as a bug before then.
 
