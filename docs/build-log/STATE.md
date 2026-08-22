@@ -282,6 +282,41 @@ uncommitted in the working tree.**
 
 ---
 
+## ▶ Starting Phase 5 — realistic seed data
+
+Read `/home/saran/.claude/plans/doordoctor-platform-clever-hippo.md` (Phase 5 paragraph) for the
+target dataset: `seed.py` → `backend/app/seed/` package, deterministic, 3 admins, 14 nurses, 28
+patients across 6 Bangalore zones, 18 family users, ~1,400 visits over 90 days, vitals as
+trajectories rather than noise, 30 resolved + 4 active alerts, and the 148/92 breach path preserved.
+
+Four things measured at the end of Phase 4 that will bite otherwise:
+
+1. **bcrypt costs 0.729 s per hash on this machine.** Today's 5 demo users are 3.6 s of the 5.4 s
+   seed. Phase 5's ~35 users would be **~25 s every seed run** — and `tests/conftest.py` seeds the
+   template database once per session, so the whole suite pays it. Every demo account shares
+   `Demo@123`, so **hash it once and reuse the digest** for all of them. Identical `password_hash`
+   values across demo users is fine here (the password is published in this file); it would not be
+   in production.
+
+2. **`payment_gateway.charge()` is not deterministic** — it mints `MAN-<random>` via `secrets`.
+   Phase 5 requires a fixed seed, so either pass an explicit `reference=` to
+   `billing_service.mark_paid()` for seeded invoices, or accept that payment references vary between
+   runs and assert nothing about them.
+
+3. **Billing history multiplies.** Today: 4 subscriptions → 36 invoices, in ~1.8 s of non-bcrypt
+   work. Giving all 18 family users 14 months of history is ~250 invoices. Decide the spread
+   deliberately — a mix of tenures (some 1 month old, some 14) is both faster and a better demo than
+   giving everyone the same long history.
+
+4. **Carry `_seed_business()` across intact.** It builds its history by calling `billing_service`
+   and `subscription_service`, which is what proves the loyalty and credit arithmetic on every run.
+   Reimplementing it with literal invoice rows would silently stop testing that.
+
+Phase 4 left `--keep`; Phase 5 adds `--small` and `--demo-reset`. Keep `python -m app.seed` working
+as the entry point — `tests/conftest.py` imports `seed` from it.
+
+---
+
 ## Open items and deferrals
 
 - **README image links.** `README.md` references `docs/screenshots/*.png`, which the history rewrite
