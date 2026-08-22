@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..models.enums import AlertSeverity, AlertStatus, NotificationType
 
@@ -23,7 +23,18 @@ class AlertOut(BaseModel):
     acknowledged_by: int | None = None
     acknowledged_at: datetime | None = None
     resolved_at: datetime | None = None
+    resolution_note: str | None = None
     created_at: datetime
+
+
+class AlertResolve(BaseModel):
+    """What the admin did about an alert (§8, journey 3).
+
+    Optional, so the existing one-click resolve still works. Capped like every
+    other free-text field a user can write into.
+    """
+
+    note: str | None = Field(default=None, max_length=1000)
 
 
 class AlertDetailOut(AlertOut):

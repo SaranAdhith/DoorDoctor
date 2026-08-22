@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query
 
 from ..core.dependencies import AdminUser, CurrentUser, DbSession
 from ..models import Nurse, Visit
-from ..schemas.alert import AlertDetailOut, AlertOut
+from ..schemas.alert import AlertDetailOut, AlertOut, AlertResolve
 from ..services import alert_service, vitals_service
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -57,6 +57,12 @@ def acknowledge_alert(alert_id: int, db: DbSession, current_user: AdminUser) -> 
 
 
 @router.post("/{alert_id}/resolve", response_model=AlertOut, summary="Resolve an alert (admin)")
-def resolve_alert(alert_id: int, db: DbSession, current_user: AdminUser) -> dict[str, Any]:
+def resolve_alert(
+    alert_id: int,
+    db: DbSession,
+    current_user: AdminUser,
+    payload: AlertResolve | None = None,
+) -> dict[str, Any]:
     alert = alert_service.get_alert_for_user(db, current_user, alert_id)
-    return alert_service.serialize(alert_service.resolve(db, alert, current_user))
+    note = payload.note if payload is not None else None
+    return alert_service.serialize(alert_service.resolve(db, alert, current_user, note=note))

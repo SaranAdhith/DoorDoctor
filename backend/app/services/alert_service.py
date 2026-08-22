@@ -57,6 +57,47 @@ def _format_number(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:g}"
 
 
+def create_alert(
+    db: Session,
+    *,
+    patient: Patient,
+    alert_type: str,
+    severity: AlertSeverity,
+    title: str,
+    message: str,
+    breaches: list[dict[str, Any]] | None = None,
+    vital: Vital | None = None,
+    notify: bool = True,
+) -> Alert:
+    """Create an alert from any source. **The only place an `Alert` row is built.**
+
+    Phase 9 adds three sources with no `Vital` to point at — an abnormal lab, a
+    safety-score drop and a wearable breach — so `vital` is optional here and
+    `create_threshold_alert` is a thin wrapper that supplies one.
+
+    Keeping a single constructor is not tidiness: the Phase 5 seed's alert count
+    is exact *because* nothing writes an `Alert` directly, and
+    `notify_alert_recipients` is the only reason a family ever hears about one.
+    A second constructor would be a silent alert.
+    """
+    alert = Alert(
+        patient_id=patient.id,
+        vitals_id=vital.id if vital is not None else None,
+        alert_type=alert_type,
+        severity=severity,
+        title=title,
+        message=message,
+        status=AlertStatus.ACTIVE,
+    )
+    alert.breached_parameters = breaches or []
+    db.add(alert)
+    db.flush()  # assign alert.id before notifications reference it
+
+    if notify:
+        notification_service.notify_alert_recipients(db, alert, patient)
+    return alert
+
+
 def create_threshold_alert(
     db: Session,
     *,
@@ -66,21 +107,20 @@ def create_threshold_alert(
 ) -> Alert:
     """Create a single alert covering every parameter breached by one reading."""
     severity = severity_for_breaches(len(breaches))
-    alert = Alert(
-        patient_id=patient.id,
-        vitals_id=vital.id,
+    return create_alert(
+        db,
+        patient=patient,
         alert_type="vital_threshold_breach",
         severity=severity,
-        title="Elevated vital reading" if severity == AlertSeverity.WARNING else "Multiple vitals outside range",
+        title=(
+            "Elevated vital reading"
+            if severity == AlertSeverity.WARNING
+            else "Multiple vitals outside range"
+        ),
         message=build_alert_message(breaches),
-        status=AlertStatus.ACTIVE,
+        breaches=breaches,
+        vital=vital,
     )
-    alert.breached_parameters = breaches
-    db.add(alert)
-    db.flush()  # assign alert.id before notifications reference it
-
-    notification_service.notify_alert_recipients(db, alert, patient)
-    return alert
 
 
 def list_alerts_for_user(db: Session, user: User, status: str | None = None) -> list[Alert]:
@@ -129,7 +169,13 @@ def acknowledge(db: Session, alert: Alert, user: User) -> Alert:
     return alert
 
 
-def resolve(db: Session, alert: Alert, user: User) -> Alert:
+def resolve(db: Session, alert: Alert, user: User, note: str | None = None) -> Alert:
+    """Close an alert, optionally recording what was done about it.
+
+    The note is optional so every existing caller behaves identically, but it is
+    what §8's journey 3 has always described: the admin "resolves it with a
+    note". A blank string is stored as nothing rather than as an empty note.
+    """
     if alert.status == AlertStatus.RESOLVED:
         raise BadRequestError("This alert has already been resolved.")
 
@@ -138,6 +184,8 @@ def resolve(db: Session, alert: Alert, user: User) -> Alert:
         alert.acknowledged_at = now()
     alert.status = AlertStatus.RESOLVED
     alert.resolved_at = now()
+    if note is not None:
+        alert.resolution_note = note.strip() or None
     db.commit()
     db.refresh(alert)
     return alert
@@ -157,5 +205,6 @@ def serialize(alert: Alert) -> dict[str, Any]:
         "acknowledged_by": alert.acknowledged_by,
         "acknowledged_at": alert.acknowledged_at,
         "resolved_at": alert.resolved_at,
+        "resolution_note": alert.resolution_note,
         "created_at": alert.created_at,
     }

@@ -11,8 +11,17 @@ from .enums import PatientStatus, VitalMetric
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .alert import Alert
+    from .care import CareAssignment, CareInteraction
+    from .device import Device
+    from .escalation import EscalationEvent
+    from .hospital import HospitalBooking
+    from .lab import LabOrder
     from .medication import Medication
     from .report import Report
+    from .safety import SafetyScore
+    from .screening import Screening
+    from .task import FollowUpTask
+    from .telemedicine import Consult
     from .user import User
     from .visit import Visit
     from .vital import Vital
@@ -45,6 +54,41 @@ class Patient(Base):
         back_populates="patient", cascade="all, delete-orphan"
     )
     reports: Mapped[list["Report"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+
+    # --- Phase 9, clinical (§4.2-4.9) ------------------------------------
+    # All cascade delete-orphan: a deleted patient must not leave a lab result,
+    # a device reading or an open escalation behind. SQLite does not enforce
+    # foreign keys unless asked, so the ORM cascade is what actually holds here.
+    safety_scores: Mapped[list["SafetyScore"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    lab_orders: Mapped[list["LabOrder"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    tasks: Mapped[list["FollowUpTask"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    consults: Mapped[list["Consult"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    care_assignments: Mapped[list["CareAssignment"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    care_interactions: Mapped[list["CareInteraction"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    screenings: Mapped[list["Screening"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    devices: Mapped[list["Device"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    escalations: Mapped[list["EscalationEvent"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    hospital_bookings: Mapped[list["HospitalBooking"]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
     )
 

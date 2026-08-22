@@ -340,6 +340,30 @@ def consume_quota(
     return row
 
 
+def release_quota(
+    db: Session, subscription: Subscription, quota: str, amount: int = 1, as_of: datetime | None = None
+) -> QuotaUsage:
+    """Give part of an allowance back. The exact inverse of `consume_quota`.
+
+    A consult cancelled inside the cancellation window did not happen, so it must
+    not count against the month. This lives beside `consume_quota` rather than in
+    the consult service so the pair cannot drift — the meter that spends and the
+    meter that refunds have to agree about which period a booking belonged to.
+
+    Floors at zero. A refund larger than what was spent is a bug elsewhere, and
+    a negative meter would show a family more consults left than their plan
+    grants.
+    """
+    spec = pricing.QUOTAS_BY_NAME.get(quota)
+    if spec is None:
+        raise BadRequestError(f"Unknown quota '{quota}'.")
+
+    row = _usage_row(db, subscription, spec, as_of or now())
+    row.used = max(0, row.used - amount)
+    db.flush()
+    return row
+
+
 # --------------------------------------------------------------------------
 # Credits — the one mechanism behind both referral and loyalty rewards
 # --------------------------------------------------------------------------

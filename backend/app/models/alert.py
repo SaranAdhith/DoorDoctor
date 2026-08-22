@@ -36,6 +36,9 @@ class Alert(Base):
     acknowledged_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
     acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    # What the admin did about it. §8's journey 3 says the alert is resolved
+    # "with a note" and until Phase 9 there was nowhere to put one.
+    resolution_note: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True, nullable=False)
 
     patient: Mapped["Patient"] = relationship(back_populates="alerts")

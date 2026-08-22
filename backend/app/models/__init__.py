@@ -3,6 +3,10 @@
 from .alert import Alert
 from .assistant import AssistantMessage
 from .billing import Invoice, InvoiceLine
+from .care import CareAssignment, CareInteraction, CareManager
+from .device import Device, DeviceReading
+from .escalation import EscalationEvent, EscalationStep
+from .hospital import HospitalBooking
 from .nurse import Nurse
 from .delivery import DeliveryLog
 from .enums import (
@@ -10,11 +14,24 @@ from .enums import (
     AlertStatus,
     AssistantSource,
     BillingCycle,
+    CareChannel,
+    CareDirection,
+    CareManagerKind,
+    ConsultStatus,
     CreditKind,
     DeliveryChannelName,
     DeliveryStatus,
+    DeviceKind,
+    DeviceStatus,
+    EscalationStatus,
+    EscalationStepStatus,
+    EscalationTrigger,
+    HospitalBookingStatus,
     InvoiceLineKind,
     InvoiceStatus,
+    LabBilling,
+    LabFlag,
+    LabOrderStatus,
     LeadKind,
     LeadStatus,
     NurseStatus,
@@ -26,12 +43,17 @@ from .enums import (
     PlanAudience,
     ReferralStatus,
     ReportKind,
+    SafetyBand,
+    ScreeningInstrument,
     SubscriptionStatus,
+    TaskKind,
+    TaskStatus,
     UserRole,
     VerificationStatus,
     VisitStatus,
     VitalMetric,
 )
+from .lab import LabOrder, LabResult
 from .lead import Lead
 from .medication import Medication, MedicationLog
 from .notification import Notification
@@ -40,7 +62,11 @@ from .password_reset import PasswordResetToken
 from .patient import Patient, PatientThreshold
 from .referral import Credit, Referral
 from .report import Report
+from .safety import SafetyScore
+from .screening import Screening
 from .subscription import Plan, QuotaUsage, Subscription
+from .task import FollowUpTask
+from .telemedicine import Consult
 from .user import User
 from .visit import Visit
 from .vital import Vital
@@ -52,25 +78,50 @@ __all__ = [
     "AssistantMessage",
     "AssistantSource",
     "BillingCycle",
+    "CareAssignment",
+    "CareChannel",
+    "CareDirection",
+    "CareInteraction",
+    "CareManager",
+    "CareManagerKind",
+    "Consult",
+    "ConsultStatus",
     "Credit",
     "CreditKind",
     "DeliveryChannelName",
     "DeliveryLog",
     "DeliveryStatus",
+    "Device",
+    "DeviceKind",
+    "DeviceReading",
+    "DeviceStatus",
+    "EscalationEvent",
+    "EscalationStatus",
+    "EscalationStep",
+    "EscalationStepStatus",
+    "EscalationTrigger",
+    "FollowUpTask",
+    "HospitalBooking",
+    "HospitalBookingStatus",
     "Invoice",
     "InvoiceLine",
     "InvoiceLineKind",
     "InvoiceStatus",
+    "LabBilling",
+    "LabFlag",
+    "LabOrder",
+    "LabOrderStatus",
+    "LabResult",
     "Lead",
     "LeadKind",
     "LeadStatus",
-    "Nurse",
-    "NurseStatus",
     "Medication",
     "MedicationLog",
     "MedicationLogStatus",
     "Notification",
     "NotificationType",
+    "Nurse",
+    "NurseStatus",
     "Organization",
     "OrganizationType",
     "PasswordResetToken",
@@ -85,8 +136,14 @@ __all__ = [
     "ReferralStatus",
     "Report",
     "ReportKind",
+    "SafetyBand",
+    "SafetyScore",
+    "Screening",
+    "ScreeningInstrument",
     "Subscription",
     "SubscriptionStatus",
+    "TaskKind",
+    "TaskStatus",
     "User",
     "UserRole",
     "VerificationStatus",
