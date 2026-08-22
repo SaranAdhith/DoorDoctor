@@ -15,7 +15,18 @@ from fastapi.responses import JSONResponse
 
 from .config import settings
 from .database import create_all
-from .routers import admin, alerts, auth, medications, notifications, patients, visits
+from .routers import (
+    admin,
+    alerts,
+    auth,
+    billing,
+    medications,
+    notifications,
+    patients,
+    referrals,
+    subscriptions,
+    visits,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("doordoctor")
@@ -25,8 +36,13 @@ DoorDoctor connects a scheduled nurse visit to the family that cannot be present
 
 **Workflow:** visit -> vitals -> threshold evaluation -> alert -> family visibility -> admin action.
 
+Care is sold as a subscription: a plan carries entitlements and metered
+allowances, periods roll over and invoice themselves, and referral and loyalty
+rewards both settle as credits against the next invoice.
+
 Alerts describe readings that fall outside the patient's configured monitoring
-thresholds. They are not medical diagnoses.
+thresholds. They are not medical diagnoses. No payment gateway is integrated in
+this build and no money moves.
 """
 
 @asynccontextmanager
@@ -86,6 +102,9 @@ app.include_router(medications.router, prefix=api_prefix)
 app.include_router(alerts.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
+app.include_router(subscriptions.router, prefix=api_prefix)
+app.include_router(billing.router, prefix=api_prefix)
+app.include_router(referrals.router, prefix=api_prefix)
 
 
 @app.get("/", tags=["system"], summary="Service banner")

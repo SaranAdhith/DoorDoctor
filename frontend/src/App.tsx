@@ -9,6 +9,8 @@ import { ResetPassword } from './pages/ResetPassword'
 import { NurseVisitDetail } from './pages/nurse/NurseVisitDetail'
 import { NurseVisits } from './pages/nurse/NurseVisits'
 import { AdminAlerts } from './pages/admin/AdminAlerts'
+import { AdminRevenue } from './pages/admin/AdminRevenue'
+import { AdminSubscriptions } from './pages/admin/AdminSubscriptions'
 import { AdminNurses } from './pages/admin/AdminNurses'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminPatients } from './pages/admin/AdminPatients'
@@ -16,6 +18,7 @@ import { AdminVisits } from './pages/admin/AdminVisits'
 import { FamilyAlerts } from './pages/family/FamilyAlerts'
 import { FamilyDashboard } from './pages/family/FamilyDashboard'
 import { FamilyMedications } from './pages/family/FamilyMedications'
+import { MyPlan } from './pages/family/MyPlan'
 import { PatientProfile } from './pages/family/PatientProfile'
 
 function RootRedirect() {
@@ -44,6 +47,7 @@ export default function App() {
         <Route path="patient/:patientId" element={<PatientProfile />} />
         <Route path="medications" element={<FamilyMedications />} />
         <Route path="alerts" element={<FamilyAlerts />} />
+        <Route path="plan" element={<MyPlan />} />
       </Route>
 
       <Route
@@ -74,6 +78,8 @@ export default function App() {
         <Route path="nurses" element={<AdminNurses />} />
         <Route path="visits" element={<AdminVisits />} />
         <Route path="alerts" element={<AdminAlerts />} />
+        <Route path="subscriptions" element={<AdminSubscriptions />} />
+        <Route path="revenue" element={<AdminRevenue />} />
       </Route>
 
       <Route path="/" element={<RootRedirect />} />

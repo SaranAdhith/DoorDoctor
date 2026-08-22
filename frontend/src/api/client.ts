@@ -84,6 +84,42 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return payload as T
 }
 
+/**
+ * Fetch a binary response (an invoice PDF) with the bearer token attached.
+ *
+ * A plain `<a href>` to the endpoint would arrive unauthenticated and 401, so
+ * the file is fetched, turned into a blob and opened from an object URL.
+ */
+export async function requestBlob(path: string): Promise<Blob> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  let response: Response
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { headers })
+  } catch {
+    throw new ApiError(0, 'Cannot reach the DoorDoctor API. Is the backend running?')
+  }
+
+  if (response.status === 401) {
+    clearToken()
+    unauthorizedHandlers.forEach((handler) => handler())
+  }
+
+  if (!response.ok) {
+    // The error body is JSON even though the success body is not.
+    const payload = await response.json().catch(() => null)
+    const detail =
+      payload && typeof payload.detail === 'string'
+        ? payload.detail
+        : `Request failed (${response.status}).`
+    throw new ApiError(response.status, detail)
+  }
+
+  return response.blob()
+}
+
 export const api = {
   get: <T,>(path: string, options: RequestOptions = {}) => request<T>(path, options),
   post: <T,>(path: string, body?: unknown, options: RequestOptions = {}) =>

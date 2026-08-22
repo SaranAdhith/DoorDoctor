@@ -80,3 +80,64 @@ class VitalMetric(str, Enum):
     SPO2 = "spo2"
     TEMPERATURE = "temperature"
     WEIGHT = "weight"
+
+
+class PlanAudience(str, Enum):
+    """Who a plan is sold to. Mirrors `core.pricing.AUDIENCE_*`."""
+
+    INDIVIDUAL = "individual"
+    CORPORATE = "corporate"
+    INSTITUTION = "institution"
+
+
+class BillingCycle(str, Enum):
+    MONTHLY = "monthly"
+    ANNUAL = "annual"
+
+
+class SubscriptionStatus(str, Enum):
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
+class InvoiceStatus(str, Enum):
+    DRAFT = "draft"
+    ISSUED = "issued"
+    PAID = "paid"
+    VOID = "void"
+
+
+class InvoiceLineKind(str, Enum):
+    SUBSCRIPTION = "subscription"
+    ADDON = "addon"
+    PRORATION = "proration"
+
+
+class CreditKind(str, Enum):
+    """Why a credit exists. Referral and loyalty rewards are the same mechanism."""
+
+    REFERRAL = "referral"
+    LOYALTY = "loyalty"
+    ADJUSTMENT = "adjustment"
+
+
+class ReferralStatus(str, Enum):
+    PENDING = "pending"
+    JOINED = "joined"
+    REWARDED = "rewarded"
+    EXPIRED = "expired"
+
+
+class OrganizationType(str, Enum):
+    CORPORATE = "corporate"
+    INSTITUTION = "institution"
+
+
+class PaymentStatus(str, Enum):
+    """No gateway is wired in this build, so a captured charge is `simulated`."""
+
+    SIMULATED = "simulated"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"

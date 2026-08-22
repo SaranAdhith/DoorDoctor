@@ -2,9 +2,11 @@ import {
   Activity,
   Bell,
   CalendarDays,
+  CreditCard,
   LayoutDashboard,
   Pill,
   Stethoscope,
+  TrendingUp,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -40,6 +42,10 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
         { to: '/family/alerts', label: 'Alerts', icon: Bell, primary: true },
       ],
     },
+    {
+      title: 'Account',
+      items: [{ to: '/family/plan', label: 'My Plan', icon: CreditCard, primary: true }],
+    },
   ],
   nurse: [
     {
@@ -62,6 +68,13 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/admin/patients', label: 'Patients', icon: Activity, primary: true },
         { to: '/admin/nurses', label: 'Nurses', icon: Stethoscope },
+      ],
+    },
+    {
+      title: 'Business',
+      items: [
+        { to: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
+        { to: '/admin/revenue', label: 'Revenue', icon: TrendingUp },
       ],
     },
   ],

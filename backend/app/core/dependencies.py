@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Nurse, Patient, User, UserRole, Visit
+from ..models import Invoice, Nurse, Patient, Subscription, User, UserRole, Visit
 from .exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from .security import decode_access_token
 
@@ -67,6 +67,9 @@ require_family_or_admin = require_roles(UserRole.FAMILY, UserRole.ADMIN)
 FamilyUser = Annotated[User, Depends(require_family)]
 NurseUser = Annotated[User, Depends(require_nurse)]
 AdminUser = Annotated[User, Depends(require_admin)]
+# Billing is a family/admin concern. A nurse has no business reading what a
+# family pays, so every billing route depends on this rather than on any role.
+FamilyOrAdminUser = Annotated[User, Depends(require_family_or_admin)]
 
 
 def get_nurse_profile(db: Session, user: User) -> Nurse:
@@ -136,3 +139,40 @@ def authorize_nurse_visit(db: Session, user: User, visit_id: int) -> tuple[Visit
     if visit is None or visit.nurse_id != nurse.id:
         raise NotFoundError("Visit not found.")
     return visit, nurse
+
+
+def authorize_subscription(db: Session, user: User, subscription_id: int) -> Subscription:
+    """Load a subscription the user is allowed to see.
+
+    Someone else's subscription is a 404, exactly as someone else's patient
+    already is. A 403 would confirm the record exists, which is enough to learn
+    that a particular person is a DoorDoctor customer.
+    """
+    subscription = db.get(Subscription, subscription_id)
+    if subscription is None:
+        raise NotFoundError("Subscription not found.")
+
+    if user.role == UserRole.ADMIN:
+        return subscription
+    if user.role == UserRole.FAMILY and subscription.family_user_id == user.id:
+        return subscription
+
+    raise NotFoundError("Subscription not found.")
+
+
+def authorize_invoice(db: Session, user: User, invoice_id: int) -> Invoice:
+    """Load an invoice the user is allowed to see. Same disclosure rule."""
+    invoice = db.get(Invoice, invoice_id)
+    if invoice is None:
+        raise NotFoundError("Invoice not found.")
+
+    if user.role == UserRole.ADMIN:
+        return invoice
+    if (
+        user.role == UserRole.FAMILY
+        and invoice.subscription is not None
+        and invoice.subscription.family_user_id == user.id
+    ):
+        return invoice
+
+    raise NotFoundError("Invoice not found.")

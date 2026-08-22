@@ -40,8 +40,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `53fdb4d` |
 | 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
 | 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
-| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ⬜ **next** |
-| 5 | Realistic seed data | ⬜ |
+| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `PENDING` |
+| 5 | Realistic seed data | ⬜ **next** |
 | 6 | Plain-language summary + reports | ⬜ |
 | 7 | AI assistant (family + admin) | ⬜ |
 | 8 | Public marketing site + leads | ⬜ |
@@ -56,11 +56,12 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 96 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 183 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean
+cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 29 passing today
+cd frontend && npx vitest run                      # 56 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -98,9 +99,13 @@ Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's sy
 | Where | Package | For |
 |---|---|---|
 | frontend | `lucide-react` | Icons, replacing emoji (Phase 2) |
+| backend | `weasyprint` 69.0 | Invoice PDFs (Phase 4) — **pulled forward from Phase 6** |
 
-Still planned: `weasyprint`, `apscheduler`, `alembic` (backend); `react-helmet-async`,
-`@playwright/test` (frontend). **No `anthropic` — the provider is Groq via `httpx`.**
+Still planned: `apscheduler`, `alembic` (backend); `react-helmet-async`, `@playwright/test`
+(frontend). **No `anthropic` — the provider is Groq via `httpx`.**
+
+⚠️ **The backend venv has no `pip`** — it was created by `uv`. Install with
+`uv pip install --python .venv/bin/python <package>`, not `.venv/bin/pip`.
 
 ---
 
@@ -166,6 +171,94 @@ Still planned: `weasyprint`, `apscheduler`, `alembic` (backend); `react-helmet-a
 - Verified live in Chrome at 375/768/1024/1440, full journey end to end, and the 429 was confirmed
   against the running server (`retry-after: 3248`), not only in tests.
 
+### Phase 4 — subscriptions, billing, quotas, referrals, loyalty → `PENDING`
+
+- **⚠️ §3 of the build prompt was never supplied.** Prices came from the plan file's Phase 8
+  paragraph verbatim. Tier *names*, every entitlement *quantity*, the referral reward and the
+  loyalty benefit are **not recorded anywhere** and are marked `ASSUMED` in `core/pricing.py`.
+  **See the reconciliation list below — that is the first thing to settle with the founder.**
+- **`backend/app/core/pricing.py` is the single source of every price.** It imports nothing from
+  the app, so anything may read it and nothing can circle back. Money is **integer paise**
+  throughout; no float touches money anywhere in this codebase.
+- **The institutional bands were derived, not guessed.** The prompt gives both a monthly price and
+  a per-resident-per-day rate, and the pair fixes the band size: ₹84×30×**15** = ₹37,800 ≈ ₹38,000;
+  ₹77×30×**25** = ₹57,750 ≈ ₹58,000; ₹65×30×**40** = ₹78,000 exactly. `test_pricing.py` asserts the
+  exact rounding gap (₹200 / ₹250 / ₹0), so a moved price says by how much rather than failing
+  vaguely.
+- **Entitlements are a JSON column on the plan row**, seeded from the constants, read only through
+  `subscription_service.entitlement()`. Nothing anywhere branches on a tier name — the STATE
+  deferral asked for this, and Phase 9 depends on it. `None` means *unlimited* and is deliberately
+  not a `-1` sentinel some caller would compare with `<`.
+- **Referral and loyalty rewards are one mechanism.** Both produce a `Credit` row with a `kind`;
+  billing applies credits without knowing where they came from. Two reward systems meaning "money
+  off the next invoice" should not be two tables.
+- **Invoice generation is idempotent per period** — a unique constraint on
+  `(subscription_id, period_start)` *and* a lookup before insert. Billing a family twice is the bug
+  that ends a company, so it is prevented in the schema, not only in the generator.
+- **A credit is never split.** One worth more than the invoice stays whole and waits, so a customer
+  comparing two invoices can account for every rupee.
+- **`--dry-run` does the real work and rolls it back.** The first version walked a separate preview
+  branch and reported "nothing to invoice" while the real run wrote four — a preview computed by a
+  second code path is a second implementation, and the one thing it must never do is disagree.
+- **`services/payment_gateway.py` is a boundary, not a stub.** Same shape as Phase 3's delivery
+  seam. It accepts an **amount and a description and nothing else** — a test asserts that
+  signature, so card details cannot start flowing through it later.
+- **Someone else's invoice is a 404, not a 403**, matching `authorize_patient`. A 403 confirms the
+  record exists, which is enough to learn that a named person is a DoorDoctor customer. Nurses have
+  no billing access at all.
+- **WeasyPrint 69.0 pulled forward from Phase 6** so `/invoices/{id}/pdf` is a real PDF. Phase 6's
+  report renderer reuses a dependency already proven by the suite and the same
+  `app/templates/<kind>/` convention.
+- **The seed builds its billing history by calling the services**, not by writing rows: 14 monthly
+  invoices, the loyalty credit earned at month 12 and the **13th month billed at ₹0**, a referral
+  that converted, a corporate account (40 employees) and a residence (25 residents). If the loyalty
+  arithmetic breaks, the demo data is visibly wrong instead of fabricated around the bug.
+- `mark_paid` stamps `paid_at` from the real clock, which is right in production and wrong in a
+  seed — the seed backdates it, or fourteen months of revenue reports as collected this morning.
+- **183 backend tests** (was 96) and **56 Vitest** (was 29). `lib/money.ts` mirrors the server's
+  `format_inr` (lakh grouping) and both are asserted against the same cases, exactly as the
+  password rule is mirrored.
+- Verified live in Chrome at 375/768/1024/1440: change-plan (proration credited — ₹2,938 of an
+  unused Care Plus month), cancel, resume, referral invite, and the PDF fetched **with** a bearer
+  token (200, `%PDF-`) and **without** one (401).
+- Fixed on the way: `Table` carries a 36rem minimum width, which silently scrolled the value column
+  of a half-width card out of sight. `cn()` is a plain joiner, **not** tailwind-merge, so passing
+  `min-w-0` does not override it — that card is a `<dl>` now. **Do not expect Tailwind class
+  conflicts to resolve by specificity anywhere in this codebase.**
+
+#### ⚠️ Reconcile with the real §3 before Phase 8 publishes prices
+
+Everything below is invented and lives in **one file**, `backend/app/core/pricing.py`:
+
+| Value | Assumed | Confidence |
+|---|---|---|
+| Tier names | Essential / Care Plus / **Premium** | "Premium" is attested by the recorded 2-consult telemedicine limit; the other two are guesses |
+| Visits per month | 4 / 8 / 12 | invented |
+| Telemedicine per month | 0 / 1 / **2** | Premium's 2 is recorded; the rest invented |
+| Lab panels per year | 0 / 2 / 4 | invented |
+| Care-manager tier mapping | shared / shared / dedicated | the **1:20 and 1:10 ratios are recorded**; which tier gets which is invented |
+| Family seats | 2 / 4 / 6 | invented |
+| Referral reward | referrer 1 free month, friend ₹1,000 | invented |
+| Loyalty reward | 1 free month per 12 paid months | the **12-month trigger is recorded**; the reward is invented |
+| Corporate/institutional names and entitlements | descriptive placeholders | prices are recorded |
+
+**No GST or tax is modelled** — none was specified, and an invented rate would put a wrong number
+on an invoice that looks authoritative. Phase 8 must import these constants rather than restate any
+number.
+
+#### Deliberately deferred out of Phase 4
+
+- **Quotas are tracked but not yet enforced at the point of use.** Scheduling a visit does not call
+  `consume_quota`; the seed and the tests do. Wiring it into `visit_service` would have changed the
+  behaviour of every existing visit test and would refuse visits for patients whose family has no
+  subscription (the `other_family` fixture). Do it in Phase 5 alongside the realistic seed, or in
+  Phase 9 with telemedicine and labs — the engine and its tests are ready either way.
+- **Add-on purchase flow.** Blood panel ₹499 and pill organiser ₹199 are priced constants with an
+  `InvoiceLineKind.ADDON` ready for them, but nothing sells one yet. Phase 9 adds lab ordering,
+  which is the natural first buyer.
+- **Corporate/institutional self-service.** Organizations are modelled and billed; there is no
+  admin UI to create one. Phase 8 captures them as leads, Phase 10 does the ops screens.
+
 ---
 
 ## ⚠️ Incident — external `git filter-branch` during Phase 2
@@ -200,19 +293,21 @@ uncommitted in the working tree.**
   route guard intact. Flagged for Phase 9; cheap to agree on early.
 - **Login footer back-link deferred to Phase 8.** §2.5 asks for a back-link to the public site; `/`
   currently redirects to `/login`, so the link would be a loop. Add it when `pages/public/` lands.
-- **Business documents** were never supplied. All prices/tiers will be centralised in one constants
-  module in Phase 4 so any later reconciliation is a one-file change.
-- **Where the prices are written down.** The plan file records every price verbatim in its **Phase 8**
-  section (marketing site), but **Phase 4** is what builds the constants module they belong in.
-  Read the Phase 8 paragraph before writing that module — do not invent tier prices, and do not
-  re-derive them. Phase 8 then imports the constants rather than restating the numbers, so the
-  pricing page and the billing engine cannot disagree.
-- **Entitlements that later phases expect.** Phase 4's tier definitions are what Phase 9 reads for
-  care-manager ratios (1:20 shared, 1:10 dedicated), telemedicine limits (Premium: 2/month) and lab
-  panels. Model entitlements as data on the plan, not as `if tier == "premium"` scattered through
-  services.
-- **Seed data is thin** (1 patient, 1 nurse), so charts and lists look sparse. Phase 5 fixes this;
-  do not treat it as a bug before then.
+- ✅ **Business documents / prices** — done in Phase 4. Everything lives in
+  `backend/app/core/pricing.py`. **§3 was never supplied, so the invented values are listed in the
+  Phase 4 results above and must be reconciled before Phase 8 publishes a pricing page.** Phase 8
+  imports these constants; it must not restate a number.
+- ✅ **Entitlements as data** — done. `Plan.entitlements` is a JSON column read through
+  `subscription_service.entitlement()`. Phase 9 reads it for care-manager ratios (1:20 shared,
+  1:10 dedicated), telemedicine limits and lab panels. Nothing branches on a tier name; keep it
+  that way.
+- **Seed data is thin on the clinical side** (1 patient, 1 nurse), so charts and vitals lists look
+  sparse. Phase 5 fixes this; do not treat it as a bug before then. The *commercial* side is no
+  longer thin — Phase 4 seeds 4 subscriptions, ~40 invoices, credits and a converted referral.
+- **Phase 5 must not lose the billing seed.** `_seed_business()` in `seed.py` builds its history by
+  calling `billing_service` and `subscription_service`. When `seed.py` becomes the
+  `backend/app/seed/` package, carry that function across intact rather than reimplementing it with
+  literal rows — it is what proves the loyalty and credit arithmetic on every run.
 
 ---
 
@@ -223,3 +318,7 @@ uncommitted in the working tree.**
 | Family | `family@doordoctor.in` | `Demo@123` |
 | Nurse | `nurse@doordoctor.in` | `Demo@123` |
 | Admin | `admin@doordoctor.in` | `Demo@123` |
+| Family (referred, Phase 4) | `meera@doordoctor.in` | `Demo@123` |
+
+`meera@doordoctor.in` exists to make the referral story real — she was referred by the demo family
+and her first payment is what earned them their reward. She has a subscription but no patient yet.

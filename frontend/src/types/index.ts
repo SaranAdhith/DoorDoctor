@@ -222,3 +222,166 @@ export interface VitalsRecordResult {
   breached_parameters: BreachedParameter[]
   alerts_created: Alert[]
 }
+
+// ---------------------------------------------------------------------------
+// Subscriptions and billing (Phase 4)
+//
+// Every money field is an integer count of paise and is named `*_paise`, so the
+// unit is impossible to mistake. Format them with `lib/money.ts`, never by hand.
+// ---------------------------------------------------------------------------
+
+export type PlanAudience = 'individual' | 'corporate' | 'institution'
+export type BillingCycle = 'monthly' | 'annual'
+export type SubscriptionStatus = 'active' | 'past_due' | 'cancelled' | 'expired'
+export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'void'
+export type ReferralStatus = 'pending' | 'joined' | 'rewarded' | 'expired'
+
+/**
+ * Entitlements are data on the plan, so this is an open record rather than a
+ * fixed shape — Phase 9 adds keys without changing this type. The keys Phase 4
+ * defines are declared explicitly for the screens that read them.
+ */
+export interface Entitlements {
+  visits_per_month?: number | null
+  telemedicine_per_month?: number | null
+  lab_panels_per_year?: number | null
+  care_manager?: 'shared' | 'dedicated' | null
+  care_manager_ratio?: number
+  report_cadence?: 'monthly' | 'weekly'
+  family_seats?: number
+  priority_escalation?: boolean
+  ai_assistant?: boolean
+  [key: string]: string | number | boolean | null | undefined
+}
+
+export interface Plan {
+  id: number
+  code: string
+  name: string
+  audience: PlanAudience
+  tagline: string
+  monthly_paise: number
+  annual_paise: number | null
+  recommended: boolean
+  unit_label: string | null
+  unit_included: number | null
+  unit_paise: number | null
+  unit_period: string | null
+  entitlements: Entitlements
+}
+
+export interface Quota {
+  quota: string
+  label: string
+  period: 'month' | 'year'
+  /** `null` means unlimited — for the allowance and for what is left of it. */
+  limit: number | null
+  used: number
+  remaining: number | null
+  unlimited: boolean
+  period_start: string
+  period_end: string
+}
+
+export interface Subscription {
+  id: number
+  status: SubscriptionStatus
+  billing_cycle: BillingCycle
+  seats: number
+  started_at: string
+  current_period_start: string
+  current_period_end: string
+  /** Null once a cancellation is pending — there is nothing left to renew. */
+  renews_at: string | null
+  paid_months: number
+  cancel_at_period_end: boolean
+  cancelled_at: string | null
+  owner_label: string
+  family_user_id: number | null
+  organization_id: number | null
+  period_price_paise: number
+  credit_balance_paise: number
+  months_to_loyalty_reward: number
+  plan: Plan
+  quotas: Quota[]
+}
+
+export interface InvoiceLine {
+  id: number
+  description: string
+  kind: string
+  quantity: number
+  unit_paise: number
+  amount_paise: number
+}
+
+export interface AppliedCredit {
+  id: number
+  kind: 'referral' | 'loyalty' | 'adjustment'
+  reason: string
+  amount_paise: number
+}
+
+export interface Invoice {
+  id: number
+  number: string
+  subscription_id: number
+  plan_name: string
+  billed_to: string
+  period_start: string
+  period_end: string
+  issued_at: string
+  due_at: string
+  subtotal_paise: number
+  credit_paise: number
+  total_paise: number
+  status: InvoiceStatus
+  paid_at: string | null
+  payment_reference: string | null
+  lines: InvoiceLine[]
+  credits: AppliedCredit[]
+}
+
+export interface Referral {
+  id: number
+  /** Partially masked by the server. */
+  email: string
+  status: ReferralStatus
+  reward_paise: number
+  created_at: string
+  joined_at: string | null
+  rewarded_at: string | null
+}
+
+export interface ReferralSummary {
+  code: string
+  share_url: string
+  reward_months: number
+  reward_paise: number
+  friend_credit_paise: number
+  total_earned_paise: number
+  joined_count: number
+  pending_count: number
+  referrals: Referral[]
+}
+
+export interface PlanRevenue {
+  plan: string
+  subscribers: number
+  mrr_paise: number
+}
+
+export interface RevenueSummary {
+  mrr_paise: number
+  arr_paise: number
+  active_subscriptions: number
+  cancelled_subscriptions: number
+  pending_cancellations: number
+  collected_all_time_paise: number
+  collected_this_month_paise: number
+  outstanding_paise: number
+  overdue_paise: number
+  credits_outstanding_paise: number
+  arpu_paise: number
+  by_plan: PlanRevenue[]
+}
