@@ -22,6 +22,7 @@ from .routers import (
     assistant,
     auth,
     billing,
+    labs,
     leads,
     medications,
     notifications,
@@ -31,6 +32,7 @@ from .routers import (
     reports,
     safety,
     subscriptions,
+    tasks,
     visits,
 )
 
@@ -126,6 +128,8 @@ app.include_router(billing.router, prefix=api_prefix)
 app.include_router(referrals.router, prefix=api_prefix)
 app.include_router(reports.router, prefix=api_prefix)
 app.include_router(safety.router, prefix=api_prefix)
+app.include_router(labs.router, prefix=api_prefix)
+app.include_router(tasks.router, prefix=api_prefix)
 app.include_router(assistant.router, prefix=api_prefix)
 app.include_router(leads.router, prefix=api_prefix)
 app.include_router(public.router, prefix=api_prefix)

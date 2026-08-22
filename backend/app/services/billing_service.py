@@ -165,6 +165,94 @@ def generate_invoice(
     return invoice
 
 
+def charge_addon(
+    db: Session,
+    subscription: Subscription,
+    *,
+    addon_code: str,
+    quantity: int = 1,
+    description: str | None = None,
+    as_of: datetime | None = None,
+) -> InvoiceLine:
+    """Bill an incidental purchase — Phase 4's deferred add-on flow.
+
+    An add-on is **not a billing period**, so it gets its own invoice issued at
+    the moment of purchase rather than waiting for the next cycle. A family who
+    orders a ₹499 lab panel on the 3rd should not find the charge on an invoice
+    dated the 1st.
+
+    `period_start == period_end == the purchase moment` keeps the schema's
+    `(subscription_id, period_start)` uniqueness meaningful: two add-ons bought
+    in the same request land on **one** invoice rather than colliding, which is
+    also the behaviour a customer would expect. Credits apply exactly as they do
+    to a subscription invoice — `_apply_credits` is reused, so the "a credit is
+    never split" rule holds here too without being restated.
+    """
+    spec = pricing.ADD_ONS_BY_CODE.get(addon_code)
+    if spec is None:
+        raise BadRequestError(f"Unknown add-on '{addon_code}'.")
+
+    moment = as_of or now()
+    invoice = find_invoice_for_period(db, subscription, moment)
+    if invoice is None:
+        invoice = Invoice(
+            number=next_invoice_number(db, moment),
+            subscription_id=subscription.id,
+            period_start=moment,
+            period_end=moment,
+            issued_at=moment,
+            due_at=moment + timedelta(days=PAYMENT_TERMS_DAYS),
+            status=InvoiceStatus.ISSUED,
+        )
+        db.add(invoice)
+        db.flush()
+
+    line = InvoiceLine(
+        invoice_id=invoice.id,
+        description=description or f"{spec.name} ({spec.unit})",
+        kind=InvoiceLineKind.ADDON,
+        quantity=max(1, quantity),
+        unit_paise=spec.price_paise,
+        amount_paise=spec.price_paise * max(1, quantity),
+    )
+    db.add(line)
+    db.flush()
+
+    _retotal(db, invoice, subscription)
+    logger.info(
+        "Add-on %s x%s billed on invoice %s (subscription %s)",
+        addon_code,
+        quantity,
+        invoice.number,
+        subscription.id,
+    )
+    return line
+
+
+def _retotal(db: Session, invoice: Invoice, subscription: Subscription) -> Invoice:
+    """Recompute an invoice from its lines.
+
+    Credits already spent on this invoice are left alone — re-running
+    `_apply_credits` would double-count them — so only the shortfall created by
+    a newly added line is covered.
+    """
+    subtotal = int(
+        db.scalar(
+            select(func.coalesce(func.sum(InvoiceLine.amount_paise), 0)).where(
+                InvoiceLine.invoice_id == invoice.id
+            )
+        )
+        or 0
+    )
+    already = invoice.credit_paise or 0
+    extra = _apply_credits(db, invoice, subscription, max(0, subtotal - already))
+    invoice.subtotal_paise = subtotal
+    invoice.credit_paise = already + extra
+    invoice.total_paise = max(0, subtotal - invoice.credit_paise)
+    db.flush()
+    return invoice
+
+
 def _apply_credits(db: Session, invoice: Invoice, subscription: Subscription, subtotal: int) -> int:
     """Spend unused credits against this invoice, oldest first.
 
