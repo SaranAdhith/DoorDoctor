@@ -41,7 +41,7 @@ The full build specification lives in the founder's original prompt. The phase p
 | 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
 | 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
-| 5 | Realistic seed data | ✅ done — see Phase 5 results |
+| 5 | Realistic seed data | ✅ done — `d840578` |
 | 6 | Plain-language summary + reports | ⬜ **next** |
 | 7 | AI assistant (family + admin) | ⬜ |
 | 8 | Public marketing site + leads | ⬜ |
@@ -284,7 +284,7 @@ uncommitted in the working tree.**
 
 ---
 
-### Phase 5 — realistic seed data → see `docs/build-log/phase-5.md`
+### Phase 5 — realistic seed data → `d840578`
 
 - **`seed.py` became `backend/app/seed/`** via `git mv` (history preserved): `demo_data.py` (rosters,
   no logic), `generators.py` (pure functions, no db and no clock), `core.py` (the Phase-4 demo core),
