@@ -40,7 +40,7 @@ The full build specification lives in the founder's original prompt. The phase p
 | 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `53fdb4d` |
 | 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
 | 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
-| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `PENDING` |
+| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
 | 5 | Realistic seed data | ⬜ **next** |
 | 6 | Plain-language summary + reports | ⬜ |
 | 7 | AI assistant (family + admin) | ⬜ |
@@ -171,7 +171,7 @@ Still planned: `apscheduler`, `alembic` (backend); `react-helmet-async`, `@playw
 - Verified live in Chrome at 375/768/1024/1440, full journey end to end, and the 429 was confirmed
   against the running server (`retry-after: 3248`), not only in tests.
 
-### Phase 4 — subscriptions, billing, quotas, referrals, loyalty → `PENDING`
+### Phase 4 — subscriptions, billing, quotas, referrals, loyalty → `2058e32`
 
 - **⚠️ §3 of the build prompt was never supplied.** Prices came from the plan file's Phase 8
   paragraph verbatim. Tier *names*, every entitlement *quantity*, the referral reward and the
