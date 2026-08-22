@@ -70,3 +70,9 @@ limiter = RateLimiter()
 # Budgets for the password-reset flow (§2.1).
 FORGOT_PASSWORD_PER_EMAIL = (5, 3600)
 FORGOT_PASSWORD_PER_IP = (20, 3600)
+
+# Budget for the assistant (§2.3). An unmetered endpoint that reaches a paid LLM
+# from behind a login is the obvious way to burn a free Groq tier, and the
+# deterministic fallback is not free either — every question builds a context
+# pack, which is a dozen queries.
+ASSISTANT_PER_USER = (30, 3600)

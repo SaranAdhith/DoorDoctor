@@ -80,6 +80,37 @@ def contains_clinical_language(text: str) -> str | None:
     return None
 
 
+# What a family member calls each thing the platform measures.
+#
+# This lives here rather than in the assistant because *this module owns the
+# vocabulary rule*, and a second table elsewhere is how "blood sugar" and
+# "glucose" start appearing on the same screen. `alert_service.METRIC_LABELS` is
+# the clinical counterpart and is correct for admins — the two are deliberately
+# different, not duplicates.
+#
+# Both halves of a blood pressure map to the same phrase: a family member does
+# not think of two numbers, so callers listing several breached measurements
+# must de-duplicate.
+PLAIN_METRIC_LABELS: Final[dict[str, str]] = {
+    "systolic_bp": "blood pressure",
+    "diastolic_bp": "blood pressure",
+    "heart_rate": "heart rate",
+    "blood_glucose": "blood sugar",
+    "spo2": "oxygen level",
+    "temperature": "temperature",
+    "weight": "weight",
+}
+
+
+def plain_metric_label(metric: str) -> str:
+    """A measurement's name in the reader's vocabulary.
+
+    Falls back to "reading", which is vague but never wrong and never leaks a
+    column name to a family member.
+    """
+    return PLAIN_METRIC_LABELS.get(metric, "reading")
+
+
 # --------------------------------------------------------------------------
 # What counts as a change worth mentioning
 # --------------------------------------------------------------------------
@@ -530,7 +561,13 @@ FORBIDDEN_REGISTER: Final[tuple[str, ...]] = (
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
 
 
-def _numbers_in(text: str) -> set[str]:
+def numbers_in(text: str) -> set[str]:
+    """Every number appearing in `text`.
+
+    Public because the assistant's "no claim outside the context pack" gate is
+    the same idea as this module's "no invented number" gate, and one regex for
+    both is what keeps them from drifting apart.
+    """
     return set(_NUMBER.findall(text))
 
 
@@ -546,7 +583,7 @@ def _rewrite_is_acceptable(rewrite: str, source: str) -> bool:
         logger.info("Discarding rewrite: reintroduced the word %r", banned)
         return False
 
-    invented = _numbers_in(rewrite) - _numbers_in(source)
+    invented = numbers_in(rewrite) - numbers_in(source)
     if invented:
         logger.info("Discarding rewrite: %d number(s) not present in the source", len(invented))
         return False

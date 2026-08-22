@@ -9,6 +9,7 @@ import { ResetPassword } from './pages/ResetPassword'
 import { NurseVisitDetail } from './pages/nurse/NurseVisitDetail'
 import { NurseVisits } from './pages/nurse/NurseVisits'
 import { AdminAlerts } from './pages/admin/AdminAlerts'
+import { AdminAssistant } from './pages/admin/AdminAssistant'
 import { AdminRevenue } from './pages/admin/AdminRevenue'
 import { AdminSubscriptions } from './pages/admin/AdminSubscriptions'
 import { AdminNurses } from './pages/admin/AdminNurses'
@@ -16,6 +17,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminPatients } from './pages/admin/AdminPatients'
 import { AdminVisits } from './pages/admin/AdminVisits'
 import { FamilyAlerts } from './pages/family/FamilyAlerts'
+import { FamilyAssistant } from './pages/family/FamilyAssistant'
 import { FamilyDashboard } from './pages/family/FamilyDashboard'
 import { FamilyMedications } from './pages/family/FamilyMedications'
 import { FamilyReports } from './pages/family/FamilyReports'
@@ -48,6 +50,7 @@ export default function App() {
         <Route path="patient/:patientId" element={<PatientProfile />} />
         <Route path="medications" element={<FamilyMedications />} />
         <Route path="alerts" element={<FamilyAlerts />} />
+        <Route path="assistant" element={<FamilyAssistant />} />
         <Route path="reports" element={<FamilyReports />} />
         <Route path="plan" element={<MyPlan />} />
       </Route>
@@ -80,6 +83,7 @@ export default function App() {
         <Route path="nurses" element={<AdminNurses />} />
         <Route path="visits" element={<AdminVisits />} />
         <Route path="alerts" element={<AdminAlerts />} />
+        <Route path="assistant" element={<AdminAssistant />} />
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="revenue" element={<AdminRevenue />} />
       </Route>

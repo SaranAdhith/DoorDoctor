@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MessageCircleQuestion } from 'lucide-react'
 
 import { patientsApi } from '../../api/patients'
 import { useAuth } from '../../auth/AuthContext'
@@ -12,7 +13,7 @@ import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatDateTime, formatNumber, formatTime, greeting } from '../../lib/format'
 import { bloodPressure, evaluateReading } from '../../lib/vitals'
 import type { Patient } from '../../types'
-import { Card, EmptyState, ErrorState, LoadingScreen, Select, VisitStatusBadge } from '../../components/ui'
+import { Card, EmptyState, ErrorState, LinkButton, LoadingScreen, Select, VisitStatusBadge } from '../../components/ui'
 
 const STATUS_STYLES: Record<string, string> = {
   Stable: 'bg-brand-50 text-brand-700 ring-brand-200',
@@ -86,6 +87,18 @@ export function FamilyDashboard() {
       {alerts.length > 0 && <AlertBanner alert={alerts[0]} to={`/family/alerts?alert=${alerts[0].id}`} />}
 
       <PlainSummary patientId={patient.id} />
+
+      {/* The summary answers "how has she been?". This answers everything else,
+          in the reader's own words, which is the natural next question. */}
+      <div className="flex justify-center">
+        <LinkButton
+          to="/family/assistant"
+          variant="ghost"
+          icon={<MessageCircleQuestion className="h-4 w-4" aria-hidden="true" />}
+        >
+          Ask a question about {patient.name.split(' ')[0]}
+        </LinkButton>
+      </div>
 
       {/* Everything below the divider is the original clinical dashboard,
           unchanged. It has not been removed or reduced — it has stopped being

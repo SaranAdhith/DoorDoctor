@@ -440,3 +440,41 @@ export interface RevenueSummary {
   arpu_paise: number
   by_plan: PlanRevenue[]
 }
+
+// --- Assistant (Phase 7) ---------------------------------------------------
+
+/** Honest provenance. `deterministic` is the normal case, not a degraded one. */
+export type AssistantSource = 'deterministic' | 'assisted'
+
+export interface AssistantAnswer {
+  id: number
+  question: string
+  answer: string
+  intent: string
+  intent_title: string
+  source: AssistantSource
+  /** Matched deterministically and never sent to a model. Drives the alert treatment. */
+  is_emergency: boolean
+  patient_id: number | null
+  disclaimer: string
+  suggestions: string[]
+  created_at: string
+}
+
+export interface AssistantMessage {
+  id: number
+  question: string
+  answer: string
+  intent: string
+  intent_title: string
+  source: AssistantSource
+  is_emergency: boolean
+  patient_id: number | null
+  created_at: string
+}
+
+export interface AssistantSuggestion {
+  intent: string
+  title: string
+  question: string
+}

@@ -43,8 +43,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
 | 5 | Realistic seed data | ✅ done — `d840578` |
 | 6 | Plain-language summary + reports | ✅ done — `052841f` |
-| 7 | AI assistant (family + admin) | ⬜ **next** |
-| 8 | Public marketing site + leads | ⬜ |
+| 7 | AI assistant (family + admin) | ✅ done — `PENDING` |
+| 8 | Public marketing site + leads | ⬜ **next** |
 | 9 | Clinical features (labs → escalation) | ⬜ |
 | 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
 | 11 | Multi-family, hardening, tests, docs | ⬜ |
@@ -56,14 +56,14 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 287 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 365 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean (~5.4 s, full population)
 cd backend  && .venv/bin/python -m app.seed --small        # the dataset the test suite uses
 cd backend  && .venv/bin/python -m app.seed --demo-reset   # rewind the 148/92 path between demos
 cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 61 passing today
+cd frontend && npx vitest run                      # 71 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -95,7 +95,7 @@ Log in at `http://127.0.0.1:5173/login`, fill email + `Demo@123`, submit. Check 
 | `GROQ_API_KEY` | Phase 6 | `""` (empty) | LLM key. **Empty is the demo configuration** — everything works without it |
 | `GROQ_MODEL` | Phase 6 | `llama-3.3-70b-versatile` | Model id |
 | `GROQ_BASE_URL` | Phase 6 | `https://api.groq.com/openai/v1` | Any OpenAI-compatible provider drops in here |
-| `ASSISTANT_ENABLED` | Phase 6 | `true` | Master switch for every LLM call |
+| `ASSISTANT_ENABLED` | Phase 6 | `true` | Master switch for every LLM call — summary **and** assistant |
 | `REPORTS_SCHEDULER_ENABLED` | Phase 6 | `true` | **`false` in `tests/conftest.py`** — `TestClient` runs the lifespan |
 
 Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's system libraries
@@ -464,147 +464,172 @@ and a deliberately slow network still falls back inside 2s.
 
 ---
 
-## ▶ Starting Phase 7 — AI assistant, family + admin (§2.3)
+### Phase 7 — AI assistant, family + admin → `PENDING`
 
-**Read this whole section first, then the plan file's Phase 7 paragraph (line 256), then write
-`docs/build-log/phase-7.md` before writing any code.** Everything below is what a cold session
-would otherwise have to re-derive by reading the codebase.
+- **The model never queries the database.** `services/assistant_context.py` assembles a role-scoped
+  **context pack** and that pack is the only thing a model ever sees. Authorization therefore happens
+  while the pack is *built*, not while the answer is *written* — there is no prompt instruction to
+  disobey, because another family's patient was never in the context. `build_family_pack` refuses to
+  take a `patient_id` at all; the router resolves it through `authorize_patient` first.
+- **⚠️ §2.3's intent list was never supplied**, so the 14 intents are `ASSUMED` and live in one file,
+  `services/assistant_intents.py`. Same treatment as `core/pricing.py`. **Reconciliation table below.**
+- **The deterministic fallback is the product.** Built and tested first, ships alone, and every
+  intent is proven to answer with `GROQ_API_KEY` unset — parametrized over the catalogue, so an
+  intent cannot be added without a test. The Groq path came last and is a polish pass.
+- **The family pack is itself written in the family's vocabulary**, not just the answers composed
+  from it. That turns Phase 6's banned-word gate from a trap into a near-certainty: a model copying a
+  phrase straight out of the context cannot reintroduce a word the summary generator avoids. A test
+  asserts `contains_clinical_language(pack.render()) is None`.
+- **A family answer never quotes `Alert.message`.** `alert_service.build_alert_message` writes
+  "Systolic blood pressure 148 mmHg (above configured threshold 140 mmHg)" — three banned words in
+  one sentence. `breached_parameters` are translated through the new
+  `summary_service.plain_metric_label()` and de-duplicated, because both halves of a blood pressure
+  share one spoken name. **Admin answers use `alert_service.METRIC_LABELS` unchanged** — admins are
+  clinical staff and "systolic" is the correct word for them.
+- **Four gates stand between a model and a reader**, in `assistant_service`, not `llm_client` — the
+  client is transport, the service owns meaning. (1) **no number outside `pack.numbers()`** ∪ the
+  deterministic answer, (2) no banned vocabulary — **family only**, (3) no advice register, (4)
+  length. Gate 1 is the analogue of Phase 6's rule and the one that matters. Gate 2 being family-only
+  is asserted both ways: the same "systolic" wording is discarded for a family and **kept** for an
+  admin.
+- **The emergency intent short-circuits before the pack is built and never reaches a model.** Matched
+  first, outside the scoring, returning a fixed **108 → nurse → DoorDoctor** escalation. Proven with
+  a monkeypatch that raises if `complete` is called. Matching is **phrases only** — a bare "help"
+  false-positives on "can you help me read my bill?", and a bare `108` false-positives on a blood
+  sugar of 108, so the catalogue matches `call 108` / `dial 108` / `phone 108` and nothing barer.
+  Both cases are pinned by tests.
+- **No second LLM client.** `llm_client.complete()` is called with `ASSISTANT_TIMEOUT` (8s) instead
+  of `SUMMARY_TIMEOUT` (2s), and a test asserts the assistant passes its own budget.
+- **Nurses have no assistant.** Decided explicitly with the founder; `require_family_or_admin` plus a
+  test that pins the 403 on all three routes, so it is explicit rather than accidental. A nurse
+  assistant needs its own pack and intents — Phase 10.
+- **Retention is access scoping, not redaction.** Nothing in an `assistant_messages` row is a
+  credential (unlike Phase 3's reset tokens), so redacting would destroy the feature and protect
+  nobody. `GET /assistant/conversations` filters `user_id == current_user.id` and **no route lets an
+  admin read another user's history** — three tests, including one proving a second family sees an
+  empty list. Erasure is deferred to Phase 10's consent/audit/Privacy work.
+- **Rate limited at 30 questions per user per hour** through the existing `core/ratelimit.py`
+  (`ASSISTANT_PER_USER`). Already reset per-test by the autouse fixture, so it cost no plumbing.
+- **No new process-global cache**, deliberately: a summary repaints from identical inputs, an
+  assistant question is different every time. If that ever changes, register it in
+  `clean_process_state` or test order will decide test outcomes.
+- **365 backend tests** (was 287) and **71 Vitest** (was 61). Verified live in Chrome at
+  375/768/1024/1440 for both roles, zero console errors. The admin thread reports **MRR ₹2,30,250
+  across 20 active subscriptions** and **Sanjay Dutta past due** — matching the Phase 5 ledger
+  exactly, because the pack borrows `billing_service.revenue_summary` rather than re-querying it.
+- Fixed on the way: readings were prefixed with the patient's name *per measurement* ("Lakshmi's
+  blood pressure…, Lakshmi's heart rate…, Lakshmi's blood sugar…"), now bare phrases with the caller
+  owning the sentence and **no pronoun at all** — `Patient.gender` records a gender, not pronouns.
+  Pluralisation across every admin answer ("1 visits", "1 nurses on the roster"). "a RN/ANM" →
+  "a qualified RN/ANM", which sidesteps article agreement for any credential string. `scrollIntoView`
+  is feature-detected — absent in jsdom, and a scroll convenience must never throw in a render effect
+  and blank the thread. The server's `disclaimer` was returned and never rendered; it now closes the
+  panel. `LinkButton` gained the `icon` prop `Button` already had.
 
-### ⚠️ FIRST — §2.3's intent list was never supplied
+#### ⚠️ Reconcile with the real §2.3 — everything below is invented
 
-The plan says the fallback "answers every **listed** family and admin intent". That list lives in
-§2.3 of the founder's build prompt, **which is not in the repo and was never pasted into a build
-session.** This is the same class of gap as §3 (pricing), which Phase 4 hit and resolved by
-inventing values, isolating them in one file and marking them `ASSUMED`.
+All of it lives in **one file**, `backend/app/services/assistant_intents.py`:
 
-Do the same thing here, and do it deliberately:
-
-1. **Ask the founder for §2.3's intent list.** It is one message and it removes the guesswork.
-2. If it does not arrive, derive the intents from what the data model can actually answer, put them
-   in **one module** (`services/assistant_intents.py` or a constant block at the top of
-   `assistant_fallback.py`), and mark them `ASSUMED` in the same style as `core/pricing.py`. Add a
-   reconciliation table to STATE.md exactly as Phase 4 did.
-3. **Do not scatter intent strings across the service.** The reconciliation has to be a one-file
-   change when the real list appears.
-
-A defensible starting set, derived from what the platform genuinely knows — every one of these is
-answerable from existing data with no new tables:
-
-| Role | Intent | Answerable from |
+| Value | Assumed | Confidence |
 |---|---|---|
-| family | How has Amma been this week? | `summary_service.build_deterministic` |
-| family | What were the last readings? | `vitals_service.latest_for_patient` |
-| family | Is she taking her medicines? | `medication_service.adherence_for_patient` |
-| family | When is the next visit? | `visit_service` upcoming |
-| family | Who is the nurse, and are they verified? | `Nurse.credential`, `verification_status` |
-| family | What was that alert about? | `alert_service`, `Alert.breached_parameters` |
-| family | What does my plan cover / what have I paid? | `subscription_service.entitlement`, `billing_service` |
-| family | Something is wrong right now | **the emergency path — 108, then nurse, then admin** |
-| admin | Which patients need attention today? | open alerts by severity |
-| admin | What is on the board today? | `visit_service.list_today_visits` |
-| admin | Which visits are unassigned? | today's board, `nurse_id is None` |
-| admin | How is nurse X doing? | `admin_service.list_nurses`, open visit counts |
-| admin | What is MRR / who is past due? | `billing_service.revenue_summary` |
+| The 14 intents themselves | 8 family · 5 admin · 1 shared, plus `emergency` and `unknown` | derived from what the data model can answer; the *coverage* is defensible, the *list* is invented |
+| Intent ids and titles | `latest_readings`, `medicines`, `needs_attention`, … | invented |
+| Starter questions (the chips) | "What were her last readings?" etc. | invented — these are user-visible copy |
+| Match phrases and keywords | per intent | invented |
+| `PHRASE_WEIGHT` 4 · `KEYWORD_WEIGHT` 1 · `MATCH_FLOOR` 2 | scoring | invented, tuned against the seeded data |
+| Emergency phrase list | 25 phrases | invented; **the 108 → nurse → admin escalation itself is recorded** |
+| `ASSISTANT_PER_USER = (30, 3600)` | rate budget | invented |
+| Question cap of 500 characters | schema | invented |
 
-### Build order — the fallback first, exactly as Phase 6 did
+The **escalation order (108 → nurse → admin)**, the **8-second timeout**, the **role split
+(family + admin)** and the **"never diagnose, never touch medication, always close with the
+disclaimer"** rules are all recorded in the plan and are *not* assumed.
 
-1. **`services/assistant_context.py`** — assembles the role-scoped **context pack**. This is the
-   security boundary and it is worth its own module: family packs contain only patients that pass
-   `authorize_patient`, admin packs are org-wide but carry no billing detail a nurse could reach.
-2. **`services/assistant_fallback.py`** — deterministic intent matcher over that pack. Built and
-   tested **first**; answers every intent with no key and no network.
-3. `models/assistant.py`, `services/assistant_service.py`, `routers/assistant.py`.
-4. **Only then** the Groq path, behind the **existing** `llm_client.complete()` with
-   `llm_client.ASSISTANT_TIMEOUT` (8s).
-5. Frontend last.
+#### Deliberately deferred out of Phase 7
 
-**Verify with `GROQ_API_KEY` unset before calling the phase done** — that is the demo configuration,
-and Phase 6 proved the pattern works.
+- **No nurse assistant** — see above. Phase 10.
+- **No erasure of stored exchanges.** Phase 10, with consent and the audit log.
+- **The `AI_ASSISTANT` entitlement is not enforced.** It is `True` on all five plans, so a gate is a
+  no-op today, and Phase 4 deferred point-of-use entitlement enforcement until §3 is reconciled.
+  Consistent with that deferral, not an oversight.
+- **The assistant is not on the family dashboard as a panel**, only as a link under the summary.
+  Phase 6's layout was left alone deliberately; the assistant has its own screen.
 
-### What Phase 6 already built — reuse it, do not rebuild it
+---
 
-```python
-# backend/app/services/llm_client.py — the single LLM boundary. DO NOT WRITE A SECOND ONE.
-complete(*, system: str, user: str, timeout: float,
-         max_tokens: int = 400, temperature: float = 0.2) -> str | None
-available() -> bool                    # settings.assistant_enabled and a non-empty key
-SUMMARY_TIMEOUT = 2.0 ; ASSISTANT_TIMEOUT = 8.0
-```
+## ▶ Starting Phase 8 — Public marketing site + leads (§2.6)
 
-It **never raises** — no key, disabled, timeout, 500, malformed body and empty completion all return
-`None`, so there is exactly one fallback path. It **never logs the prompt or the completion**; a test
-asserts a patient name never reaches the log. Keep that property.
+**Read this whole section first, then the plan file's Phase 8 paragraph, then write
+`docs/build-log/phase-8.md` before writing any code.** Phase 8 closes the "credible demoable
+platform" line — a finished Phase 8 beats a broken Phase 11.
 
-- **The validation shape to copy** is `summary_service._rewrite_is_acceptable`: gates live in the
-  **service**, not the client — the client is transport, the service owns meaning. Fall back
-  silently, and report `source` (`deterministic` / `assisted`) honestly in the payload so the demo
-  can *show* the fallback rather than assert it.
-  The assistant needs different gates. The strongest one available here is the analogue of Phase 6's
-  "no invented numbers": **no claim outside the context pack.** At minimum, every number in the
-  answer must appear in the pack.
-- **`summary_service.contains_clinical_language(text) -> str | None`** — the banned-word guard.
-  Apply it to **family-facing** assistant answers; §2.3 does not require it explicitly, but a
-  platform that says "blood pressure" on the dashboard and "systolic" in the assistant has two
-  voices. Do not apply it to admin answers — admins are clinical staff.
-- **`summary_service.build_deterministic(db, patient, window)`** already produces a plain-language
-  view of one patient's window. Use it *in* the family context pack rather than assembling the same
-  facts a second way.
-- **`_SummaryCache`** (content fingerprint + TTL + `reset()`) is the caching pattern if assistant
-  answers need it. **Register any new process-global cache in the autouse `clean_process_state`
-  fixture in `tests/conftest.py`**, or test order will decide test outcomes.
+### ⚠️ FIRST — reconcile §3 before publishing a single price
 
-### Proposed API surface
+This is now blocking. Phase 4 invented tier names, every entitlement quantity, the referral reward
+and the loyalty benefit, and marked them `ASSUMED` in `backend/app/core/pricing.py`. **Phase 8 puts
+prices on a public page**, which is the moment an invented number stops being an internal placeholder
+and becomes a claim to a paying customer.
 
-```
-POST /assistant/ask          {question, patient_id?}  -> {answer, source, intent, disclaimer, ...}
-GET  /assistant/conversations                          -> the caller's own history
-GET  /assistant/suggestions?patient_id=                -> role-scoped starter questions
-```
+1. **Ask the founder for §3.** One message.
+2. The full list of invented values is in the **Phase 4 results** above. Fix them in
+   `core/pricing.py` — one file, and `test_pricing.py` will catch anything that moves.
+3. **Phase 8 must import those constants, never restate a number.** A price typed into a `.tsx` is
+   the second source of truth and the first thing to go stale.
 
-Role handling follows the existing precedent: `CurrentUser` + `authorize_patient` for anything
-patient-scoped. **Someone else's patient is a 404, never a 403** — a 403 confirms the record exists,
-which is enough to learn that a named person is a DoorDoctor patient. `authorize_report` in
-`core/dependencies.py` is the most recent worked example.
+There is also **recorded evidence the entitlements are wrong**: §2.4 records ~1,400 visits over 90
+days for 28 patients — **16.7 visits per patient per month** against assumed tiers of 4 / 8 / 12.
+See the note under Phase 5. Settle this before it reaches a pricing page.
+
+Prices that *are* recorded verbatim in the plan and can be published as-is: ₹2,500 / **₹3,500
+Recommended** / ₹4,500 monthly; ₹25,000 / ₹35,000 / ₹45,000 annual ("2 months free"); corporate
+₹2,800/employee/month; institutional ₹38,000 / ₹58,000 / ₹78,000 led by **₹84 / ₹77 / ₹65 per
+resident per day**; add-ons blood panel ₹499, pill organiser ₹199.
+
+### The other thing to settle first
+
+**No invented social proof.** DoorDoctor is pre-launch: no traction numbers, no testimonials, no
+customer counts, no certifications, no partner logos. This is a locked decision at the top of this
+file and a marketing site is exactly where it gets violated by accident. Both founders — **Saran
+Adhith (Founder & CEO)** and **Darren D'Souza (Co-Founder)** — are always presented together as an
+equal pair.
+
+### What already exists — reuse it, do not rebuild it
+
+- **`core/pricing.py`** — every price, in integer paise. Imports nothing from the app, so the public
+  pages may read it freely. `billing_service.format_inr` does lakh grouping; `lib/money.ts` mirrors
+  it on the client and both are asserted against the same cases.
+- **`core/ratelimit.py`** — sliding window, `TooManyRequestsError` → 429 + `Retry-After`, reset by
+  the autouse fixture. **The lead form uses this**, with a new budget constant beside
+  `FORGOT_PASSWORD_*` and `ASSISTANT_PER_USER`. Do not build a second limiter.
+- **`components/ui/`** — 28 primitives plus `SegmentedControl` (monthly/annual toggle) and the
+  `LinkButton` that now carries an `icon`. The public site should look like the product, so compose
+  from this layer rather than starting a parallel marketing stylesheet.
+- **`AuthLayout`** backs the three auth screens; `PublicLayout` is its sibling, not its replacement.
 
 ### Things that will bite
 
-- **Rate limit `/assistant/ask`.** `core/ratelimit.py` already exists (Phase 3, sliding window,
-  raises `TooManyRequestsError` → 429 + `Retry-After`) and is already reset per-test by the autouse
-  fixture. An unmetered LLM endpoint behind a login is the obvious way to burn a free Groq tier.
-- **Conversation persistence is a privacy decision, not a schema decision.** `models/assistant.py`
-  will store a family member's questions about a named patient. Phase 3 set the precedent that
-  sensitive values are redacted *before* they are persisted (`notification_delivery.deliver(...,
-  sensitive=[...])`, and a test proves the raw token never lands in a stored body). Decide the
-  retention stance explicitly and write it in the docstring.
-- **Nurses.** The plan names *family + admin* only. Decide explicitly whether a nurse gets an
-  assistant; if not, `require_family_or_admin` already exists. Do not leave it accidental.
-- **The emergency intent must be matched deterministically and must never reach the model.**
-  "I think she is having a stroke" is not a question to send to a 70B model with an 8s timeout and a
-  fallback path. Match it in `assistant_fallback` first, return **108 → nurse → admin** immediately,
-  and short-circuit before any LLM call.
-- **The suite is ~3 minutes**, almost all bcrypt (~180 logins × 0.73s). Run targeted files while
-  iterating (`pytest tests/test_assistant.py -q`) and the full suite before committing.
+- **`/` currently redirects to `/login`** (`RootRedirect` in `App.tsx`). Phase 8 makes `/` the public
+  home. `ProtectedRoute` behaviour must not change, and a signed-in user hitting `/` should still
+  land on their role home — decide that explicitly rather than letting the redirect vanish.
+- **The login footer back-link was deferred to this phase.** §2.5 asks for it; it was a loop while
+  `/` redirected to `/login`. Add it now.
+- **Lead capture is unauthenticated**, which makes it the only public write endpoint in the codebase.
+  Rate limit it, honeypot it, and cap every field length — `schemas/assistant.py` shows the length-cap
+  pattern and why.
+- **`react-helmet-async` is a new dependency** (per-route SEO tags), and the venv has **no `pip`** —
+  that note is for the backend; the frontend is plain `npm install`.
+- **The suite is ~3.5 minutes**, almost all bcrypt. Run targeted files while iterating.
 
 ### Do not break these
 
 - Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
   **Lakshmi carries no open alert**. `tests/test_seed.py` pins all four.
-- `tests/conftest.py` seeds `SMALL` and sets `GROQ_API_KEY=""` and `REPORTS_SCHEDULER_ENABLED=false`.
-- **To test the assisted path, monkeypatch `llm_client.complete`** — copy the `assisted` fixture at
-  the bottom of `tests/test_summary.py`, which also hands back a call counter for cache assertions.
-  `tests/test_llm_client.py` shows how to fake `httpx` responses without a network.
-- The autouse `clean_process_state` fixture resets the rate limiter and the summary cache.
+- `tests/conftest.py` seeds `SMALL`, sets `GROQ_API_KEY=""` and `REPORTS_SCHEDULER_ENABLED=false`.
+- The autouse `clean_process_state` fixture resets the rate limiter and the summary cache. **Register
+  any new process-global there.**
+- Backend **365**, Vitest **71**. The counts only grow.
 
-### Definition of done for Phase 7
-
-- Every intent answered **with `GROQ_API_KEY` unset**, proven by test.
-- A family user asking about another family's patient is **refused** (404), proven by test.
-- The emergency path returns 108 → nurse → admin without touching the model, proven by test.
-- Backend test count grows from **287**; Vitest from **61**.
-- Verified live in Chrome at 375 / 768 / 1024 / 1440, zero console errors.
-- `docs/build-log/phase-7.md` written before the code and closed with an "As executed" section.
-- One conventional commit on `main`, then the hash recorded in the phase table above.
-
+---
 
 ## Open items and deferrals
 
@@ -636,12 +661,25 @@ which is enough to learn that a named person is a DoorDoctor patient. `authorize
 - **The report scheduler is in-process (Phase 6).** APScheduler runs inside the API process, so two
   replicas would both generate Sunday's reports. Idempotency means the result is still one report per
   patient, but the work is done twice. Move to a worker in Phase 11 alongside Postgres.
-- **No Groq request has ever been made (Phase 6).** Every LLM path is proven against a monkeypatched
-  `httpx`, and the platform is verified complete with no key at all. Ask the founder for the key
-  before Phase 7 reaches its step 3.
+- ⚠️ **No Groq request has ever been made (Phases 6 and 7).** Every LLM path in the codebase — the
+  summary rewrite and now the assistant — is proven against a monkeypatched `httpx`/`complete`, and
+  the platform is verified complete and correct with **no key at all**, which is what the definition
+  of done required. The founder said on 2026-08-22 they would supply a key; it has not arrived yet.
+  When it does, set `GROQ_API_KEY` and confirm three things: a real completion clears the four gates,
+  `source` flips to `assisted` in both the summary and the assistant, and a deliberately slow network
+  still falls back inside 2s / 8s respectively. Nothing is blocked in the meantime.
+- ✅ **§2.3's intent list** — resolved the Phase 4 way. Never supplied, so the 14 intents are
+  `ASSUMED` and isolated in `backend/app/services/assistant_intents.py`. Reconciliation table in the
+  Phase 7 results above; reconciling is a one-file change. **Do not inline an intent string anywhere
+  else.**
 - ✅ **Plain-language summary and reports** — done in Phase 6. `summary_service` owns the vocabulary
-  rule; `report_service` freezes and re-renders. Phase 7 reuses `llm_client` and the four-gate
-  validation shape rather than building either again.
+  rule; `report_service` freezes and re-renders. Phase 7 reused `llm_client` and the four-gate
+  validation shape rather than building either again, exactly as intended.
+- ✅ **AI assistant** — done in Phase 7. `assistant_context` is the security boundary,
+  `assistant_fallback` is the product, and the Groq path is a gated polish pass behind the same
+  single `llm_client`.
+- **Login footer back-link — now due.** §2.5 asks for a link back to the public site; it was a loop
+  while `/` redirected to `/login`. Phase 8 lands `pages/public/`, so add it then.
 
 ---
 

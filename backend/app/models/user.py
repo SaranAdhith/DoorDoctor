@@ -10,6 +10,7 @@ from ..database import Base, now
 from .enums import UserRole
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .assistant import AssistantMessage
     from .nurse import Nurse
     from .patient import Patient
 
@@ -31,3 +32,7 @@ class User(Base):
 
     patients: Mapped[list["Patient"]] = relationship(back_populates="family_user")
     nurse_profile: Mapped[Optional["Nurse"]] = relationship(back_populates="user", uselist=False)
+    # Cascades: an assistant exchange is meaningless once its only reader is gone.
+    assistant_messages: Mapped[list["AssistantMessage"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )

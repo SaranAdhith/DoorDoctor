@@ -5,6 +5,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  MessageCircleQuestion,
   Pill,
   Stethoscope,
   TrendingUp,
@@ -39,7 +40,11 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     {
       items: [
         { to: '/family/dashboard', label: 'Dashboard', icon: LayoutDashboard, primary: true },
-        { to: '/family/medications', label: 'Medications', icon: Pill, primary: true },
+        // Primary, and Medications yields its bottom-bar slot for it: asking a
+        // question in your own words is the point of the product, and the
+        // mobile bar holds four.
+        { to: '/family/assistant', label: 'Ask DoorDoctor', icon: MessageCircleQuestion, primary: true },
+        { to: '/family/medications', label: 'Medications', icon: Pill },
         { to: '/family/alerts', label: 'Alerts', icon: Bell, primary: true },
         { to: '/family/reports', label: 'Reports', icon: FileText },
       ],
@@ -63,6 +68,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/admin/visits', label: 'Visits', icon: CalendarDays, primary: true },
         { to: '/admin/alerts', label: 'Alerts', icon: Bell, primary: true },
+        { to: '/admin/assistant', label: 'Ask DoorDoctor', icon: MessageCircleQuestion },
       ],
     },
     {

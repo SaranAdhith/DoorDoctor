@@ -149,3 +149,14 @@ class PaymentStatus(str, Enum):
     SIMULATED = "simulated"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+
+
+class AssistantSource(str, Enum):
+    """Where an assistant answer came from.
+
+    Reported honestly in the payload. `deterministic` is the normal case and not
+    a degraded one — it is what the platform ships with no API key at all.
+    """
+
+    DETERMINISTIC = "deterministic"
+    ASSISTED = "assisted"

@@ -1,12 +1,14 @@
 """ORM models. Importing this package registers every table on the declarative Base."""
 
 from .alert import Alert
+from .assistant import AssistantMessage
 from .billing import Invoice, InvoiceLine
 from .nurse import Nurse
 from .delivery import DeliveryLog
 from .enums import (
     AlertSeverity,
     AlertStatus,
+    AssistantSource,
     BillingCycle,
     CreditKind,
     DeliveryChannelName,
@@ -44,6 +46,8 @@ __all__ = [
     "Alert",
     "AlertSeverity",
     "AlertStatus",
+    "AssistantMessage",
+    "AssistantSource",
     "BillingCycle",
     "Credit",
     "CreditKind",

@@ -19,6 +19,7 @@ from .database import create_all
 from .routers import (
     admin,
     alerts,
+    assistant,
     auth,
     billing,
     medications,
@@ -43,7 +44,9 @@ allowances, periods roll over and invoice themselves, and referral and loyalty
 rewards both settle as credits against the next invoice.
 
 Families also get a plain-language summary of how their relative has been, and a
-weekly and monthly report as a PDF.
+weekly and monthly report as a PDF. Both families and admins can ask an assistant
+questions in their own words; it answers from a role-scoped context pack, never
+from the database directly, and works with no API key configured.
 
 Alerts describe readings that fall outside the patient's configured monitoring
 thresholds. They are not medical diagnoses. No payment gateway is integrated in
@@ -115,6 +118,7 @@ app.include_router(subscriptions.router, prefix=api_prefix)
 app.include_router(billing.router, prefix=api_prefix)
 app.include_router(referrals.router, prefix=api_prefix)
 app.include_router(reports.router, prefix=api_prefix)
+app.include_router(assistant.router, prefix=api_prefix)
 
 
 @app.get("/", tags=["system"], summary="Service banner")
