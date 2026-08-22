@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Invoice, Nurse, Patient, Subscription, User, UserRole, Visit
+from ..models import Invoice, Nurse, Patient, Report, Subscription, User, UserRole, Visit
 from .exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from .security import decode_access_token
 
@@ -109,6 +109,23 @@ def authorize_patient(db: Session, user: User, patient_id: int) -> Patient:
         return patient
 
     raise NotFoundError("Patient not found.")
+
+
+def authorize_report(db: Session, user: User, report_id: int) -> Report:
+    """Load a report the user is allowed to see.
+
+    Delegates to `authorize_patient` rather than repeating its rules, so a
+    report is visible to exactly the people the patient behind it is visible to,
+    and someone else's report is a 404 for the same reason.
+    """
+    report = db.get(Report, report_id)
+    if report is None:
+        raise NotFoundError("Report not found.")
+    try:
+        authorize_patient(db, user, report.patient_id)
+    except NotFoundError:
+        raise NotFoundError("Report not found.") from None
+    return report
 
 
 def authorize_visit(db: Session, user: User, visit_id: int) -> Visit:

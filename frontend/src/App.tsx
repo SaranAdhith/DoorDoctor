@@ -18,6 +18,7 @@ import { AdminVisits } from './pages/admin/AdminVisits'
 import { FamilyAlerts } from './pages/family/FamilyAlerts'
 import { FamilyDashboard } from './pages/family/FamilyDashboard'
 import { FamilyMedications } from './pages/family/FamilyMedications'
+import { FamilyReports } from './pages/family/FamilyReports'
 import { MyPlan } from './pages/family/MyPlan'
 import { PatientProfile } from './pages/family/PatientProfile'
 
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="patient/:patientId" element={<PatientProfile />} />
         <Route path="medications" element={<FamilyMedications />} />
         <Route path="alerts" element={<FamilyAlerts />} />
+        <Route path="reports" element={<FamilyReports />} />
         <Route path="plan" element={<MyPlan />} />
       </Route>
 

@@ -1,6 +1,6 @@
 """Patient profile, dashboard, threshold and medication endpoints."""
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, status
 from sqlalchemy import select
@@ -16,7 +16,8 @@ from ..schemas.patient import (
     ThresholdOut,
     ThresholdUpdate,
 )
-from ..services import dashboard_service, medication_service, vitals_service
+from ..schemas.summary import PlainSummaryOut
+from ..services import dashboard_service, medication_service, summary_service, vitals_service
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -41,6 +42,27 @@ def get_patient(patient_id: int, current_user: CurrentUser, db: DbSession) -> Pa
 def get_dashboard(patient_id: int, current_user: CurrentUser, db: DbSession) -> dict[str, Any]:
     patient = authorize_patient(db, current_user, patient_id)
     return dashboard_service.build_dashboard(db, patient)
+
+
+@router.get(
+    "/{patient_id}/plain-summary",
+    response_model=PlainSummaryOut,
+    summary="Plain-language health summary",
+)
+def plain_summary(
+    patient_id: int,
+    current_user: CurrentUser,
+    db: DbSession,
+    window: Literal["7d", "30d", "90d"] = "7d",
+) -> dict[str, Any]:
+    """The dashboard in the language a family member actually speaks.
+
+    `window` is a `Literal`, so an unrecognised value is a 422 rather than a
+    silent fall back to 7 days — a summary that quietly answers a different
+    question than the one asked is worse than an error.
+    """
+    patient = authorize_patient(db, current_user, patient_id)
+    return summary_service.plain_summary(db, patient, window)
 
 
 @router.get("/{patient_id}/medications", response_model=list[MedicationOut], summary="Medication schedule")

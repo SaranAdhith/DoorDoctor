@@ -21,6 +21,7 @@ from .enums import (
     PaymentStatus,
     PlanAudience,
     ReferralStatus,
+    ReportKind,
     SubscriptionStatus,
     UserRole,
     VerificationStatus,
@@ -33,6 +34,7 @@ from .organization import Organization
 from .password_reset import PasswordResetToken
 from .patient import Patient, PatientThreshold
 from .referral import Credit, Referral
+from .report import Report
 from .subscription import Plan, QuotaUsage, Subscription
 from .user import User
 from .visit import Visit
@@ -71,6 +73,8 @@ __all__ = [
     "QuotaUsage",
     "Referral",
     "ReferralStatus",
+    "Report",
+    "ReportKind",
     "Subscription",
     "SubscriptionStatus",
     "User",

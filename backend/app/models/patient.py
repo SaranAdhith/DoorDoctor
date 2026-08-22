@@ -12,6 +12,7 @@ from .enums import PatientStatus, VitalMetric
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .alert import Alert
     from .medication import Medication
+    from .report import Report
     from .user import User
     from .visit import Visit
     from .vital import Vital
@@ -41,6 +42,9 @@ class Patient(Base):
     medications: Mapped[list["Medication"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     alerts: Mapped[list["Alert"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     thresholds: Mapped[list["PatientThreshold"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    reports: Mapped[list["Report"]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
     )
 

@@ -15,6 +15,12 @@ _TMP = Path(tempfile.mkdtemp(prefix="doordoctor-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP / 'app.db'}"
 os.environ["JWT_SECRET"] = "test-secret-key"
 os.environ["JWT_EXPIRE_MINUTES"] = "60"
+# `TestClient` as a context manager runs the lifespan, so without this the suite
+# would start a background scheduler thread on every client fixture.
+os.environ["REPORTS_SCHEDULER_ENABLED"] = "false"
+# The suite must never reach a real provider. Tests that exercise the assisted
+# path monkeypatch `llm_client` explicitly.
+os.environ["GROQ_API_KEY"] = ""
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
@@ -44,14 +50,20 @@ SINGLE_BREACH_VITALS = {**NORMAL_VITALS, "systolic_bp": 148}
 
 
 @pytest.fixture(autouse=True)
-def clean_rate_limiter():
-    """The rate limiter is process-global, so without this test order would
-    decide test outcomes."""
+def clean_process_state():
+    """Reset every process-global cache between tests.
+
+    The rate limiter and the summary cache both outlive a single test, so
+    without this, test order would decide test outcomes.
+    """
     from app.core.ratelimit import limiter
+    from app.services.summary_service import cache as summary_cache
 
     limiter.reset()
+    summary_cache.reset()
     yield
     limiter.reset()
+    summary_cache.reset()
 
 
 @pytest.fixture(scope="session")

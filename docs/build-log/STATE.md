@@ -42,8 +42,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
 | 5 | Realistic seed data | ✅ done — `d840578` |
-| 6 | Plain-language summary + reports | ⬜ **next** |
-| 7 | AI assistant (family + admin) | ⬜ |
+| 6 | Plain-language summary + reports | ✅ done — `PENDING` |
+| 7 | AI assistant (family + admin) | ⬜ **next** |
 | 8 | Public marketing site + leads | ⬜ |
 | 9 | Clinical features (labs → escalation) | ⬜ |
 | 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
@@ -56,14 +56,14 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 210 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 287 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean (~5.4 s, full population)
 cd backend  && .venv/bin/python -m app.seed --small        # the dataset the test suite uses
 cd backend  && .venv/bin/python -m app.seed --demo-reset   # rewind the 148/92 path between demos
 cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 56 passing today
+cd frontend && npx vitest run                      # 61 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -92,6 +92,11 @@ Log in at `http://127.0.0.1:5173/login`, fill email + `Demo@123`, submit. Check 
 | `CORS_ORIGINS` | baseline | `http://localhost:5173,...` | CORS allow-list |
 | `VITE_API_BASE_URL` | baseline | `http://localhost:8000/api/v1` | Frontend API base |
 | `FRONTEND_BASE_URL` | Phase 3 | `http://localhost:5173` | Where password-reset links point |
+| `GROQ_API_KEY` | Phase 6 | `""` (empty) | LLM key. **Empty is the demo configuration** — everything works without it |
+| `GROQ_MODEL` | Phase 6 | `llama-3.3-70b-versatile` | Model id |
+| `GROQ_BASE_URL` | Phase 6 | `https://api.groq.com/openai/v1` | Any OpenAI-compatible provider drops in here |
+| `ASSISTANT_ENABLED` | Phase 6 | `true` | Master switch for every LLM call |
+| `REPORTS_SCHEDULER_ENABLED` | Phase 6 | `true` | **`false` in `tests/conftest.py`** — `TestClient` runs the lifespan |
 
 Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's system libraries
 (pango, cairo, harfbuzz, gobject) are verified present for Phase 6. PyPI and npm are reachable.
@@ -102,9 +107,11 @@ Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's sy
 |---|---|---|
 | frontend | `lucide-react` | Icons, replacing emoji (Phase 2) |
 | backend | `weasyprint` 69.0 | Invoice PDFs (Phase 4) — **pulled forward from Phase 6** |
+| backend | `apscheduler` 3.11.3 | Weekly/monthly report scheduling (Phase 6) |
 
-Still planned: `apscheduler`, `alembic` (backend); `react-helmet-async`, `@playwright/test`
-(frontend). **No `anthropic` — the provider is Groq via `httpx`.**
+Still planned: `alembic` (backend); `react-helmet-async`, `@playwright/test` (frontend).
+**No `anthropic` — the provider is Groq via `httpx`.** Phase 6 added the Groq client and it needed
+no new dependency, exactly as planned.
 
 ⚠️ **The backend venv has no `pip`** — it was created by `uv`. Install with
 `uv pip install --python .venv/bin/python <package>`, not `.venv/bin/pip`.
@@ -369,74 +376,142 @@ assumed entitlements. Reconcile §3 first, then enforce.
 
 ---
 
-## ▶ Starting Phase 6 — plain-language summary + reports (§2.2, §4.1)
+### Phase 6 — plain-language summary, reports, the LLM boundary → `PENDING`
 
-**Read this section, then the plan file's Phase 6 paragraph.** Everything below is what a cold
-session would otherwise have to re-derive by reading the codebase.
+- **The banned-word list is a runtime guard, not only a test.** `summary_service`
+  `contains_clinical_language()` is applied to the deterministic output by the suite *and* to every
+  LLM rewrite at runtime. A test asserting the generator avoids "systolic" is worth little if the
+  rewrite three steps later puts it back. Substring matching on purpose, so "thresholds" and
+  "breached" are caught with their stems.
+- **The deterministic generator is the product; the model is a polish pass.** It ships alone,
+  verified live with `GROQ_API_KEY` unset. `source` is reported honestly in the payload
+  (`deterministic` / `assisted`) so the fallback can be *shown* in a demo rather than asserted.
+- **Four gates stand between a rewrite and a family member**, in `summary_service`, not in
+  `llm_client` — the client is transport, the service owns meaning. Banned words · **no number that
+  is not already in the deterministic text** · length between 0.5× and 2× · no advice register
+  (`diagnos`, `prescri`, `i recommend`, `emergency room`). Gate 2 is the one that matters: a model
+  cannot invent a blood pressure reading if a digit it was never given is grounds for rejection.
+  Only the headline and paragraphs are ever rewritten — the highlights carry tones that drive UI.
+- **`llm_client.complete()` never raises.** No key, disabled, timeout, 500, malformed body, empty
+  completion — all return `None`, so every caller has one fallback path instead of an except-list
+  that drifts. **Phase 7's assistant calls this same function** with `ASSISTANT_TIMEOUT` (8s) instead
+  of `SUMMARY_TIMEOUT` (2s). Do not add a second client.
+- **The prompt is never logged.** A prompt here contains a named person's readings. Only the failure
+  *type* and elapsed ms are logged — `httpx` exception messages can echo the request, so the
+  exception type is logged rather than the exception. A test asserts a patient name never reaches
+  the log.
+- **The cache is keyed on content, not only time.** 15 min per `(patient_id, window)` **plus a
+  sha256 of the deterministic text**. Time alone would keep serving the last quarter-hour's paragraph
+  after a nurse records a new reading; the fingerprint makes new data bust it immediately and turns
+  the TTL into a cost control rather than a correctness risk. `cache.reset()` is called by the
+  autouse fixture in conftest for the same reason `limiter.reset()` is.
+- **⚠️ A monthly report headed "1 July — 1 August" was quoting a 21 August reading**, and it took
+  rendering the PDF and *looking at it* to catch — every test passed. `build_deterministic` used a
+  rolling window from `now()` while `period_for` returned a closed calendar month. Fixed by giving
+  the generator an explicit `[since, until)` (`build_for_period`) and pushing the upper bound down
+  into `vitals_service.history_since` and `medication_service.adherence_for_patient`.
+  **If you add a data source to a summary, give it the `until` bound too.**
+- **`period_start` is midnight, `period_end` is not.** The truncated start is what makes
+  regeneration idempotent; truncating the *end* would drop Sunday's visit from the report generated
+  on Sunday evening. Monthly is the exception — a closed calendar month, both bounds on the 1st.
+- **A report is a record.** The narrative is frozen as JSON at generation time and the PDF is
+  re-rendered from that snapshot on every fetch — Phase 4's invoice rule, unchanged, and no blob
+  column. A test proves an existing report does not change when new readings arrive while a live
+  summary does.
+- **One report per patient per kind per period**, unique constraint *and* a lookup before insert.
+  Re-generating refreshes the row rather than duplicating it, so the scheduler can fire twice and the
+  demo's "Generate report" button stays honest on the fifth press. Refreshing does not re-notify — a
+  regenerated document is not news.
+- **`run_for_all` swallows a per-patient failure and continues.** A run that abandons twenty-seven
+  families because of one is a worse bug than the one it gave up on.
+- **No new templating engine.** Reports use `string.Template` + hand-escaped HTML in
+  `app/templates/reports/report.html`, exactly as `billing_service` does for invoices. Jinja2 is not
+  installed and was not added.
+- **The scheduler is wiring and is tested as such.** `app/scheduler.py` registers two APScheduler
+  cron jobs (Sunday 18:00 IST, 1st at 06:00 IST, `ZoneInfo("Asia/Kolkata")`, misfire grace so a
+  sleeping laptop still produces the report once). The *bodies* are `report_service.run_weekly/
+  run_monthly`, plain functions the tests call directly. **Two replicas would both fire** — moving
+  these to a worker is a Phase 11 concern and is noted below.
+- **`FamilyDashboard.tsx` gained exactly one component and one divider.** The entire existing
+  clinical dashboard is untouched below a "Detailed health record" rule. Verified in the browser that
+  the summary renders above it and that Latest Vitals / Upcoming Visit / Nurse / Recent Visits are
+  all still present.
+- **`SegmentedControl` segments no longer wrap.** "This month" wrapped to two lines at the
+  constrained desktop width and distorted the control's height. A wrapping segment label is always
+  wrong, so `whitespace-nowrap` went into the primitive rather than the call site.
+- **287 backend tests** (was 210) and **61 Vitest** (was 56). Verified live in Chrome at
+  375/768/1024/1440, zero console errors, three genuinely different windows, PDF 200 with a bearer
+  token and 401 without, and the 148/92 path still raising an alert the summary immediately notices.
 
-### Build order — the deterministic generator first, and it ships alone if Groq never arrives
+#### ⚠️ Not yet exercised against the real provider
 
-1. `services/summary_service.py` — a **deterministic** generator over the same data
-   `dashboard_service.build_dashboard` already assembles. Tested against a **banned-word list**:
-   systolic, diastolic, SpO2, adherence, threshold, breach, vitals, metric, escalation. The test is
-   the specification — a family member reads "her blood pressure has been steady this week", not
-   "no systolic threshold breaches".
-2. `GET /patients/{id}/plain-summary?window=7d|30d|90d`. Authorization goes through the existing
-   `authorize_patient` path in `core/dependencies.py`; someone else's patient is a **404, not a 403**
-   (Phase 4 set that precedent deliberately — a 403 confirms the record exists).
-3. `components/family/PlainSummary.tsx` becomes the **first** thing on the family dashboard. The
-   entire existing dashboard survives **untouched** below a "See the detailed health dashboard"
-   divider under the heading "Detailed health record". Do not rebuild `FamilyDashboard.tsx`.
-4. Only then the Groq rewrite behind `services/llm_client.py`, **2s timeout**, 15-minute
-   per-patient-per-window cache, silent fallback to step 1. The demo must work with no key and no
-   network — verify that by running it with `GROQ_API_KEY` unset before you call the phase done.
-5. Then `models/report.py` + `services/report_service.py` + WeasyPrint + APScheduler (Sunday 18:00
-   IST weekly, monthly on the 1st) + `POST /patients/{id}/reports/generate` for the live demo.
+Every Groq path is tested against a **monkeypatched `httpx`**. No request has ever been made to
+`api.groq.com` — the founder has not supplied a key yet, and steps 1–3 did not need one. What is
+proven is that the platform is correct and complete *without* one. When the key arrives, set
+`GROQ_API_KEY` and confirm: a real completion clears the four gates, `source` flips to `assisted`,
+and a deliberately slow network still falls back inside 2s.
 
-### Facts you need
+#### Deliberately deferred out of Phase 6
 
-- **LLM provider is Groq, not Anthropic.** The full contract is in "Locked decisions" at the top of
-  this file — endpoint, env vars, timeouts. Call it with **`httpx`, already in requirements.txt**.
-  No new dependency, no `anthropic` package, no Claude API key. Ask the founder for the key when you
-  reach step 4; steps 1-3 do not need it.
-- **New env vars go in `app/config.py`** as `Field(default=..., alias="UPPER_CASE")` on `Settings`,
-  and get a row in the Environment table above. `settings.is_development` already exists.
-- **WeasyPrint 69.0 is installed and proven** by Phase 4's invoice PDFs — `billing_service.render_pdf`
-  and `_render_invoice_html` are the working example. Templates live in
-  `app/templates/<kind>/`; today that is `app/templates/invoices/invoice.html`. Add
-  `app/templates/reports/`, do not invent a second convention.
-- **APScheduler is the one new dependency.** The venv has **no `pip`** — install with
-  `uv pip install --python .venv/bin/python apscheduler`.
-- **`SegmentedControl` already exists** (Phase 3, `components/ui/`) with roving tabindex and arrow
-  keys. It is what the 7d/30d/90d picker uses. Phase 4's monthly/annual toggle is the working
-  example. Do not build a second one.
-- **`format_inr` / `lib/money.ts` and `password_problem` / `lib/password.ts`** are the established
-  pattern for a rule that exists on both sides: mirror it, then assert both against the same cases so
-  drift fails a test. If the summary needs any client-side text rule, follow that.
+- **Reports are family-facing only.** There is no admin view of generated reports and no "email this
+  report" action — `notification_delivery` (Phase 3) is the seam for the latter when Phase 10 does
+  notification routing.
+- **No report for a patient with no data yet.** `run_for_all` generates one for every active patient
+  including brand-new ones, whose report honestly says no checks were recorded. That is correct but
+  slightly odd as a first impression; a "skip until there is something to say" rule belongs with
+  Phase 10's onboarding flow.
+- **The scheduler is in-process.** Fine for one machine; wrong for two replicas. Phase 11.
 
-### The seed is now the right dataset to develop against
+---
 
-`python -m app.seed` gives every patient **90 days of trajectories**, so 7d / 30d / 90d windows have
-genuinely different content — a `drifting` patient reads differently at 90d than at 7d, and an
-`episodic` one has a discrete event to describe. Develop against `FULL`; use `--small` only for tests
-that assert exact strings, which is what `tests/conftest.py` already seeds.
+## ▶ Starting Phase 7 — AI assistant, family + admin (§2.3)
 
-Useful patients for a summary that has something to say (slots are stable, ids follow):
-`Mahesh Sharma` (drifting, open BP alert), `Om Prakash Gupta` (COPD, open SpO2 alert),
-`Rukmini Nayar` (heart failure, open fever alert), `Lakshmi D'Souza` (stable, two resolved alerts,
-87% adherence — the one the demo script uses).
+**Read this section, then the plan file's Phase 7 paragraph.**
 
-`--demo-reset` rewinds the 148/92 path between runs without renumbering fourteen months of invoices.
+### Build order — the fallback first, exactly as Phase 6 did
+
+1. `services/assistant_fallback.py` — a deterministic intent matcher over the role-scoped context
+   pack. Built and tested **first**, answers every listed family and admin intent with no key and no
+   network.
+2. `models/assistant.py`, `services/assistant_service.py`, `routers/assistant.py`.
+3. Only then the Groq path, behind the **existing** `llm_client.complete()` with
+   `llm_client.ASSISTANT_TIMEOUT` (8s).
+
+### What Phase 6 already built for you
+
+- **`services/llm_client.py` is done and tested.** It never raises, it never logs a prompt, and it
+  already carries the 8s assistant timeout as a constant. **Do not write a second client.**
+- **The four-gate validation pattern** in `summary_service._rewrite_is_acceptable` is the model for
+  validating assistant output. The assistant needs different gates (it answers rather than rewrites,
+  so the "no new numbers" gate becomes "no claim outside the context pack") but the shape — validate
+  in the service, fall back silently, report `source` honestly — should be identical.
+- **`summary_service.contains_clinical_language()`** is reusable if an assistant answer to a family
+  member should observe the same vocabulary rule. Consider it; §2.3 does not require it explicitly.
+- **`summary_service.build_deterministic()`** already assembles a plain-language view of one
+  patient's window. It is a strong starting point for the family context pack rather than a second
+  assembly of the same facts.
+- **The `_SummaryCache` pattern** (content fingerprint + TTL + `reset()` wired into conftest) is
+  there to copy if assistant responses need caching.
+
+### The rules Phase 7 must enforce
+
+- **The model never queries the database.** The server assembles a role-scoped context pack and the
+  model sees only that. This is the whole security model.
+- A test must prove a family user asking about **another family's patient** is refused. Phase 6's
+  `test_another_familys_summary_is_a_404_not_a_403` is the precedent; `authorize_patient` is the
+  gate.
+- Answer only from context · never diagnose · never touch medication · emergency → **call 108**, then
+  the nurse, then the admin · always close with the monitoring disclaimer.
 
 ### Do not break these
 
-`tests/test_seed.py` pins them, but they are easy to break from outside the seed:
-
 - Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
-  **Lakshmi carries no open alert**. Break either of the last two and the alert tests still pass —
-  against the wrong patient.
-- `tests/conftest.py` seeds `SMALL`. If a Phase 6 test needs the full population, copy the
-  module-scoped fixture pattern at the top of `tests/test_seed.py` rather than switching conftest.
+  **Lakshmi carries no open alert**. `tests/test_seed.py` pins them.
+- `tests/conftest.py` seeds `SMALL` and sets `GROQ_API_KEY=""`. Tests that need the assisted path
+  monkeypatch `llm_client.complete` (see the `assisted` fixture in `tests/test_summary.py`).
+- The autouse `clean_process_state` fixture resets the rate limiter and the summary cache. **Add any
+  new process-global cache to it**, or test order will decide test outcomes.
+
 
 ## Open items and deferrals
 
@@ -465,6 +540,15 @@ Useful patients for a summary that has something to say (slots are stable, ids f
 - **`/visits` returns the newest 250 visits, newest first**, so the admin visit table now leads with
   next week rather than today. Phase 10's visit board should replace it with a windowed, paginated
   query rather than raising the cap again.
+- **The report scheduler is in-process (Phase 6).** APScheduler runs inside the API process, so two
+  replicas would both generate Sunday's reports. Idempotency means the result is still one report per
+  patient, but the work is done twice. Move to a worker in Phase 11 alongside Postgres.
+- **No Groq request has ever been made (Phase 6).** Every LLM path is proven against a monkeypatched
+  `httpx`, and the platform is verified complete with no key at all. Ask the founder for the key
+  before Phase 7 reaches its step 3.
+- ✅ **Plain-language summary and reports** — done in Phase 6. `summary_service` owns the vocabulary
+  rule; `report_service` freezes and re-renders. Phase 7 reuses `llm_client` and the four-gate
+  validation shape rather than building either again.
 
 ---
 

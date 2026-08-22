@@ -5,6 +5,7 @@ import { patientsApi } from '../../api/patients'
 import { useAuth } from '../../auth/AuthContext'
 import { AlertBanner } from '../../components/alerts/AlertBanner'
 import { AdherenceCard } from '../../components/cards/AdherenceCard'
+import { PlainSummary } from '../../components/family/PlainSummary'
 import { VitalCard } from '../../components/cards/VitalCard'
 import { VitalsTrendChart } from '../../components/charts/VitalsTrendChart'
 import { useAsync } from '../../hooks/useAsync'
@@ -83,6 +84,18 @@ export function FamilyDashboard() {
       </div>
 
       {alerts.length > 0 && <AlertBanner alert={alerts[0]} to={`/family/alerts?alert=${alerts[0].id}`} />}
+
+      <PlainSummary patientId={patient.id} />
+
+      {/* Everything below the divider is the original clinical dashboard,
+          unchanged. It has not been removed or reduced — it has stopped being
+          the first thing a worried family member has to interpret. */}
+      <div className="flex items-center gap-4 pt-2">
+        <h2 className="shrink-0 text-small font-semibold uppercase tracking-wide text-text-secondary">
+          Detailed health record
+        </h2>
+        <span className="h-px flex-1 bg-border-subtle" aria-hidden="true" />
+      </div>
 
       {/* Health status */}
       <Card>

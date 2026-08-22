@@ -5,6 +5,7 @@ compared against the patient's configured monitoring thresholds inside the same
 request that stores the reading, and any breach raises one alert.
 """
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -119,6 +120,24 @@ def latest_for_patient(db: Session, patient_id: int) -> Vital | None:
         .order_by(Vital.recorded_at.desc(), Vital.id.desc())
         .limit(1)
     )
+
+
+def history_since(
+    db: Session, patient_id: int, since: datetime, until: datetime | None = None
+) -> list[Vital]:
+    """Every reading in `[since, until)`, oldest first.
+
+    `history_for_patient` limits by *count*, which is what a chart wants. A
+    summary window limits by *date*, which is a different question — thirty
+    readings and thirty days are the same thing only by accident.
+
+    `until` exists because a monthly report covers a closed calendar month, not
+    "the last 30 days". Without it a July report quotes an August reading.
+    """
+    query = select(Vital).where(Vital.patient_id == patient_id, Vital.recorded_at >= since)
+    if until is not None:
+        query = query.where(Vital.recorded_at < until)
+    return list(db.scalars(query.order_by(Vital.recorded_at, Vital.id)))
 
 
 def history_for_patient(db: Session, patient_id: int, limit: int = 30) -> list[Vital]:

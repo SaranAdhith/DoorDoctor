@@ -135,6 +135,14 @@ class OrganizationType(str, Enum):
     INSTITUTION = "institution"
 
 
+class ReportKind(str, Enum):
+    """Why a report exists. Drives its period and its title, nothing else."""
+
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    ON_DEMAND = "on_demand"
+
+
 class PaymentStatus(str, Enum):
     """No gateway is wired in this build, so a captured charge is `simulated`."""
 

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>DoorDoctor — $title for $patient_name</title>
+<style>
+  /* Print styling only. Rendered by WeasyPrint, never served to a browser, so
+     it carries no scripts and loads nothing over the network. Colours are the
+     Phase 2 tokens, hard-coded because a PDF cannot read a Tailwind config. */
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "DejaVu Sans", "Helvetica", sans-serif;
+    color: #16232e;
+    font-size: 10.5pt;
+    line-height: 1.6;
+  }
+  header { display: flex; justify-content: space-between; align-items: flex-start;
+           border-bottom: 2px solid #16232e; padding-bottom: 8mm; margin-bottom: 8mm; }
+  .brand { font-size: 20pt; font-weight: 700; letter-spacing: -0.02em; }
+  .brand span { color: #1d7529; }
+  .tag { color: #5f7186; font-size: 9pt; margin-top: 1mm; }
+  .doc { text-align: right; }
+  .doc h1 { font-size: 13pt; margin: 0 0 1mm; letter-spacing: 0.08em; text-transform: uppercase; }
+  .doc .who { font-size: 12pt; font-weight: 700; }
+  .doc .period { color: #5f7186; font-size: 9pt; }
+
+  .headline { font-size: 15pt; line-height: 1.4; font-weight: 700; margin: 0 0 6mm;
+              padding-left: 4mm; border-left: 3px solid #1d7529; }
+
+  .body p { margin: 0 0 4mm; }
+
+  .facts { display: flex; gap: 4mm; margin: 7mm 0; }
+  .facts div { flex: 1; border: 1px solid #d7dee6; border-radius: 2mm; padding: 3mm 4mm; }
+  .facts .n { font-size: 16pt; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .facts .k { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.08em; color: #5f7186; }
+
+  h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.08em;
+       color: #5f7186; margin: 7mm 0 3mm; }
+
+  ul.chips { list-style: none; padding: 0; margin: 0; }
+  ul.chips li { display: block; padding: 2mm 3mm; margin-bottom: 2mm; border-radius: 2mm;
+                border-left: 3px solid #d7dee6; background: #f6f8fa; }
+  ul.chips li.good      { border-left-color: #1d7529; background: #e6f4e9; }
+  ul.chips li.watch     { border-left-color: #8a5a06; background: #fdf1dc; }
+  ul.chips li.attention { border-left-color: #b3261e; background: #fdeceb; }
+  .chip-label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em;
+                color: #5f7186; display: block; }
+  .chip-text { font-weight: 700; }
+
+  ul.next { margin: 0; padding-left: 5mm; }
+  ul.next li { margin-bottom: 2mm; }
+
+  footer { margin-top: 10mm; padding-top: 4mm; border-top: 1px solid #d7dee6;
+           color: #5f7186; font-size: 8.5pt; }
+  footer strong { color: #16232e; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="brand">Door<span>Doctor</span></div>
+      <div class="tag">In-home nursing and remote family visibility</div>
+      <div class="tag">Bengaluru, India</div>
+    </div>
+    <div class="doc">
+      <h1>$title</h1>
+      <div class="who">$patient_name</div>
+      <div class="period">$period</div>
+      <div class="period">Prepared $generated_at</div>
+    </div>
+  </header>
+
+  <p class="headline">$headline</p>
+
+  <div class="facts">
+    <div><div class="n">$reading_count</div><div class="k">Health checks</div></div>
+    <div><div class="n">$visit_count</div><div class="k">Nurse visits</div></div>
+    <div><div class="n">$dose_count</div><div class="k">Doses recorded</div></div>
+  </div>
+
+  <div class="body">$paragraphs</div>
+
+  <h2>At a glance</h2>
+  <ul class="chips">$highlights</ul>
+
+  <h2>What happens next</h2>
+  <ul class="next">$next_steps</ul>
+
+  <footer>
+    <p><strong>$disclaimer</strong></p>
+    <p>
+      Prepared by the DoorDoctor platform from readings taken during nurse visits at home.
+      Alerts described here are readings outside the range configured for this patient's
+      monitoring, not medical diagnoses.
+    </p>
+  </footer>
+</body>
+</html>

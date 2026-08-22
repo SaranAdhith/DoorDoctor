@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from . import scheduler
 from .config import settings
 from .database import create_all
 from .routers import (
@@ -24,6 +25,7 @@ from .routers import (
     notifications,
     patients,
     referrals,
+    reports,
     subscriptions,
     visits,
 )
@@ -40,6 +42,9 @@ Care is sold as a subscription: a plan carries entitlements and metered
 allowances, periods roll over and invoice themselves, and referral and loyalty
 rewards both settle as credits against the next invoice.
 
+Families also get a plain-language summary of how their relative has been, and a
+weekly and monthly report as a PDF.
+
 Alerts describe readings that fall outside the patient's configured monitoring
 thresholds. They are not medical diagnoses. No payment gateway is integrated in
 this build and no money moves.
@@ -49,8 +54,12 @@ this build and no money moves.
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Create tables on boot so a fresh checkout runs without a migration step."""
     create_all()
+    scheduler.start()
     logger.info("DoorDoctor API ready (environment=%s)", settings.environment)
-    yield
+    try:
+        yield
+    finally:
+        scheduler.shutdown()
 
 
 app = FastAPI(
@@ -105,6 +114,7 @@ app.include_router(admin.router, prefix=api_prefix)
 app.include_router(subscriptions.router, prefix=api_prefix)
 app.include_router(billing.router, prefix=api_prefix)
 app.include_router(referrals.router, prefix=api_prefix)
+app.include_router(reports.router, prefix=api_prefix)
 
 
 @app.get("/", tags=["system"], summary="Service banner")

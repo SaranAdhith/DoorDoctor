@@ -92,7 +92,7 @@ export function SegmentedControl<T extends string>({
               onClick={() => onChange(option.value)}
               onKeyDown={(event) => handleKeyDown(event, index)}
               className={cn(
-                'min-h-control flex-1 rounded-lg px-3 text-small font-semibold transition-colors',
+                'min-h-control flex-1 whitespace-nowrap rounded-lg px-3 text-small font-semibold transition-colors',
                 active
                   ? 'bg-surface-raised text-text-primary shadow-card'
                   : 'text-text-secondary hover:text-text-primary',

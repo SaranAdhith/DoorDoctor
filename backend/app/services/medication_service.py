@@ -1,5 +1,6 @@
 """Medication schedules, administration logs and adherence."""
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -88,18 +89,32 @@ def logs_for_visit(db: Session, visit_id: int) -> list[MedicationLog]:
     )
 
 
-def adherence_for_patient(db: Session, patient_id: int) -> dict[str, Any]:
-    """administered / total logged doses.
+def adherence_for_patient(
+    db: Session,
+    patient_id: int,
+    since: datetime | None = None,
+    until: datetime | None = None,
+) -> dict[str, Any]:
+    """administered / total logged doses, optionally only since a given moment.
 
     Returns `percentage: None` when nothing has been logged - the UI renders
     `No data` rather than 0%, which would wrongly imply missed medication.
+
+    `since` is one optional argument rather than a second function on purpose:
+    the plain-language summary reports the same number over a window that the
+    dashboard reports over all time, and two implementations of one calculation
+    is exactly how those two numbers start disagreeing.
     """
-    rows = db.execute(
+    query = (
         select(MedicationLog.status, func.count(MedicationLog.id))
         .join(Medication, MedicationLog.medication_id == Medication.id)
         .where(Medication.patient_id == patient_id)
-        .group_by(MedicationLog.status)
-    ).all()
+    )
+    if since is not None:
+        query = query.where(MedicationLog.recorded_at >= since)
+    if until is not None:
+        query = query.where(MedicationLog.recorded_at < until)
+    rows = db.execute(query.group_by(MedicationLog.status)).all()
 
     counts = {status.value if hasattr(status, "value") else str(status): int(count) for status, count in rows}
     administered = counts.get(MedicationLogStatus.ADMINISTERED.value, 0)

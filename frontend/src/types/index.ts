@@ -198,6 +198,61 @@ export interface Dashboard {
   thresholds: Threshold[]
 }
 
+// ---------------------------------------------------------------------------
+// Plain-language summary and reports (Phase 6)
+// ---------------------------------------------------------------------------
+
+export type SummaryWindow = '7d' | '30d' | '90d'
+
+/** `tone` drives colour, so it is a closed set on the server too. */
+export interface SummaryHighlight {
+  tone: 'good' | 'watch' | 'attention'
+  text: string
+}
+
+export interface PlainSummary {
+  patient_id: number
+  patient_name: string
+  window: SummaryWindow
+  window_label: string
+  headline: string
+  paragraphs: string[]
+  highlights: SummaryHighlight[]
+  what_happens_next: string[]
+  reading_count: number
+  dose_count: number
+  visit_count: number
+  flagged_count: number
+  open_alert_count: number
+  generated_at: string
+  /**
+   * Honest provenance. `deterministic` is the normal case, not a degraded one —
+   * the platform is built to run with no model configured at all.
+   */
+  source: 'deterministic' | 'assisted'
+  disclaimer: string
+}
+
+export type ReportKind = 'weekly' | 'monthly' | 'on_demand'
+
+export interface Report {
+  id: number
+  patient_id: number
+  patient_name: string | null
+  kind: ReportKind
+  title: string
+  period_start: string
+  period_end: string
+  headline: string
+  paragraphs: string[]
+  highlights: SummaryHighlight[]
+  what_happens_next: string[]
+  reading_count: number
+  dose_count: number
+  visit_count: number
+  generated_at: string
+}
+
 export interface AdminSummary {
   patients: number
   nurses: number

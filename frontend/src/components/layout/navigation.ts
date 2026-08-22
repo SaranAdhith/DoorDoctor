@@ -3,6 +3,7 @@ import {
   Bell,
   CalendarDays,
   CreditCard,
+  FileText,
   LayoutDashboard,
   Pill,
   Stethoscope,
@@ -40,6 +41,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
         { to: '/family/dashboard', label: 'Dashboard', icon: LayoutDashboard, primary: true },
         { to: '/family/medications', label: 'Medications', icon: Pill, primary: true },
         { to: '/family/alerts', label: 'Alerts', icon: Bell, primary: true },
+        { to: '/family/reports', label: 'Reports', icon: FileText },
       ],
     },
     {
