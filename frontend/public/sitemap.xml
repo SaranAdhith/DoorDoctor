@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The fourteen public routes. Kept in step with the `PublicLayout` navigation
+  and `App.tsx` by hand: a generator would need a build step this project does
+  not have, and fourteen URLs is not a maintenance problem.
+
+  Authenticated routes are deliberately absent — see robots.txt.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://doordoctor.in/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://doordoctor.in/what-is-doordoctor</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://doordoctor.in/how-it-works</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://doordoctor.in/who-its-for</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://doordoctor.in/pricing</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://doordoctor.in/pricing/corporate</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://doordoctor.in/pricing/institutions</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://doordoctor.in/nri</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://doordoctor.in/about</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://doordoctor.in/trust-and-safety</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://doordoctor.in/faq</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://doordoctor.in/contact</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://doordoctor.in/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://doordoctor.in/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>

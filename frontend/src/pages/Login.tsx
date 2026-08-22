@@ -81,7 +81,20 @@ export function Login() {
   }
 
   return (
-    <AuthLayout title="Sign in" description={activeTab.blurb}>
+    <AuthLayout
+      title="Sign in"
+      description={activeTab.blurb}
+      // §2.5 asked for this in Phase 3 and it was deferred: `/` redirected to
+      // `/login` back then, so the link would have been a loop. Phase 8 makes
+      // `/` the public home, so it now goes somewhere.
+      footer={
+        <p className="text-center text-small text-text-secondary">
+          <Link to="/" className="font-medium hover:text-text-primary hover:underline">
+            &larr; Back to doordoctor.in
+          </Link>
+        </p>
+      }
+    >
       {justReset && (
         <p
           className="mb-5 flex items-start gap-2 rounded-xl border border-status-good-border bg-status-good-bg px-3.5 py-2.5 text-small font-medium text-status-good"

@@ -44,8 +44,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 5 | Realistic seed data | ✅ done — `d840578` |
 | 6 | Plain-language summary + reports | ✅ done — `052841f` |
 | 7 | AI assistant (family + admin) | ✅ done — `8d91748` |
-| 8 | Public marketing site + leads | ⬜ **next** |
-| 9 | Clinical features (labs → escalation) | ⬜ |
+| 8 | Public marketing site + leads | ✅ done — `PENDING` |
+| 9 | Clinical features (labs → escalation) | ⬜ **next** |
 | 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
 | 11 | Multi-family, hardening, tests, docs | ⬜ |
 
@@ -56,14 +56,14 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 365 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 408 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean (~5.4 s, full population)
 cd backend  && .venv/bin/python -m app.seed --small        # the dataset the test suite uses
 cd backend  && .venv/bin/python -m app.seed --demo-reset   # rewind the 148/92 path between demos
 cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 71 passing today
+cd frontend && npx vitest run                      # 87 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -108,8 +108,9 @@ Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's sy
 | frontend | `lucide-react` | Icons, replacing emoji (Phase 2) |
 | backend | `weasyprint` 69.0 | Invoice PDFs (Phase 4) — **pulled forward from Phase 6** |
 | backend | `apscheduler` 3.11.3 | Weekly/monthly report scheduling (Phase 6) |
+| frontend | `react-helmet-async` 3.0.0 | Per-route SEO tags (Phase 8) |
 
-Still planned: `alembic` (backend); `react-helmet-async`, `@playwright/test` (frontend).
+Still planned: `alembic` (backend); `@playwright/test` (frontend).
 **No `anthropic` — the provider is Groq via `httpx`.** Phase 6 added the Groq client and it needed
 no new dependency, exactly as planned.
 
@@ -235,9 +236,13 @@ no new dependency, exactly as planned.
   `min-w-0` does not override it — that card is a `<dl>` now. **Do not expect Tailwind class
   conflicts to resolve by specificity anywhere in this codebase.**
 
-#### ⚠️ Reconcile with the real §3 before Phase 8 publishes prices
+#### ⚠️ Reconcile with the real §3 — these values are now PUBLISHED
 
-Everything below is invented and lives in **one file**, `backend/app/core/pricing.py`:
+**Phase 8 published every value below on `/pricing`, unlabelled, on the founder's explicit
+instruction (2026-08-22).** They were internal placeholders; they are now public claims to paying
+customers. Reconciling is still a one-file change — everything below lives in
+`backend/app/core/pricing.py` and `test_pricing.py` catches anything that moves — but the cost of
+being wrong is no longer internal.
 
 | Value | Assumed | Confidence |
 |---|---|---|
@@ -354,6 +359,11 @@ uncommitted in the working tree.**
 Phase 4's entitlements are **4 / 8 / 12 per month** and are marked `ASSUMED`. The recorded volume is
 roughly **double the highest assumed tier**, which is real evidence that the true per-tier allowance
 is nearer alternate-day to daily care. Add this to the reconciliation list above.
+
+**Founder's decision, 2026-08-22: leave 4 / 8 / 12 as they are, and publish them.** Phase 8 puts
+them on `/pricing` unlabelled. The evidence above is unchanged and so is the deferral below — this
+is now a *published* number that the recorded volume contradicts, which raises the cost of
+reconciling it without changing what needs to be reconciled.
 
 Consequence: **quota enforcement at the point of use stays deferred.** Enforcing an invented limit
 against a recorded volume would refuse the visits the demo is specified to contain. The seed's
@@ -557,77 +567,161 @@ disclaimer"** rules are all recorded in the plan and are *not* assumed.
 
 ---
 
-## ▶ Starting Phase 8 — Public marketing site + leads (§2.6)
+### Phase 8 — public marketing site, lead capture, SEO → `PENDING`
 
-**Read this whole section first, then the plan file's Phase 8 paragraph, then write
-`docs/build-log/phase-8.md` before writing any code.** Phase 8 closes the "credible demoable
-platform" line — a finished Phase 8 beats a broken Phase 11.
+- **Decisions taken with the founder before any code (2026-08-22):** §3 was never supplied, and the
+  answer was **ship the `ASSUMED` values as they stand, label nothing**, and **leave the 4 / 8 / 12
+  visit entitlements alone**. Both mean the same thing operationally: **Phase 8 does not touch
+  `core/pricing.py`.** It reads it. The reconciliation tables under Phases 4 and 5 stay exactly as
+  they were — the invented values are now *published*, which raises the stakes of reconciling them
+  but does not change what needs reconciling.
+- **No price is written anywhere in the frontend.** `GET /public/plans` (new, unauthenticated) calls
+  the *same two functions* authenticated `/plans` uses — `subscription_service.list_plans` +
+  `serialize_plan`, minus the auth dependency. A test asserts the two payloads are **identical**, not
+  merely similar, which is what stops a second serializer ever being written. A second test asserts
+  the served prices equal `pricing.PLANS`, so the DB round-trip is verified rather than assumed.
+  A third pins ₹2,500 / ₹3,500 / ₹4,500 as **literals** — every other test compares the API to
+  `pricing.py` and would still pass if `pricing.py` itself were edited.
+- **The pricing page is a page that loads data, and is treated as one.** `PricingGrid` owns skeleton,
+  error and retry. Phase 2's rule does not stop applying because a page is trying to sell something.
+  The "Recommended" treatment reads `plan.recommended`; the entitlement lines reuse Phase 4's
+  `lib/plan.entitlementLines`. Nothing branches on a plan code, on either side of the wire.
+- **`POST /leads` is the only unauthenticated write in the codebase**, and every unusual thing about
+  it follows from that sentence: rate limited **per IP (10/hr) and per email (3/hr)** through the
+  existing `core/ratelimit` — not a second limiter, because `clean_process_state` resets exactly one;
+  honeypot (`company_website`) that returns **the same 201 and the same body** as a real submission,
+  because a 400 tells a bot its script was detected; every string capped in the schema; and a fixed
+  reply that never reveals whether an address has enquired before. `lead_service.create` returns
+  `None` on a honeypot hit so the router's response shape cannot depend on whether the caller was a
+  bot — a test asserts the two responses are byte-identical.
+- **A new lead raises no notification, deliberately.** An unauthenticated endpoint wired to every
+  admin's notification bell is a spam amplifier. The limiter caps the table; it should not also have
+  to cap the bell. Leads surface as an unworked count on **Admin → Leads** instead.
+- **Lead reads are admin-only** — a lead list is a list of named strangers and their phone numbers.
+  Family 403, nurse 403, anonymous 401, all three pinned. `handled_by`/`handled_at` are stamped when
+  a lead moves off `new` and **cleared when it moves back**, because a stale name on an unworked
+  enquiry is worse than no name.
+- **`/` changed owner, and it was decided rather than allowed to happen.** `RootRedirect` is deleted;
+  `/` renders the public home **for everyone, signed in or not**, and the header swaps "Sign in" for
+  "Go to dashboard". A signed-in family member who follows a link to `/pricing` must be able to read
+  it, and a redirect at `/` but not at `/pricing` is an inconsistency someone has to remember.
+  **`ProtectedRoute` is unchanged** — it still sends an unauthenticated visitor to `/login`, not `/`.
+- **The `*` route lands inside `PublicLayout`**, so a wrong URL arrives somewhere with navigation
+  rather than at a dead end. The 404 is `noIndex`.
+- **⚠️ Helmet *appends* meta tags it does not manage**, so the static
+  `<meta name="description">` in `index.html` plus a per-route one shipped **two conflicting
+  descriptions on every public page**. Caught by looking at the rendered head in a real browser, not
+  by any test. The static tag is gone and the verification script now asserts `count === 1` per
+  route. `<title>` is fine — there can only be one, and Helmet replaces it.
+- **⚠️ A signed-in visitor got a horizontally scrolling marketing site at 375px.** Every element in
+  the public header is `shrink-0`, and "Go to dashboard" is one word longer than the signed-out
+  buttons — 381px of content in a 375px viewport. Only reachable while signed in, which is why an
+  ordinary responsive pass would have missed it. The label now shortens to "Dashboard" below `sm`.
+  **If you add anything to that header row, re-check it at 375px in both auth states.**
+- **No invented social proof, and the sections are built so it stays that way.** `FounderPair` is one
+  component precisely so Saran Adhith (Founder & CEO) and Darren D'Souza (Co-Founder) cannot be split
+  up or given unequal cards by a later edit. `/trust-and-safety` carries an explicit **"what we are
+  not claiming"** section — no accreditation, no audit, no customer numbers — and `/about` says
+  plainly that DoorDoctor is early. The JSON-LD is `Organization` with both founders and **no**
+  `aggregateRating` or `review`: structured data is still a claim.
+- **`SMALL` seeds no leads**, so all 365 pre-existing backend tests are untouched; `FULL` seeds six
+  across five kinds and four statuses, written directly rather than through `lead_service.create` so
+  they can be backdated — the same reason `business.py` backdates `paid_at`. A test asserts
+  `handled_at >= created_at`, which is the thing a backdating seed gets wrong silently.
+- **408 backend tests** (was 365) and **87 Vitest** (was 71).
+- Verified live in Chrome: all 15 routes render with exactly one meta description, a real `h1`, a
+  distinct title and a canonical; ₹2,500/₹3,500/₹4,500 monthly and ₹25,000/₹35,000/₹45,000 annual;
+  ₹84/₹77/₹65 per resident per day; ₹2,800 per employee per month; exactly one Recommended badge;
+  **journey 1 end to end** (enquiry → admin sees it → marks it contacted); the login back-link;
+  a signed-in visitor staying on `/`; the 429 rendering as a sentence; and **no horizontal overflow
+  at 375 / 768 / 1024 / 1440** with zero console errors.
 
-### ⚠️ FIRST — reconcile §3 before publishing a single price
+#### Deliberately deferred out of Phase 8
 
-This is now blocking. Phase 4 invented tier names, every entitlement quantity, the referral reward
-and the loyalty benefit, and marked them `ASSUMED` in `backend/app/core/pricing.py`. **Phase 8 puts
-prices on a public page**, which is the moment an invented number stops being an internal placeholder
-and becomes a claim to a paying customer.
+- **Lead notifications and assignment.** No email to the team when a lead arrives, and no "assign to
+  me". `notification_delivery` (Phase 3) is the seam for the first; Phase 10's ops screens are the
+  place for the second.
+- **No admin creation of an organization from a lead.** A corporate enquiry is captured and worked,
+  but converting it into an `Organization` + subscription is still manual — Phase 4 deferred
+  corporate self-service and Phase 10 owns the ops screens.
+- **Lead erasure.** Same deferral as `assistant_messages`: it lands with Phase 10's consent record,
+  audit log and Privacy & Data page. Deleting rows without those is a half-built promise.
+- **`sitemap.xml` is hand-maintained.** Fourteen URLs, no build step. If the public route list grows
+  much past this, generate it.
+- **Prerendering.** The public site is client-rendered, so a crawler that does not execute JavaScript
+  sees an empty shell. Every meta tag and the JSON-LD are set at runtime by Helmet. If organic search
+  matters commercially, this needs SSR or a prerender step — that is a Phase 11-scale decision, not a
+  marketing-copy fix, and it is flagged here rather than quietly ignored.
 
-1. **Ask the founder for §3.** One message.
-2. The full list of invented values is in the **Phase 4 results** above. Fix them in
-   `core/pricing.py` — one file, and `test_pricing.py` will catch anything that moves.
-3. **Phase 8 must import those constants, never restate a number.** A price typed into a `.tsx` is
-   the second source of truth and the first thing to go stale.
+---
 
-There is also **recorded evidence the entitlements are wrong**: §2.4 records ~1,400 visits over 90
-days for 28 patients — **16.7 visits per patient per month** against assumed tiers of 4 / 8 / 12.
-See the note under Phase 5. Settle this before it reaches a pricing page.
+## ▶ Starting Phase 9 — Clinical features (§4.2–4.9)
 
-Prices that *are* recorded verbatim in the plan and can be published as-is: ₹2,500 / **₹3,500
-Recommended** / ₹4,500 monthly; ₹25,000 / ₹35,000 / ₹45,000 annual ("2 months free"); corporate
-₹2,800/employee/month; institutional ₹38,000 / ₹58,000 / ₹78,000 led by **₹84 / ₹77 / ₹65 per
-resident per day**; add-ons blood panel ₹499, pill organiser ₹199.
+**Read `docs/build-log/phase-8.md` for how the last phase was structured, then write
+`docs/build-log/phase-9.md` before writing any code.**
 
-### The other thing to settle first
+Phase 8 closed the "credible demoable platform" line: a stranger can now find DoorDoctor, understand
+it, see what it costs and enquire, and an admin works that enquiry in-app. Phase 9 is the first phase
+that adds genuinely new *clinical* surface.
 
-**No invented social proof.** DoorDoctor is pre-launch: no traction numbers, no testimonials, no
-customer counts, no certifications, no partner logos. This is a locked decision at the top of this
-file and a marketing site is exactly where it gets violated by accident. Both founders — **Saran
-Adhith (Founder & CEO)** and **Darren D'Souza (Co-Founder)** — are always presented together as an
-equal pair.
+### What Phase 9 covers
 
-### What already exists — reuse it, do not rebuild it
+Labs (`models/lab.py`, entitlement-driven panels, abnormal → alert + 24-hour follow-up task),
+hospital booking + SLA queue, care manager (**1:20 shared / 1:10 dedicated — both recorded**) with
+`CareInteraction`, the **Senior Safety Score** (deterministic 0–100, weights in one constant block,
+every component stored so it is always explainable, a 10+ point drop in 30 days raises an alert),
+PHQ-2 screening, telemedicine booking (Premium 2/month — **recorded**), wearables (`models/device.py`,
+API-key ingest, `scripts/simulate_wearable.py`, SpO2 <90% or HR out of range → the documented three
+actions), and escalation events with a visible parallel-notification timeline plus a permanent
+"In an emergency, call 108" block on every clinical screen.
 
-- **`core/pricing.py`** — every price, in integer paise. Imports nothing from the app, so the public
-  pages may read it freely. `billing_service.format_inr` does lakh grouping; `lib/money.ts` mirrors
-  it on the client and both are asserted against the same cases.
-- **`core/ratelimit.py`** — sliding window, `TooManyRequestsError` → 429 + `Retry-After`, reset by
-  the autouse fixture. **The lead form uses this**, with a new budget constant beside
-  `FORGOT_PASSWORD_*` and `ASSISTANT_PER_USER`. Do not build a second limiter.
-- **`components/ui/`** — 28 primitives plus `SegmentedControl` (monthly/annual toggle) and the
-  `LinkButton` that now carries an `icon`. The public site should look like the product, so compose
-  from this layer rather than starting a parallel marketing stylesheet.
-- **`AuthLayout`** backs the three auth screens; `PublicLayout` is its sibling, not its replacement.
+### Reuse these — do not rebuild them
+
+- **`subscription_service.entitlement()`** for lab panels, telemedicine limits and the care-manager
+  ratio. `Plan.entitlements` is already a JSON column and **nothing anywhere branches on a tier
+  name**. Keep it that way — Phase 4 built it specifically for this phase.
+- **`alert_service.create_threshold_alert`** for every new alert source (abnormal lab, safety-score
+  drop, wearable breach). Nothing writes an `Alert` row directly; the Phase 5 seed depends on that
+  being true.
+- **`core/pricing.py`** for the add-on prices. Blood panel ₹499 and pill organiser ₹199 are already
+  there with `InvoiceLineKind.ADDON` ready — **lab ordering is the natural first buyer**, and Phase 4
+  deferred the add-on purchase flow expecting exactly this.
+- **`notification_delivery`** (Phase 3) for the escalation timeline's channels. One seam, not two.
+- **`components/ui/`** and `components/charts/chartTheme.ts` for every new screen and chart.
+- **`summary_service.plain_metric_label()`** whenever a clinical fact has to be said to a family.
 
 ### Things that will bite
 
-- **`/` currently redirects to `/login`** (`RootRedirect` in `App.tsx`). Phase 8 makes `/` the public
-  home. `ProtectedRoute` behaviour must not change, and a signed-in user hitting `/` should still
-  land on their role home — decide that explicitly rather than letting the redirect vanish.
-- **The login footer back-link was deferred to this phase.** §2.5 asks for it; it was a loop while
-  `/` redirected to `/login`. Add it now.
-- **Lead capture is unauthenticated**, which makes it the only public write endpoint in the codebase.
-  Rate limit it, honeypot it, and cap every field length — `schemas/assistant.py` shows the length-cap
-  pattern and why.
-- **`react-helmet-async` is a new dependency** (per-route SEO tags), and the venv has **no `pip`** —
-  that note is for the backend; the frontend is plain `npm install`.
-- **The suite is ~3.5 minutes**, almost all bcrypt. Run targeted files while iterating.
+- **Quota enforcement is still not wired at the point of use**, and Phase 9 is where it stops being
+  free to ignore: telemedicine ("2 per month") and lab panels are *countable* entitlements whose
+  whole point is a limit. The engine and its tests are ready (`consume_quota`). But §2.4's recorded
+  visit volume is **double the assumed top visit tier**, so enforcing *visits* would refuse the
+  visits the demo is specified to contain. **Enforce telemedicine and labs; leave visits unenforced**
+  and say so — that is the split the evidence supports.
+- **The care manager is not a fourth `UserRole`.** The plan is a profile on an admin user, which
+  keeps the three-way route guard intact. Cheap to agree on early; expensive to change later.
+- **`Alert` still has no resolution note column.** §8's journey 3 says the admin "resolves it with a
+  note" and there is nowhere to put one. Phase 10 owns the alert queue, but if Phase 9 adds alert
+  sources it may be the right moment to add the column.
+- **The Senior Safety Score must store every component, not just the total.** A score a family cannot
+  have explained to them is worse than no score. Same discipline as Phase 4's derived institutional
+  bands: put the arithmetic in one constant block and let a test re-run it.
+- **A wearable ingest endpoint is the second unauthenticated-ish surface** after `POST /leads`. It is
+  API-key authenticated rather than open, but treat it with the same suspicion: cap the payload, rate
+  limit it, and never let device-supplied text reach a log.
 
 ### Do not break these
 
 - Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
-  **Lakshmi carries no open alert**. `tests/test_seed.py` pins all four.
+  **Lakshmi carries no open alert**. `tests/test_seed.py` pins all four — and Phase 9 adds new alert
+  sources, which is exactly how the last one gets broken.
 - `tests/conftest.py` seeds `SMALL`, sets `GROQ_API_KEY=""` and `REPORTS_SCHEDULER_ENABLED=false`.
 - The autouse `clean_process_state` fixture resets the rate limiter and the summary cache. **Register
   any new process-global there.**
-- Backend **365**, Vitest **71**. The counts only grow.
+- **`core/pricing.py` is read, never written** — unless the real §3 finally arrives, in which case it
+  is the one file that changes.
+- `/public/plans` and authenticated `/plans` must stay byte-identical. A test enforces it.
+- Backend **408**, Vitest **87**. The counts only grow.
 
 ---
 
@@ -640,8 +734,8 @@ equal pair.
 - **Care manager role.** §4.4 gives care managers their own ratios and worklist. Plan is to model
   them as a profile on an admin user rather than a fourth `UserRole`, which keeps the three-way
   route guard intact. Flagged for Phase 9; cheap to agree on early.
-- **Login footer back-link deferred to Phase 8.** §2.5 asks for a back-link to the public site; `/`
-  currently redirects to `/login`, so the link would be a loop. Add it when `pages/public/` lands.
+- ✅ **Login footer back-link** — done in Phase 8. `/` is the public home now, so the link goes
+  somewhere instead of looping.
 - ✅ **Business documents / prices** — done in Phase 4. Everything lives in
   `backend/app/core/pricing.py`. **§3 was never supplied, so the invented values are listed in the
   Phase 4 results above and must be reconciled before Phase 8 publishes a pricing page.** Phase 8
@@ -678,8 +772,16 @@ equal pair.
 - ✅ **AI assistant** — done in Phase 7. `assistant_context` is the security boundary,
   `assistant_fallback` is the product, and the Groq path is a gated polish pass behind the same
   single `llm_client`.
-- **Login footer back-link — now due.** §2.5 asks for a link back to the public site; it was a loop
-  while `/` redirected to `/login`. Phase 8 lands `pages/public/`, so add it then.
+- ✅ **Public marketing site and lead capture** — done in Phase 8. Fourteen public routes plus a
+  404 under `PublicLayout`, prices served from `core/pricing.py` over `GET /public/plans` so no
+  rupee figure is typed into the frontend, and `POST /leads` rate-limited and honeypot-protected
+  behind an admin-only queue.
+- **The public site is client-rendered.** Every meta tag and the JSON-LD are set at runtime by
+  Helmet, so a crawler that does not execute JavaScript sees an empty shell. If organic search
+  matters commercially this needs SSR or a prerender step — a Phase 11-scale decision, recorded here
+  rather than quietly ignored.
+- **`frontend/public/sitemap.xml` is hand-maintained.** Fourteen URLs and no build step. If the
+  public route list grows much past this, generate it.
 
 ---
 

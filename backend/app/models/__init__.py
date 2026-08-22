@@ -15,6 +15,8 @@ from .enums import (
     DeliveryStatus,
     InvoiceLineKind,
     InvoiceStatus,
+    LeadKind,
+    LeadStatus,
     NurseStatus,
     MedicationLogStatus,
     NotificationType,
@@ -30,6 +32,7 @@ from .enums import (
     VisitStatus,
     VitalMetric,
 )
+from .lead import Lead
 from .medication import Medication, MedicationLog
 from .notification import Notification
 from .organization import Organization
@@ -58,6 +61,9 @@ __all__ = [
     "InvoiceLine",
     "InvoiceLineKind",
     "InvoiceStatus",
+    "Lead",
+    "LeadKind",
+    "LeadStatus",
     "Nurse",
     "NurseStatus",
     "Medication",

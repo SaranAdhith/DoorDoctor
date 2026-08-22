@@ -1,0 +1,16 @@
+# DoorDoctor — https://doordoctor.in
+#
+# The marketing site is public. Everything behind /login is a named person's
+# health record and must never be crawled, so those paths are disallowed here
+# as well as being enforced on the server by role checks on every request.
+
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /family/
+Disallow: /nurse/
+Disallow: /admin/
+
+Sitemap: https://doordoctor.in/sitemap.xml

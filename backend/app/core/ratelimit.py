@@ -76,3 +76,11 @@ FORGOT_PASSWORD_PER_IP = (20, 3600)
 # deterministic fallback is not free either — every question builds a context
 # pack, which is a dozen queries.
 ASSISTANT_PER_USER = (30, 3600)
+
+# Budget for public lead capture (§2.6). `POST /leads` is the only endpoint in
+# this codebase a stranger can write to, so it is budgeted twice: once per
+# source address, and once per email so a botnet cannot spread one address's
+# enquiries across many IPs. Deliberately generous enough that a family filling
+# the form, mistyping a phone number and resubmitting is never refused.
+LEADS_PER_IP = (10, 3600)
+LEADS_PER_EMAIL = (3, 3600)

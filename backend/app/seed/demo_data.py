@@ -481,3 +481,110 @@ SKIP_REASONS: Final[dict[str, str]] = {
 
 MISSED_REASON: Final = "Nobody at the residence. Family contacted; visit rescheduled."
 CANCELLED_REASON: Final = "Cancelled by the family - patient travelling."
+
+
+# --------------------------------------------------------------------------
+# Public enquiries (Phase 8)
+#
+# So that Admin -> Leads is a working queue in the demo rather than an empty
+# screen. `FULL` only: `SMALL` seeds no leads, which is what keeps the existing
+# suite's counts untouched.
+#
+# Every enquiry below is fictional, and deliberately mundane. These are not
+# testimonials and must never be presented as any — nothing here is quoted on a
+# public page. DoorDoctor is pre-launch.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LeadSpec:
+    name: str
+    email: str
+    phone: str
+    city: str
+    kind: str
+    message: str
+    source_page: str
+    #: How long ago it arrived, in hours. Spread so the queue has an age to it.
+    hours_ago: int
+    status: str = "new"
+    admin_note: str | None = None
+
+
+LEADS: Final[tuple[LeadSpec, ...]] = (
+    LeadSpec(
+        name="Vinod Raghavan",
+        email="vinod.raghavan@example.com",
+        phone="+91 98862 41107",
+        city="Bengaluru",
+        kind="family",
+        message=(
+            "My father is 81 and lives in Rajajinagar with a house help. "
+            "I would like someone to check on him twice a week."
+        ),
+        source_page="/pricing",
+        hours_ago=3,
+    ),
+    LeadSpec(
+        name="Anjali Menon",
+        email="anjali.menon@example.com",
+        phone="+1 415 555 0164",
+        city="San Francisco",
+        kind="nri",
+        message=(
+            "I am in California and both my parents are in Bengaluru. "
+            "I need to know someone is looking in on them and that I will hear about it."
+        ),
+        source_page="/nri",
+        hours_ago=9,
+    ),
+    LeadSpec(
+        name="Priyanka Shetty",
+        email="priyanka.shetty@example.com",
+        phone="+91 99451 88023",
+        city="Bengaluru",
+        kind="corporate",
+        message=(
+            "We are a 300-person engineering office looking at elder care as a benefit. "
+            "Could you send details of what the per-employee price covers?"
+        ),
+        source_page="/pricing/corporate",
+        hours_ago=26,
+        status="contacted",
+        admin_note="Intro call held. Sending a proposal for a 40-employee pilot.",
+    ),
+    LeadSpec(
+        name="Fr. Thomas Mathew",
+        email="thomas.mathew@example.com",
+        phone="+91 80 2555 0119",
+        city="Bengaluru",
+        kind="institution",
+        message="We run a 30-bed residence in Cooke Town and would like to discuss the per-resident rate.",
+        source_page="/pricing/institutions",
+        hours_ago=52,
+        status="qualified",
+        admin_note="Site visit booked. Fits the 25-resident band.",
+    ),
+    LeadSpec(
+        name="Sneha Kulkarni",
+        email="sneha.kulkarni@example.com",
+        phone="+91 97400 33218",
+        city="Mysuru",
+        kind="family",
+        message="Do you cover Mysuru? My mother is there and I am in Bengaluru.",
+        source_page="/contact",
+        hours_ago=71,
+        status="closed",
+        admin_note="Outside the current service area. Asked to keep her posted.",
+    ),
+    LeadSpec(
+        name="Harish Nair",
+        email="harish.nair@example.com",
+        phone="+91 90350 77412",
+        city="Bengaluru",
+        kind="family",
+        message="What is the difference between the ₹3,500 and ₹4,500 plans?",
+        source_page="/pricing",
+        hours_ago=14,
+    ),
+)

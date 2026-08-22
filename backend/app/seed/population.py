@@ -31,9 +31,13 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..database import now
 from ..models import (
     Alert,
     AlertStatus,
+    Lead,
+    LeadKind,
+    LeadStatus,
     Medication,
     MedicationLog,
     MedicationLogStatus,
@@ -605,6 +609,45 @@ def _today_reading(db: Session, record: PatientRecord, visit: Visit) -> None:
 
 
 # --------------------------------------------------------------------------
+# Public enquiries (Phase 8)
+# --------------------------------------------------------------------------
+
+
+def _build_leads(db: Session, admins: list[User]) -> int:
+    """Fill Admin -> Leads so the marketing site has somewhere to have landed.
+
+    Rows are written directly rather than through `lead_service.create`, because
+    that path is the *public* one: it commits per lead and it cannot backdate
+    `created_at`, and a queue where every enquiry arrived in the same second is
+    not a queue. This is the same reason `business.py` backdates `paid_at`
+    instead of letting `mark_paid` stamp the real clock.
+    """
+    worker = admins[0] if admins else None
+    for spec in demo_data.LEADS:
+        arrived = now() - timedelta(hours=spec.hours_ago)
+        status = LeadStatus(spec.status)
+        handled = status != LeadStatus.NEW and worker is not None
+        db.add(
+            Lead(
+                name=spec.name,
+                email=spec.email,
+                phone=spec.phone,
+                city=spec.city,
+                kind=LeadKind(spec.kind),
+                message=spec.message,
+                source_page=spec.source_page,
+                status=status,
+                admin_note=spec.admin_note,
+                handled_by_user_id=worker.id if handled else None,
+                # Worked a couple of hours after it arrived, never before it.
+                handled_at=arrived + timedelta(hours=2) if handled else None,
+                created_at=arrived,
+            )
+        )
+    return len(demo_data.LEADS)
+
+
+# --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
 
@@ -619,6 +662,7 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
     resolved, active = _raise_alerts(db, breaches, admins)
 
     _build_today(db, records, nurses_by_zone, core)
+    leads = _build_leads(db, admins)
     db.flush()
 
     return {
@@ -630,4 +674,5 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
         "doses": int(db.scalar(select(func.count(MedicationLog.id))) or 0),
         "alerts_resolved": resolved,
         "alerts_active": active,
+        "leads": leads,
     }

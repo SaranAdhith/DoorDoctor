@@ -160,3 +160,28 @@ class AssistantSource(str, Enum):
 
     DETERMINISTIC = "deterministic"
     ASSISTED = "assisted"
+
+
+class LeadKind(str, Enum):
+    """What a public enquiry is about (§2.6).
+
+    Mirrors the audiences in `core/pricing.py` plus `nri`, which is not a
+    separate price list but is a distinct conversation — a family abroad buying
+    for a parent in India. `other` exists so the contact form never has to
+    refuse an enquiry it cannot classify.
+    """
+
+    FAMILY = "family"
+    CORPORATE = "corporate"
+    INSTITUTION = "institution"
+    NRI = "nri"
+    OTHER = "other"
+
+
+class LeadStatus(str, Enum):
+    """How far an enquiry has been worked. `new` is the only state a stranger can create."""
+
+    NEW = "new"
+    CONTACTED = "contacted"
+    QUALIFIED = "qualified"
+    CLOSED = "closed"

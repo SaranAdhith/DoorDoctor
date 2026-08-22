@@ -22,9 +22,11 @@ from .routers import (
     assistant,
     auth,
     billing,
+    leads,
     medications,
     notifications,
     patients,
+    public,
     referrals,
     reports,
     subscriptions,
@@ -47,6 +49,10 @@ Families also get a plain-language summary of how their relative has been, and a
 weekly and monthly report as a PDF. Both families and admins can ask an assistant
 questions in their own words; it answers from a role-scoped context pack, never
 from the database directly, and works with no API key configured.
+
+Two endpoints need no authentication: the published price list under `/public`,
+and lead capture from the marketing site. Everything else concerns a named
+person's health and is behind a role-checked login.
 
 Alerts describe readings that fall outside the patient's configured monitoring
 thresholds. They are not medical diagnoses. No payment gateway is integrated in
@@ -119,6 +125,8 @@ app.include_router(billing.router, prefix=api_prefix)
 app.include_router(referrals.router, prefix=api_prefix)
 app.include_router(reports.router, prefix=api_prefix)
 app.include_router(assistant.router, prefix=api_prefix)
+app.include_router(leads.router, prefix=api_prefix)
+app.include_router(public.router, prefix=api_prefix)
 
 
 @app.get("/", tags=["system"], summary="Service banner")

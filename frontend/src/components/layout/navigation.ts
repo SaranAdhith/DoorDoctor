@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CreditCard,
   FileText,
+  Inbox,
   LayoutDashboard,
   MessageCircleQuestion,
   Pill,
@@ -83,6 +84,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
         { to: '/admin/revenue', label: 'Revenue', icon: TrendingUp },
+        { to: '/admin/leads', label: 'Leads', icon: Inbox },
       ],
     },
   ],

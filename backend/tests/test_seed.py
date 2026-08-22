@@ -29,6 +29,9 @@ from app.main import app
 from app.models import (
     Alert,
     AlertStatus,
+    Lead,
+    LeadKind,
+    LeadStatus,
     MedicationLog,
     Notification,
     Nurse,
@@ -491,3 +494,45 @@ def test_every_excursion_actually_breaches_something():
             if not ranges[metric][0] <= value <= ranges[metric][1]
         ]
         assert breached, f"excursion '{kind}' is inside every configured range"
+
+
+# --------------------------------------------------------------------------
+# Public enquiries (Phase 8)
+# --------------------------------------------------------------------------
+
+
+def test_the_full_profile_seeds_a_working_lead_queue(full_db: Session):
+    """Admin -> Leads should demo a queue, not an inbox of six identical rows."""
+    leads = list(full_db.scalars(select(Lead).order_by(Lead.created_at.desc())))
+
+    assert len(leads) == len(demo_data.LEADS)
+    # Every enquiry kind on the marketing site is represented.
+    assert {lead.kind for lead in leads} >= {LeadKind.FAMILY, LeadKind.CORPORATE, LeadKind.INSTITUTION, LeadKind.NRI}
+    # And the queue has been partly worked, so the status filter has something to filter.
+    statuses = {lead.status for lead in leads}
+    assert LeadStatus.NEW in statuses
+    assert len(statuses) > 1
+
+
+def test_a_worked_lead_records_who_worked_it_and_when(full_db: Session):
+    worked = [lead for lead in full_db.scalars(select(Lead)) if lead.status != LeadStatus.NEW]
+
+    assert worked, "the seeded queue should contain at least one worked enquiry"
+    for lead in worked:
+        assert lead.handled_by_user_id is not None
+        assert lead.handled_at is not None
+        # Worked after it arrived. A negative interval is the kind of thing a
+        # backdating seed gets wrong and nothing else notices.
+        assert lead.handled_at >= lead.created_at
+
+
+def test_unworked_leads_carry_no_handler(full_db: Session):
+    for lead in full_db.scalars(select(Lead).where(Lead.status == LeadStatus.NEW)):
+        assert lead.handled_by_user_id is None
+        assert lead.handled_at is None
+
+
+def test_the_small_profile_seeds_no_leads(db: Session):
+    """`SMALL` is what `tests/conftest.py` uses. `tests/test_leads.py` asserts
+    exact counts against an empty queue, so a lead seeded here would break it."""
+    assert db.scalar(select(func.count(Lead.id))) == 0

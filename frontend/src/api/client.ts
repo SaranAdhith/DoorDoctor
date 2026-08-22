@@ -39,7 +39,7 @@ export function onUnauthorized(handler: () => void): () => void {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   /** Skip the global 401 handler (used by the login screen). */
   skipAuthRedirect?: boolean
@@ -125,4 +125,5 @@ export const api = {
   post: <T,>(path: string, body?: unknown, options: RequestOptions = {}) =>
     request<T>(path, { ...options, method: 'POST', body }),
   put: <T,>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+  patch: <T,>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
 }

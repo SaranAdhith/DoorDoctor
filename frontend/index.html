@@ -6,17 +6,21 @@
     <link rel="apple-touch-icon" href="/app-icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#002643" />
-    <meta
-      name="description"
-      content="DoorDoctor - elderly healthcare monitoring and coordination prototype."
-    />
+    <!--
+      No static <meta name="description"> here on purpose. Helmet *appends* meta
+      tags rather than replacing ones it does not manage, so a static tag plus a
+      per-route tag ships two conflicting descriptions on every public page.
+      Every public route sets its own through components/public/Seo; the
+      authenticated app has none, and needs none — robots.txt disallows it.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <title>DoorDoctor - Elderly Healthcare</title>
+    <!-- Replaced per route by components/public/Seo; this is the pre-hydration default. -->
+    <title>DoorDoctor — Elderly Healthcare at Home</title>
   </head>
   <body>
     <div id="root"></div>

@@ -77,6 +77,7 @@ def main() -> None:
             f"  Alerts  : {result['alerts_resolved']} resolved, "
             f"{result['alerts_active']} still open"
         )
+        print(f"  Leads   : {result['leads']} public enquiries waiting on Admin -> Leads")
     print()
     print("Demo accounts (password for all of them: Demo@123)")
     print("  family@doordoctor.in - family member")

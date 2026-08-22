@@ -1,15 +1,31 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
-import { ROLE_HOME, useAuth } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
+import { PublicLayout } from './components/public'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { Login } from './pages/Login'
 import { ResetPassword } from './pages/ResetPassword'
+import { About } from './pages/public/About'
+import { Contact } from './pages/public/Contact'
+import { Faq } from './pages/public/Faq'
+import { Home } from './pages/public/Home'
+import { HowItWorks } from './pages/public/HowItWorks'
+import { NotFound } from './pages/public/NotFound'
+import { Nri } from './pages/public/Nri'
+import { Pricing } from './pages/public/Pricing'
+import { PricingCorporate } from './pages/public/PricingCorporate'
+import { PricingInstitutions } from './pages/public/PricingInstitutions'
+import { Privacy } from './pages/public/Privacy'
+import { Terms } from './pages/public/Terms'
+import { TrustAndSafety } from './pages/public/TrustAndSafety'
+import { WhatIsDoorDoctor } from './pages/public/WhatIsDoorDoctor'
+import { WhoItsFor } from './pages/public/WhoItsFor'
 import { NurseVisitDetail } from './pages/nurse/NurseVisitDetail'
 import { NurseVisits } from './pages/nurse/NurseVisits'
 import { AdminAlerts } from './pages/admin/AdminAlerts'
 import { AdminAssistant } from './pages/admin/AdminAssistant'
+import { AdminLeads } from './pages/admin/AdminLeads'
 import { AdminRevenue } from './pages/admin/AdminRevenue'
 import { AdminSubscriptions } from './pages/admin/AdminSubscriptions'
 import { AdminNurses } from './pages/admin/AdminNurses'
@@ -24,19 +40,54 @@ import { FamilyReports } from './pages/family/FamilyReports'
 import { MyPlan } from './pages/family/MyPlan'
 import { PatientProfile } from './pages/family/PatientProfile'
 
-function RootRedirect() {
-  const { user, initialising } = useAuth()
-  if (initialising) return null
-  return <Navigate to={user ? ROLE_HOME[user.role] : '/login'} replace />
-}
-
+/**
+ * Three shells, one router.
+ *
+ * `PublicLayout` — the marketing site, open to everyone.
+ * `AuthLayout` (inside the three auth pages) — sign in, forgot, reset.
+ * `AppShell` behind `ProtectedRoute` — the product.
+ *
+ * **`/` renders the public home for everyone, signed in or not.** Phase 8
+ * replaced the old `RootRedirect`, and this was decided explicitly rather than
+ * allowed to happen: a signed-in family member who follows a link to `/pricing`
+ * or `/about` must be able to read it, and a redirect at `/` but not at
+ * `/pricing` is an inconsistency someone would have to remember. The public
+ * header offers "Go to dashboard" when a session exists, which is the useful
+ * half of the old redirect without the trap.
+ *
+ * `ProtectedRoute` is unchanged — it still sends an unauthenticated visitor to
+ * `/login`, not to `/`.
+ */
 export default function App() {
   return (
     <Routes>
+      {/* --- Public marketing site (§2.6) --- */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/what-is-doordoctor" element={<WhatIsDoorDoctor />} />
+        <Route path="/who-its-for" element={<WhoItsFor />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/pricing/corporate" element={<PricingCorporate />} />
+        <Route path="/pricing/institutions" element={<PricingInstitutions />} />
+        <Route path="/nri" element={<Nri />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/trust-and-safety" element={<TrustAndSafety />} />
+        <Route path="/faq" element={<Faq />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        {/* Unmatched paths land here, inside the public shell, so a wrong URL
+            still arrives somewhere with navigation rather than at a dead end. */}
+        <Route path="*" element={<NotFound />} />
+      </Route>
+
+      {/* --- Authentication --- */}
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
+      {/* --- The product --- */}
       <Route
         path="/family"
         element={
@@ -86,10 +137,8 @@ export default function App() {
         <Route path="assistant" element={<AdminAssistant />} />
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="revenue" element={<AdminRevenue />} />
+        <Route path="leads" element={<AdminLeads />} />
       </Route>
-
-      <Route path="/" element={<RootRedirect />} />
-      <Route path="*" element={<RootRedirect />} />
     </Routes>
   )
 }

@@ -478,3 +478,69 @@ export interface AssistantSuggestion {
   title: string
   question: string
 }
+
+// --------------------------------------------------------------------------
+// Public site and lead capture (Phase 8, §2.6)
+// --------------------------------------------------------------------------
+
+export interface AddOn {
+  code: string
+  name: string
+  price_paise: number
+  unit: string
+}
+
+/**
+ * The payload behind every public pricing page.
+ *
+ * The pricing pages render *this*, never a number typed into a component —
+ * `backend/app/core/pricing.py` is the only place a price is written down, and
+ * the whole point of fetching it is that a marketing page cannot drift from the
+ * invoice.
+ */
+export interface PublicPlans {
+  plans: Plan[]
+  add_ons: AddOn[]
+  /** Behind the "2 months free" claim, so the words cannot outlive the offer. */
+  annual_months_free: number
+}
+
+export type LeadKind = 'family' | 'corporate' | 'institution' | 'nri' | 'other'
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'closed'
+
+export interface Lead {
+  id: number
+  name: string
+  email: string
+  phone: string | null
+  city: string | null
+  kind: LeadKind
+  message: string | null
+  source_page: string | null
+  status: LeadStatus
+  admin_note: string | null
+  handled_by: string | null
+  handled_at: string | null
+  created_at: string
+}
+
+export interface LeadSummary {
+  total: number
+  new: number
+  contacted: number
+  qualified: number
+  closed: number
+  by_kind: Record<string, number>
+}
+
+/** What the public form sends. `company_website` is the honeypot — never filled. */
+export interface LeadSubmission {
+  name: string
+  email: string
+  phone?: string
+  city?: string
+  kind: LeadKind
+  message?: string
+  source_page?: string
+  company_website?: string
+}

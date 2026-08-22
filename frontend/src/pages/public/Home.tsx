@@ -1,0 +1,265 @@
+import {
+  Activity,
+  ArrowRight,
+  BellRing,
+  ClipboardList,
+  FileText,
+  MapPin,
+  MessageCircleQuestion,
+  Pill,
+  ShieldCheck,
+} from 'lucide-react'
+
+import {
+  CtaBand,
+  ORGANISATION_JSON_LD,
+  PageHero,
+  Section,
+  SectionHeading,
+  Seo,
+} from '../../components/public'
+import { LinkButton } from '../../components/ui'
+
+/**
+ * The public home page.
+ *
+ * Everything claimed here is something the platform verifiably does — a nurse
+ * checks in, records vitals, the reading is compared against that patient's
+ * configured thresholds, an out-of-range reading raises an alert, the family
+ * sees it. There are no traction numbers, no testimonials and no logos, because
+ * DoorDoctor is pre-launch and inventing those is the single easiest way for a
+ * marketing page to start lying.
+ */
+
+const WHAT_HAPPENS = [
+  {
+    icon: MapPin,
+    title: 'A nurse arrives and checks in',
+    body: 'Visits are scheduled in advance and routed by area. Check-in is recorded at the home, so you know the visit actually happened.',
+  },
+  {
+    icon: Activity,
+    title: 'Vitals are recorded at the bedside',
+    body: 'Blood pressure, pulse, blood sugar, oxygen, temperature and weight — entered during the visit, not written up later.',
+  },
+  {
+    icon: Pill,
+    title: 'Medicines are supervised',
+    body: 'Each dose is marked given, skipped or refused, with the reason. Over weeks that becomes a picture rather than a guess.',
+  },
+  {
+    icon: BellRing,
+    title: 'Anything out of range raises an alert',
+    body: 'Every reading is checked against thresholds set for that patient. A breach reaches the family and the care team at the same time.',
+  },
+]
+
+const FOR_THE_FAMILY = [
+  {
+    icon: FileText,
+    title: 'A summary in plain language',
+    body: 'How your mother has been this week, written the way you would say it — not a table of numbers you have to interpret.',
+  },
+  {
+    icon: MessageCircleQuestion,
+    title: 'Ask questions in your own words',
+    body: '“Is she taking her tablets?” “When is the next visit?” Answered from her record, and only ever her record.',
+  },
+  {
+    icon: ClipboardList,
+    title: 'The full clinical detail, if you want it',
+    body: 'Trends, every visit, every dose, every alert and how it was resolved. Nothing is summarised away from you.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'You can see who is in the house',
+    body: 'The nurse assigned to each visit, their qualification, and whether their credentials were verified before they were assigned.',
+  },
+]
+
+export function Home() {
+  return (
+    <>
+      <Seo
+        description="DoorDoctor sends qualified nurses to elderly parents at home in Bengaluru, records every visit, and shows the family exactly what happened — with alerts when a reading falls outside the range set for that patient."
+        path="/"
+        jsonLd={ORGANISATION_JSON_LD}
+      />
+
+      <PageHero
+        eyebrow="Elderly care at home · Bengaluru"
+        title={
+          <>
+            Someone checks on your parents.
+            <br className="hidden sm:block" /> You see exactly what happened.
+          </>
+        }
+        description={
+          <>
+            DoorDoctor sends a qualified nurse to your parents&rsquo; home on a schedule you choose.
+            Every visit, every reading and every dose is recorded — and if something falls outside
+            the range set for them, you hear about it the same moment the care team does.
+          </>
+        }
+        actions={
+          <>
+            <LinkButton
+              to="/contact"
+              variant="accent"
+              size="lg"
+              icon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
+            >
+              Talk to us
+            </LinkButton>
+            <LinkButton to="/how-it-works" variant="ghost" size="lg">
+              See how it works
+            </LinkButton>
+          </>
+        }
+        footnote={
+          <>
+            Serving Bengaluru. DoorDoctor is a monitoring and coordination service — in an
+            emergency, call{' '}
+            <a href="tel:108" className="font-semibold text-status-critical underline">
+              108
+            </a>
+            .
+          </>
+        }
+      />
+
+      <Section tone="default">
+        <SectionHeading
+          eyebrow="The problem"
+          title="Distance turns ordinary care into guesswork"
+          description="A phone call tells you your father is “fine”. It does not tell you his blood pressure has been climbing for three weeks, or that he stopped taking the evening tablet ten days ago. The information exists — it just never reaches the person who worries about it."
+        />
+      </Section>
+
+      <Section tone="sunken">
+        <SectionHeading
+          eyebrow="What we do"
+          title="A scheduled visit, recorded properly"
+          description="Nothing here depends on your parents owning a smartphone or learning an app. A nurse comes to the house; the record is made for them."
+        />
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          {WHAT_HAPPENS.map(({ icon: Icon, title, body }) => (
+            <div
+              key={title}
+              className="rounded-2xl border border-border-subtle bg-surface-raised p-6 shadow-card"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 text-h2 font-bold text-text-primary">{title}</h3>
+              <p className="mt-2 text-body text-text-secondary">{body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8">
+          <LinkButton to="/how-it-works" variant="ghost">
+            The full sequence, step by step
+          </LinkButton>
+        </div>
+      </Section>
+
+      <Section tone="default">
+        <SectionHeading
+          eyebrow="For the family"
+          title="Written for the person who is not in the room"
+          description="You should not need a clinical vocabulary to understand how your own mother is doing."
+        />
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          {FOR_THE_FAMILY.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="flex gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-800 text-text-inverted">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-body font-semibold text-text-primary">{title}</h3>
+                <p className="mt-1 text-body text-text-secondary">{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section tone="sunken">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <SectionHeading
+            eyebrow="Who it is for"
+            title="Whether you are twenty minutes away or twelve hours"
+            description="The same service, and the same record. What changes is the time of day you read it."
+          />
+          <ul className="space-y-4">
+            {[
+              ['Families in Bengaluru', 'You visit at weekends and want the weekdays covered properly.'],
+              ['Families living abroad', 'You are in a different timezone and need to know before you are told.'],
+              ['Employers', 'Elder care for your employees’ parents, as a benefit you can actually explain.'],
+              ['Residences and care homes', 'Clinical monitoring for every resident, priced per resident per day.'],
+            ].map(([title, body]) => (
+              <li
+                key={title}
+                className="rounded-xl border border-border-subtle bg-surface-raised px-5 py-4"
+              >
+                <p className="text-body font-semibold text-text-primary">{title}</p>
+                <p className="mt-1 text-small text-text-secondary">{body}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <LinkButton to="/who-its-for" variant="ghost">
+            Who DoorDoctor is for
+          </LinkButton>
+          <LinkButton to="/pricing" variant="ghost">
+            See pricing
+          </LinkButton>
+        </div>
+      </Section>
+
+      <Section tone="default">
+        <SectionHeading
+          eyebrow="Being straight with you"
+          title="What DoorDoctor is not"
+          description="A care service that oversells itself is a care service you cannot rely on in the moment it matters."
+        />
+        <ul className="mt-8 grid gap-4 sm:grid-cols-3">
+          {[
+            [
+              'Not an emergency service',
+              'If someone needs help right now, call 108. We monitor and coordinate; we do not run ambulances.',
+            ],
+            [
+              'Not a diagnosis',
+              'An alert means a reading fell outside the range configured for that patient. A clinician decides what it means.',
+            ],
+            [
+              'Not a replacement for a doctor',
+              'We keep the record, spot what is drifting and get it in front of the right person early.',
+            ],
+          ].map(([title, body]) => (
+            <li
+              key={title}
+              className="rounded-2xl border border-border-subtle bg-surface p-5"
+            >
+              <p className="text-body font-semibold text-text-primary">{title}</p>
+              <p className="mt-1.5 text-small text-text-secondary">{body}</p>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-8">
+          <LinkButton to="/trust-and-safety" variant="ghost">
+            How we handle safety and your data
+          </LinkButton>
+        </div>
+      </Section>
+
+      <CtaBand />
+    </>
+  )
+}
