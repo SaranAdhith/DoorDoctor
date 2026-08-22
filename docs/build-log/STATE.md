@@ -43,7 +43,7 @@ The full build specification lives in the founder's original prompt. The phase p
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
 | 5 | Realistic seed data | ✅ done — `d840578` |
 | 6 | Plain-language summary + reports | ✅ done — `052841f` |
-| 7 | AI assistant (family + admin) | ✅ done — `PENDING` |
+| 7 | AI assistant (family + admin) | ✅ done — `8d91748` |
 | 8 | Public marketing site + leads | ⬜ **next** |
 | 9 | Clinical features (labs → escalation) | ⬜ |
 | 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
@@ -464,7 +464,7 @@ and a deliberately slow network still falls back inside 2s.
 
 ---
 
-### Phase 7 — AI assistant, family + admin → `PENDING`
+### Phase 7 — AI assistant, family + admin → `8d91748`
 
 - **The model never queries the database.** `services/assistant_context.py` assembles a role-scoped
   **context pack** and that pack is the only thing a model ever sees. Authorization therefore happens
