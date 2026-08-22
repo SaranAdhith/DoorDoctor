@@ -42,7 +42,7 @@ The full build specification lives in the founder's original prompt. The phase p
 | 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
 | 5 | Realistic seed data | ✅ done — `d840578` |
-| 6 | Plain-language summary + reports | ✅ done — `PENDING` |
+| 6 | Plain-language summary + reports | ✅ done — `052841f` |
 | 7 | AI assistant (family + admin) | ⬜ **next** |
 | 8 | Public marketing site + leads | ⬜ |
 | 9 | Clinical features (labs → escalation) | ⬜ |
@@ -376,7 +376,7 @@ assumed entitlements. Reconcile §3 first, then enforce.
 
 ---
 
-### Phase 6 — plain-language summary, reports, the LLM boundary → `PENDING`
+### Phase 6 — plain-language summary, reports, the LLM boundary → `052841f`
 
 - **The banned-word list is a runtime guard, not only a test.** `summary_service`
   `contains_clinical_language()` is applied to the deterministic output by the suite *and* to every
