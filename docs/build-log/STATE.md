@@ -466,51 +466,144 @@ and a deliberately slow network still falls back inside 2s.
 
 ## ▶ Starting Phase 7 — AI assistant, family + admin (§2.3)
 
-**Read this section, then the plan file's Phase 7 paragraph.**
+**Read this whole section first, then the plan file's Phase 7 paragraph (line 256), then write
+`docs/build-log/phase-7.md` before writing any code.** Everything below is what a cold session
+would otherwise have to re-derive by reading the codebase.
+
+### ⚠️ FIRST — §2.3's intent list was never supplied
+
+The plan says the fallback "answers every **listed** family and admin intent". That list lives in
+§2.3 of the founder's build prompt, **which is not in the repo and was never pasted into a build
+session.** This is the same class of gap as §3 (pricing), which Phase 4 hit and resolved by
+inventing values, isolating them in one file and marking them `ASSUMED`.
+
+Do the same thing here, and do it deliberately:
+
+1. **Ask the founder for §2.3's intent list.** It is one message and it removes the guesswork.
+2. If it does not arrive, derive the intents from what the data model can actually answer, put them
+   in **one module** (`services/assistant_intents.py` or a constant block at the top of
+   `assistant_fallback.py`), and mark them `ASSUMED` in the same style as `core/pricing.py`. Add a
+   reconciliation table to STATE.md exactly as Phase 4 did.
+3. **Do not scatter intent strings across the service.** The reconciliation has to be a one-file
+   change when the real list appears.
+
+A defensible starting set, derived from what the platform genuinely knows — every one of these is
+answerable from existing data with no new tables:
+
+| Role | Intent | Answerable from |
+|---|---|---|
+| family | How has Amma been this week? | `summary_service.build_deterministic` |
+| family | What were the last readings? | `vitals_service.latest_for_patient` |
+| family | Is she taking her medicines? | `medication_service.adherence_for_patient` |
+| family | When is the next visit? | `visit_service` upcoming |
+| family | Who is the nurse, and are they verified? | `Nurse.credential`, `verification_status` |
+| family | What was that alert about? | `alert_service`, `Alert.breached_parameters` |
+| family | What does my plan cover / what have I paid? | `subscription_service.entitlement`, `billing_service` |
+| family | Something is wrong right now | **the emergency path — 108, then nurse, then admin** |
+| admin | Which patients need attention today? | open alerts by severity |
+| admin | What is on the board today? | `visit_service.list_today_visits` |
+| admin | Which visits are unassigned? | today's board, `nurse_id is None` |
+| admin | How is nurse X doing? | `admin_service.list_nurses`, open visit counts |
+| admin | What is MRR / who is past due? | `billing_service.revenue_summary` |
 
 ### Build order — the fallback first, exactly as Phase 6 did
 
-1. `services/assistant_fallback.py` — a deterministic intent matcher over the role-scoped context
-   pack. Built and tested **first**, answers every listed family and admin intent with no key and no
-   network.
-2. `models/assistant.py`, `services/assistant_service.py`, `routers/assistant.py`.
-3. Only then the Groq path, behind the **existing** `llm_client.complete()` with
+1. **`services/assistant_context.py`** — assembles the role-scoped **context pack**. This is the
+   security boundary and it is worth its own module: family packs contain only patients that pass
+   `authorize_patient`, admin packs are org-wide but carry no billing detail a nurse could reach.
+2. **`services/assistant_fallback.py`** — deterministic intent matcher over that pack. Built and
+   tested **first**; answers every intent with no key and no network.
+3. `models/assistant.py`, `services/assistant_service.py`, `routers/assistant.py`.
+4. **Only then** the Groq path, behind the **existing** `llm_client.complete()` with
    `llm_client.ASSISTANT_TIMEOUT` (8s).
+5. Frontend last.
 
-### What Phase 6 already built for you
+**Verify with `GROQ_API_KEY` unset before calling the phase done** — that is the demo configuration,
+and Phase 6 proved the pattern works.
 
-- **`services/llm_client.py` is done and tested.** It never raises, it never logs a prompt, and it
-  already carries the 8s assistant timeout as a constant. **Do not write a second client.**
-- **The four-gate validation pattern** in `summary_service._rewrite_is_acceptable` is the model for
-  validating assistant output. The assistant needs different gates (it answers rather than rewrites,
-  so the "no new numbers" gate becomes "no claim outside the context pack") but the shape — validate
-  in the service, fall back silently, report `source` honestly — should be identical.
-- **`summary_service.contains_clinical_language()`** is reusable if an assistant answer to a family
-  member should observe the same vocabulary rule. Consider it; §2.3 does not require it explicitly.
-- **`summary_service.build_deterministic()`** already assembles a plain-language view of one
-  patient's window. It is a strong starting point for the family context pack rather than a second
-  assembly of the same facts.
-- **The `_SummaryCache` pattern** (content fingerprint + TTL + `reset()` wired into conftest) is
-  there to copy if assistant responses need caching.
+### What Phase 6 already built — reuse it, do not rebuild it
 
-### The rules Phase 7 must enforce
+```python
+# backend/app/services/llm_client.py — the single LLM boundary. DO NOT WRITE A SECOND ONE.
+complete(*, system: str, user: str, timeout: float,
+         max_tokens: int = 400, temperature: float = 0.2) -> str | None
+available() -> bool                    # settings.assistant_enabled and a non-empty key
+SUMMARY_TIMEOUT = 2.0 ; ASSISTANT_TIMEOUT = 8.0
+```
 
-- **The model never queries the database.** The server assembles a role-scoped context pack and the
-  model sees only that. This is the whole security model.
-- A test must prove a family user asking about **another family's patient** is refused. Phase 6's
-  `test_another_familys_summary_is_a_404_not_a_403` is the precedent; `authorize_patient` is the
-  gate.
-- Answer only from context · never diagnose · never touch medication · emergency → **call 108**, then
-  the nurse, then the admin · always close with the monitoring disclaimer.
+It **never raises** — no key, disabled, timeout, 500, malformed body and empty completion all return
+`None`, so there is exactly one fallback path. It **never logs the prompt or the completion**; a test
+asserts a patient name never reaches the log. Keep that property.
+
+- **The validation shape to copy** is `summary_service._rewrite_is_acceptable`: gates live in the
+  **service**, not the client — the client is transport, the service owns meaning. Fall back
+  silently, and report `source` (`deterministic` / `assisted`) honestly in the payload so the demo
+  can *show* the fallback rather than assert it.
+  The assistant needs different gates. The strongest one available here is the analogue of Phase 6's
+  "no invented numbers": **no claim outside the context pack.** At minimum, every number in the
+  answer must appear in the pack.
+- **`summary_service.contains_clinical_language(text) -> str | None`** — the banned-word guard.
+  Apply it to **family-facing** assistant answers; §2.3 does not require it explicitly, but a
+  platform that says "blood pressure" on the dashboard and "systolic" in the assistant has two
+  voices. Do not apply it to admin answers — admins are clinical staff.
+- **`summary_service.build_deterministic(db, patient, window)`** already produces a plain-language
+  view of one patient's window. Use it *in* the family context pack rather than assembling the same
+  facts a second way.
+- **`_SummaryCache`** (content fingerprint + TTL + `reset()`) is the caching pattern if assistant
+  answers need it. **Register any new process-global cache in the autouse `clean_process_state`
+  fixture in `tests/conftest.py`**, or test order will decide test outcomes.
+
+### Proposed API surface
+
+```
+POST /assistant/ask          {question, patient_id?}  -> {answer, source, intent, disclaimer, ...}
+GET  /assistant/conversations                          -> the caller's own history
+GET  /assistant/suggestions?patient_id=                -> role-scoped starter questions
+```
+
+Role handling follows the existing precedent: `CurrentUser` + `authorize_patient` for anything
+patient-scoped. **Someone else's patient is a 404, never a 403** — a 403 confirms the record exists,
+which is enough to learn that a named person is a DoorDoctor patient. `authorize_report` in
+`core/dependencies.py` is the most recent worked example.
+
+### Things that will bite
+
+- **Rate limit `/assistant/ask`.** `core/ratelimit.py` already exists (Phase 3, sliding window,
+  raises `TooManyRequestsError` → 429 + `Retry-After`) and is already reset per-test by the autouse
+  fixture. An unmetered LLM endpoint behind a login is the obvious way to burn a free Groq tier.
+- **Conversation persistence is a privacy decision, not a schema decision.** `models/assistant.py`
+  will store a family member's questions about a named patient. Phase 3 set the precedent that
+  sensitive values are redacted *before* they are persisted (`notification_delivery.deliver(...,
+  sensitive=[...])`, and a test proves the raw token never lands in a stored body). Decide the
+  retention stance explicitly and write it in the docstring.
+- **Nurses.** The plan names *family + admin* only. Decide explicitly whether a nurse gets an
+  assistant; if not, `require_family_or_admin` already exists. Do not leave it accidental.
+- **The emergency intent must be matched deterministically and must never reach the model.**
+  "I think she is having a stroke" is not a question to send to a 70B model with an 8s timeout and a
+  fallback path. Match it in `assistant_fallback` first, return **108 → nurse → admin** immediately,
+  and short-circuit before any LLM call.
+- **The suite is ~3 minutes**, almost all bcrypt (~180 logins × 0.73s). Run targeted files while
+  iterating (`pytest tests/test_assistant.py -q`) and the full suite before committing.
 
 ### Do not break these
 
 - Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
-  **Lakshmi carries no open alert**. `tests/test_seed.py` pins them.
-- `tests/conftest.py` seeds `SMALL` and sets `GROQ_API_KEY=""`. Tests that need the assisted path
-  monkeypatch `llm_client.complete` (see the `assisted` fixture in `tests/test_summary.py`).
-- The autouse `clean_process_state` fixture resets the rate limiter and the summary cache. **Add any
-  new process-global cache to it**, or test order will decide test outcomes.
+  **Lakshmi carries no open alert**. `tests/test_seed.py` pins all four.
+- `tests/conftest.py` seeds `SMALL` and sets `GROQ_API_KEY=""` and `REPORTS_SCHEDULER_ENABLED=false`.
+- **To test the assisted path, monkeypatch `llm_client.complete`** — copy the `assisted` fixture at
+  the bottom of `tests/test_summary.py`, which also hands back a call counter for cache assertions.
+  `tests/test_llm_client.py` shows how to fake `httpx` responses without a network.
+- The autouse `clean_process_state` fixture resets the rate limiter and the summary cache.
+
+### Definition of done for Phase 7
+
+- Every intent answered **with `GROQ_API_KEY` unset**, proven by test.
+- A family user asking about another family's patient is **refused** (404), proven by test.
+- The emergency path returns 108 → nurse → admin without touching the model, proven by test.
+- Backend test count grows from **287**; Vitest from **61**.
+- Verified live in Chrome at 375 / 768 / 1024 / 1440, zero console errors.
+- `docs/build-log/phase-7.md` written before the code and closed with an "As executed" section.
+- One conventional commit on `main`, then the hash recorded in the phase table above.
 
 
 ## Open items and deferrals
