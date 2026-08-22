@@ -39,7 +39,7 @@ The full build specification lives in the founder's original prompt. The phase p
 |---|---|---|
 | 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `53fdb4d` |
 | 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
-| 3 | Forgot password + login rebuild | ✅ done — see below |
+| 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
 | 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ⬜ **next** |
 | 5 | Realistic seed data | ⬜ |
 | 6 | Plain-language summary + reports | ⬜ |
@@ -136,7 +136,7 @@ Still planned: `weasyprint`, `apscheduler`, `alembic` (backend); `react-helmet-a
   Reuse it for every chart added later.
 - Verified in a real browser at 375 / 768 / 1024 / 1440.
 
-### Phase 3 — password reset, delivery channels, rebuilt login → (this commit)
+### Phase 3 — password reset, delivery channels, rebuilt login → `2eeb9f8`
 - **Reset tokens**: `secrets.token_urlsafe(32)`, stored **only** as sha256. 30-minute expiry, single
   use, and a new request stamps `used_at` on the outstanding siblings so the newest link is the only
   working one. A completed reset kills every other open link for that account.
