@@ -45,8 +45,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 6 | Plain-language summary + reports | ✅ done — `052841f` |
 | 7 | AI assistant (family + admin) | ✅ done — `8d91748` |
 | 8 | Public marketing site + leads | ✅ done — `b40cefb` |
-| 9 | Clinical features (labs → escalation) | ⬜ **next** |
-| 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ |
+| 9 | Clinical features (labs → escalation) | ✅ done — `235acf9` |
+| 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ **next** |
 | 11 | Multi-family, hardening, tests, docs | ⬜ |
 
 Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats a broken phase 11.
@@ -56,14 +56,14 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 408 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 623 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean (~5.4 s, full population)
 cd backend  && .venv/bin/python -m app.seed --small        # the dataset the test suite uses
 cd backend  && .venv/bin/python -m app.seed --demo-reset   # rewind the 148/92 path between demos
 cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 87 passing today
+cd frontend && npx vitest run                      # 121 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -655,148 +655,250 @@ disclaimer"** rules are all recorded in the plan and are *not* assumed.
 
 ---
 
-## ▶ Starting Phase 9 — Clinical features (§4.2–4.9)
+### Phase 9 — clinical features → `235acf9`
 
-**Read `docs/build-log/phase-8.md` for how the last phase was structured, then write
-`docs/build-log/phase-9.md` before writing any code.**
+Eight feature areas, committed in six stages rather than one drop. **623 backend tests** (was 408)
+and **121 Vitest** (was 87).
 
-Phase 8 closed the "credible demoable platform" line: a stranger can now find DoorDoctor, understand
-it, see what it costs and enquire, and an admin works that enquiry in-app. Phase 9 is the first phase
-that adds genuinely new *clinical* surface.
+- **Decisions taken with the founder before any code (2026-08-22):** §4.2–4.9 was never supplied, so
+  **proceed with `ASSUMED` values**; the care manager is a **profile on an admin user, not a fourth
+  role**; and `Alert` gets its **resolution note now** rather than in Phase 10.
+- **`backend/app/core/clinical.py` is the single source of every clinical constant** — the sibling of
+  `core/pricing.py`, importing nothing from the app. Lab panels and reference ranges, safety weights
+  and bands, SLA durations, the wearable range and its three actions, PHQ-2, the escalation ladder.
+  Three provenance markers, not two: `RECORDED` · `INSTRUMENT` (PHQ-2 — a published instrument, and
+  **not** an assumption for the founder to reconcile away) · `ASSUMED`.
+  **Reconciliation table below.**
+- **`services/safety_score.py` contains no clinical constant, and a test proves it** by asserting the
+  module's numeric literals and `clinical.py`'s values are disjoint. The one-file promise is a test,
+  not a convention.
+- **A component with no data is dropped, never scored zero.** No PHQ-2 on file must not read as
+  "worst possible mood". Missing components are excluded and the scale is rescaled across what did
+  have data, with `covered_weight` stored so the rescaling is visible; below
+  `SAFETY_MIN_COVERED_WEIGHT` **no score is published at all**, because a number derived from one
+  component looks exactly as authoritative as a real one. This is the single most likely way the
+  feature could silently defame a patient, and it is pinned by four tests.
+- **Every safety score stores its components, and a seed test re-runs the arithmetic** over all 132
+  seeded rows: the weighted points must add to the score over the weight it claims to cover. A
+  second test asserts the newest stored score equals what the live calculator produces from the same
+  data — so a seeded number the calculator could not reproduce fails rather than looking plausible.
+- **`alert_service.create_alert` is now the general path** and `create_threshold_alert` a wrapper
+  over it. Three new sources (abnormal lab, safety drop, wearable breach) have no `Vital` to point
+  at. Nothing outside `alert_service` builds an `Alert` row — the Phase 5 seed's exact count and the
+  family ever hearing about an alert both depend on that.
+- **One alert per clinical event, never per measurement.** A panel with four values out of range is
+  one alert; a wearable reporting eight low readings in a minute is one alert, one escalation and
+  one task. Eight escalations would bury the finding they were raised about.
+- **Every `LabResult` stores the reference range it was judged against.** `clinical.py` is *meant* to
+  be edited, and a range that moves must not silently re-flag a result somebody has already read and
+  acted on. The range travels to the client too, so a flag is arithmetic the reader can re-run rather
+  than an opinion.
+- **Labs are the first buyer of Phase 4's deferred add-on flow.** `lab_service.order` resolves
+  payment in one place — the plan's allowance first, then the recorded ₹499 add-on. Past the
+  allowance the panel is **billed, not refused**: the add-on price exists so more is purchasable, and
+  refusing would make ₹499 unreachable. `billing_service.charge_addon` issues the add-on its own
+  invoice at the moment of purchase, because an add-on is not a billing period.
+- **Telemedicine is the first genuinely enforced quota**, and the split is evidence-led rather than
+  preferential: its "2 per month on Premium" is the one entitlement quantity §3 actually recorded,
+  and nothing contradicts it. **Visits stay unenforced** because §2.4's recorded 16.7 visits per
+  patient per month is double the assumed top tier of 12 — enforcing it would refuse the visits the
+  demo is specified to contain. That argument lives in `consult_service` beside the call, not only
+  here.
+- **A cancelled consult refunds; a cancelled lab order does not.** Opposite rules for opposite
+  reasons — a consult that never happened cost nothing, while a lab panel's sample and laboratory are
+  spent the moment it is ordered. A no-show is not refunded either: the doctor's time was held.
+  `quota_released` is stored so a replayed request cannot refund twice, and the refund returns to the
+  period the booking was **made** in.
+- **The recorded 1:20 / 1:10 care-manager ratios are enforced**, including on the seed — every
+  assignment goes through `auto_assign`, so a roster that exceeded its own ratio would be a demo of a
+  broken promise. `auto_assign` returns `None` rather than raising when the roster is full:
+  onboarding must not fail because staffing is stretched.
+- **A positive PHQ-2 opens a task and never an alert.** A low mood score is not a threshold breach,
+  and dressing it as one would be a diagnosis this platform is not entitled to make. Both answers are
+  stored, not the sum — a 3 made of (3, 0) is not the picture a (1, 2) is.
+- **A device stores a sha256 of its key and returns the plaintext once.** A test walks every `devices`
+  row and proves none of them holds a usable credential. Ingest is capped, per-device rate limited
+  through the existing limiter, and logs the device id and counts only — a test injects a marker into
+  a serial and asserts it never reaches a log. The response carries counts and **nothing about the
+  patient**: a stolen device key must not become a health-record reader.
+- **⚠️ "The documented three actions" were never documented.** §4.8 names them and never lists them.
+  All three are derived and `ASSUMED` in `clinical.WEARABLE_ACTIONS`, so the founder corrects them in
+  one place: a critical alert, an escalation contacting family and admin in parallel, and a task for
+  the covering nurse inside the critical SLA.
+- **The escalation timeline is data, not prose.** One `EscalationStep` per recipient per channel;
+  steps sent together share a `sequence` so the UI draws a fan-out rather than implying a queue
+  worked one at a time. **Step 0 is the recorded 108 rung and is advisory** — status `skipped`, and
+  its detail says in words that DoorDoctor does not place the call. A timeline that implied otherwise
+  would be the most consequential lie this product can tell.
+- **Critical contact is SMS + email, not SMS + push.** `PushChannel.address_for` returns `None` until
+  a mobile client ships, so a "dual-channel" promise made of SMS + push is one channel wearing two
+  names. An unreachable channel is recorded as an attempt that could not be made, never omitted.
+- **The SLA clock is stored — both budget and deadline — and a breach is stamped when observed**, so
+  a booking that breached last week still says so after somebody edits the constants.
+- **The clinical seed is `FULL` only.** `SMALL` — which `tests/conftest.py` seeds — is untouched, so
+  all 608 pre-existing tests passed unchanged. Lakshmi is in `FULL` too, so the demo account still
+  gets everything: a normal panel, a care manager, a device, two mood checks and a full-coverage
+  score. **Her three invariants held** — no open alert, Anitha's single open visit, and the threshold
+  engine still accounting for exactly 30 resolved and 4 open.
+- **Four seed tests were updated, deliberately.** Their alert assertions were written when a
+  threshold breach was the only source, so "all alerts" and "threshold alerts" were the same set. The
+  30/4 assertion is now scoped to `vital_threshold_breach` — its actual subject — and the
+  notification test derives its count from the open alerts rather than pinning a literal that only
+  records how many features raise alerts.
 
-### What Phase 9 covers
+#### Bugs this phase found and fixed
 
-Labs (`models/lab.py`, entitlement-driven panels, abnormal → alert + 24-hour follow-up task),
-hospital booking + SLA queue, care manager (**1:20 shared / 1:10 dedicated — both recorded**) with
-`CareInteraction`, the **Senior Safety Score** (deterministic 0–100, weights in one constant block,
-every component stored so it is always explainable, a 10+ point drop in 30 days raises an alert),
-PHQ-2 screening, telemedicine booking (Premium 2/month — **recorded**), wearables (`models/device.py`,
-API-key ingest, `scripts/simulate_wearable.py`, SpO2 <90% or HR out of range → the documented three
-actions), and escalation events with a visible parallel-notification timeline plus a permanent
-"In an emergency, call 108" block on every clinical screen.
+- **Two untimestamped readings of one metric in a single batch 500'd the whole ingest.** Both
+  defaulted to the same instant, passed the database duplicate check separately, and then violated
+  `uq_device_reading` on flush. De-duplication now covers the batch as well as the table.
+- **Both alert screens white-screened on an abnormal lab result** — found in the browser, not by any
+  test. `AlertCard`, `AdminAlerts` and `FamilyAlerts` each assumed every breached parameter carried a
+  `threshold`. `BreachedParameter` declared it required, so TypeScript could not catch it: API
+  payloads are not checked at the boundary. `lib/breach.ts` now renders all three shapes in one
+  implementation, and 8 tests pin them. **If you add a fourth alert source, declare its shape there.**
+- **The seed reported three abnormal lab panels and the database held one.** Panels were assigned by
+  rotating the catalogue, which handed two of the three abnormal slots a lipid profile containing
+  none of the analytes the seed knows how to push out of range. An assert now makes that impossible.
+- **Safety-drop alerts were stamped with the real clock**, so drops detected against sixty-day-old
+  scores all arrived this morning — the same class of bug `business.py` fixes for `paid_at`. Eight of
+  the nine are now resolved rather than suppressed; they are genuine output of the recorded rule.
+- **The family dashboard scrolled horizontally at 375 and 768px.** A grid item defaults to
+  `min-width: auto` and refuses to shrink below its content's intrinsic width, and a Recharts SVG's
+  is wide. **Pre-existing** — it reproduces on the pre-Phase-9 dashboard — but it is the primary
+  mobile screen. `min-w-0` on the chart container *and* the grid cell: the constraint has to be
+  released at every level between the grid and the SVG.
+- **Two demo-data faults only a demo would reveal.** The demo patient's PHQ-2 was three days old, so
+  the nurse screen correctly hid the questionnaire and the founder's own account could never show it;
+  and her only monthly consult was already spent, so the demo family could not book one.
 
+#### ⚠️ Reconcile with the real §4.2–4.9 — everything below is invented
 
-### ⚠️ Expect §4 to be missing too — apply the Phase 4/7 pattern from the start
+All of it lives in **one file**, `backend/app/core/clinical.py`.
 
-§3 was never supplied (Phase 4) and §2.3's intent list was never supplied (Phase 7). **Assume the
-same for §4.2–4.9 and plan for it rather than discovering it mid-phase.** Both earlier phases
-survived it the same way, and it worked both times:
+| Value | Assumed | Confidence |
+|---|---|---|
+| Safety-score **weights** (30/25/15/15/10/5) and the six components themselves | invented | the *components* are defensible — they are what the data model can actually measure; the *weights* are arbitrary |
+| Safety **bands** (80 / 65 / 50) and their labels | invented | |
+| `SAFETY_MIN_COVERED_WEIGHT` 40 · `SAFETY_MIN_READINGS` 3 · `SAFETY_ALERT_SATURATION` 6 · `SAFETY_CRITICAL_MULTIPLIER` 2 · `SAFETY_MOOD_LOOKBACK_DAYS` 90 | invented | |
+| Safety-drop alert wording and **severity** (warning) | invented | the **10 points in 30 days** trigger is recorded |
+| **Lab panel contents** — three panels, fourteen analytes | invented | |
+| **Reference ranges** | ordinary adult reference intervals | not from the founder; they exist so a flag can be *explained*, and nothing derives treatment from them |
+| Which flags count as abnormal, and the critical bounds | invented | abnormal → alert **+ 24-hour task** is recorded |
+| Lab turnaround hours (24 / 24 / 48) | invented | |
+| Consult **duration** 20 min · **cancellation window** 4 h · **max lead** 30 d · **min lead** 30 min | invented | the **2/month on Premium** allowance is recorded |
+| `CONSULT_PLACEHOLDER_DOCTOR` | invented | no doctor roster is modelled — inventing a staffed calendar would be inventing staff |
+| PHQ-2 **cadence** 30 d and **follow-up window** 48 h | invented | the questions, the 0–3 scale, the 0–6 total and the **cutoff of 3** are the **instrument's** — do not "reconcile" them |
+| Wearable **HR range** 45–120 | invented | **SpO2 < 90%** is recorded |
+| The **three wearable actions** | invented — all three | §4.8 names them and never lists them. **Ask again if the section ever arrives.** |
+| Wearable caps: batch 50 · backdate 24 h · offline after 90 min · `DEVICE_INGEST_PER_DEVICE` 120/hr | invented | |
+| **SLA durations** — critical 15 min · warning 60 min · info 24 h · hospital 60 min | invented | the ladder **108 → nurse → admin** is recorded |
+| `TASK_DEFAULT_HOURS` 24 | invented | the lab's 24-hour follow-up is recorded |
+| Emergency block wording | written here | the **number 108** and the ladder are recorded |
 
-1. Put every invented value in **one file** — `core/pricing.py` for Phase 4, `assistant_intents.py`
-   for Phase 7. Phase 9 needs at least `services/safety_score.py` (the weight block) and probably a
-   `core/clinical.py` for lab panel definitions and SLA durations.
-2. Mark each one `ASSUMED` in the source, in the same style.
-3. Put a reconciliation table in STATE.md when the phase closes.
-4. **Never inline an assumed value anywhere else.** The moment a weight is typed into a second file,
-   the one-file promise is broken and reconciling stops being cheap.
+#### Deliberately deferred out of Phase 9
 
-Sorting the recorded from the invented, from the plan file:
+- **No nurse-side lab ordering or consult booking.** Both spend a family's allowance or add ₹499 to
+  their invoice, so both are family-or-admin. A nurse requesting a panel on a visit is reasonable and
+  belongs with Phase 10's nurse ops screens.
+- **No admin UI to create a care manager.** `POST /care-managers` exists and is tested; the roster
+  screen reads. Creating one is a seed or an API call — Phase 10 owns the ops screens.
+- **The pill organiser add-on still has no buyer.** Blood panel ₹499 now has one; pill organiser ₹199
+  is priced and unsold. Phase 10's medication work is the natural place.
+- **Safety scores are not recalculated on a schedule.** They are computed live on read and stored only
+  when an admin presses recalculate or the seed runs. The recorded 10-point drop rule therefore only
+  fires on a stored calculation. `app/scheduler.py` (Phase 6) is the seam — a nightly job belongs
+  there, and it is a Phase 11 concern along with moving the scheduler out of process.
+- **No family-facing device registration flow beyond the API.** `POST /patients/{id}/devices` returns
+  the key once and is tested; there is no screen that walks a family through pairing. The readings
+  and the breach path are fully wired, which is what the demo needs.
+- **Escalations are admin-only to work.** A family sees their own patient's escalations and the
+  timeline, but cannot acknowledge or resolve. Correct, and worth stating.
+- **Hospital bookings have no cancellation route.** `CANCELLED` is in the enum and the service
+  refuses to move a cancelled booking, but nothing sets it.
 
-| Recorded — publish and enforce as-is | Not recorded — will be `ASSUMED` |
+---
+
+## ▶ Starting Phase 10 — Trust, ops and notifications (§4.10–4.18)
+
+**Read `docs/build-log/phase-9.md` for how the last phase was structured, then write
+`docs/build-log/phase-10.md` before writing any code.**
+
+Phase 9 closed the clinical surface. Phase 10 is about **trust and operations**: proving the nurse is
+who the family thinks, proving the visit happened where it says, and giving both admins and nurses a
+day they can actually work.
+
+### What Phase 10 covers
+
+Nurse credential transparency and a family-facing nurse profile; **real GPS check-in classification**
+(`verified | out_of_range | unavailable`, 150 m default geofence) replacing `"demo/unverified"`; dose
+confirmation photos under `backend/app/uploads/` **behind an authenticated fetch route, never served
+statically**; pill-organiser fills and medication change history; Care Circle; **consent + an
+append-only audit log + a family Privacy & Data page with export and erasure**; onboarding; nurse ops
+(my day, hub check-in, roster, next-visit brief, offline-tolerant capture); admin ops (visit board,
+nurse management, alert queue with SLA, outcome metrics, zone view with the ~30–45 subscriber
+break-even); and full notification channel routing with preferences, quiet hours and dual-channel
+critical alerts.
+
+### Expect §4.10–4.18 to be missing too — the pattern is now three for three
+
+§3 (Phase 4), §2.3's intents (Phase 7) and §4.2–4.9 (Phase 9) were all absent. **Assume the same and
+plan for it.** Phase 10 needs at least a geofence radius, photo retention rules, quiet-hours windows
+and channel-routing rules — all `ASSUMED`. Put them in **one file** (`core/clinical.py` already
+exists and the geofence is arguably clinical-operational; a separate `core/ops.py` may be cleaner),
+mark each `ASSUMED` in the source, and add a reconciliation table when the phase closes.
+
+Sorting recorded from invented, from the plan file:
+
+| Recorded — enforce as-is | Not recorded — will be `ASSUMED` |
 |---|---|
-| Care manager **1:20 shared / 1:10 dedicated** | Which tier gets which (already assumed in Phase 4) |
-| Safety score is **0–100 and deterministic** | Every **weight** in it, and every band boundary |
-| **10+ point drop in 30 days** raises an alert | What the alert says, and its severity |
-| Labs: abnormal → alert **+ 24-hour follow-up task** | What a "panel" contains; which values are abnormal |
-| Telemedicine **2/month on Premium** | Consult duration, cancellation window, who the doctor is |
-| Wearables: **SpO2 <90% or HR out of range** | The HR range itself |
-| **PHQ-2** (a real published instrument — use the real two questions and the real 0–6 scoring) | Screening cadence, and the score that triggers follow-up |
-| Blood panel **₹499**, pill organiser **₹199** | Everything about how one is ordered |
-| Escalation is **108 → nurse → admin** (Phase 7 pinned this) | SLA durations for the hospital-booking queue |
-
-**⚠️ "the documented three actions"** — the plan says a wearable breach triggers "the documented
-three actions" and **never lists them**. That text is in §4.8, which has not been supplied. Ask for
-it; if it does not arrive, derive three and mark them `ASSUMED` like everything else. Do not quietly
-invent three and present them as recorded.
-
-### Verified signatures, so you do not have to go looking
-
-```python
-subscription_service.entitlement(subscription, key, default=None)   # reads Plan.entitlements JSON
-subscription_service.has_entitlement(subscription, key) -> bool
-subscription_service.consume_quota(db, subscription, quota, amount=1, as_of=None) -> QuotaUsage
-#   ^ raises ConflictError (409), NOT 403 — the caller is allowed, they have just used it all up.
-#     Quota names come from pricing.QUOTAS_BY_NAME: "visits" | "telemedicine" | "lab_panels".
-alert_service.create_threshold_alert(...)   # the ONLY thing that may create an Alert row
-alert_service.resolve(db, alert, user)      # takes no note — see the gap below
-alert_service.METRIC_LABELS                 # clinical wording, correct for admins
-summary_service.plain_metric_label(metric)  # family wording, for anything a family reads
-```
-
-### Phase 9 is the largest remaining scope — stage it
-
-§4.2–4.9 is eight feature areas, several with their own model, service, router and screens. Phases 4
-and 6 were both smaller and both took a full session. **Write `phase-9.md` with an explicit internal
-order and commit at meaningful points inside the phase**, rather than treating it as one atomic
-drop — the Phase 2 incident note above is what an uncommitted pile of work costs when something goes
-wrong. A defensible order, dependency-first:
-
-1. **Safety score** — pure, deterministic, no new inbound surface, and everything else can display it.
-2. **Labs** — first buyer of the add-on flow Phase 4 left ready, and the first new alert source.
-3. **Telemedicine** — the first genuinely enforced quota.
-4. **Care manager + `CareInteraction`** — a profile on an admin user, not a fourth role.
-5. **PHQ-2** — small, self-contained.
-6. **Wearables + ingest** — new inbound surface; do it once the alert sources above are proven.
-7. **Hospital booking + SLA queue**, then **escalation events + timeline** — these consume everything above.
-
-### Operational notes from the Phase 8 session
-
-- **`npm install <anything>` drops the `--no-save` `playwright-core`.** Reinstall it with
-  `npm install --no-save playwright-core` before any browser verification, and check `git diff
-  package.json` afterwards to confirm only your intended dependency was added.
-- **The rate limiter is process-global and its windows are hourly.** A browser verification that
-  exercises a rate-limited endpoint will poison the next run for an hour. **Restart uvicorn between
-  verification runs**, or the second run fails in a way that looks like a product bug and is not.
-- **The full backend suite takes ~4m15s**, almost all bcrypt. Run targeted files while iterating.
-- Start the API detached with `nohup ... & disown` — a plain `&` gets killed with the tool call.
+| GPS classification is **`verified` / `out_of_range` / `unavailable`** | Everything about how it is measured |
+| Geofence default **150 m** | Per-patient overrides, what to do on repeat failures |
+| Photos live under `backend/app/uploads/` and are **never served statically** | Retention, size caps, formats |
+| Zone view shows the **~30–45 subscriber break-even** | The unit economics behind it |
+| Notifications are **dual-channel for critical alerts** | Quiet-hours windows, per-channel defaults, escalation on no-acknowledgement |
+| The audit log is **append-only** | What is audited, and for how long |
 
 ### Reuse these — do not rebuild them
 
-- **`subscription_service.entitlement()`** for lab panels, telemedicine limits and the care-manager
-  ratio. `Plan.entitlements` is already a JSON column and **nothing anywhere branches on a tier
-  name**. Keep it that way — Phase 4 built it specifically for this phase.
-- **`alert_service.create_threshold_alert`** for every new alert source (abnormal lab, safety-score
-  drop, wearable breach). Nothing writes an `Alert` row directly; the Phase 5 seed depends on that
-  being true.
-- **`core/pricing.py`** for the add-on prices. Blood panel ₹499 and pill organiser ₹199 are already
-  there with `InvoiceLineKind.ADDON` ready — **lab ordering is the natural first buyer**, and Phase 4
-  deferred the add-on purchase flow expecting exactly this.
-- **`notification_delivery`** (Phase 3) for the escalation timeline's channels. One seam, not two.
-- **`components/ui/`** and `components/charts/chartTheme.ts` for every new screen and chart.
-- **`summary_service.plain_metric_label()`** whenever a clinical fact has to be said to a family.
+- **`notification_delivery`** (Phase 3) is *the* channel seam and Phase 9 already routes escalations
+  through it. Phase 10's preferences and quiet hours extend it; **do not build a second one.**
+  Note the finding above: **push has no address in this build**, so any "dual-channel" rule must pick
+  two channels that can actually reach somebody, or record the attempt it could not make.
+- **`escalation_service.add_step`** for anything that should appear on a timeline. The admin alert
+  queue with SLA is Phase 10 scope and `EscalationEvent` already carries a stored, stamped SLA clock —
+  reuse the pattern rather than inventing a second one for alerts.
+- **`task_service`** is general (`source_type` + `source_id`) and already serves four kinds. A missed
+  visit or a failed check-in should open a task, not a new table.
+- **`core/clinical.EMERGENCY_*`** and `EmergencyBlock` for any new clinical screen.
+- **`lib/breach.ts`** for anything rendering a breached parameter. Three screens already share it.
+- **`Alert.resolution_note`** exists now — the alert queue with SLA can use it immediately.
 
 ### Things that will bite
 
-- **Quota enforcement is still not wired at the point of use**, and Phase 9 is where it stops being
-  free to ignore: telemedicine ("2 per month") and lab panels are *countable* entitlements whose
-  whole point is a limit. The engine and its tests are ready (`consume_quota`). But §2.4's recorded
-  visit volume is **double the assumed top visit tier**, so enforcing *visits* would refuse the
-  visits the demo is specified to contain. **Enforce telemedicine and labs; leave visits unenforced**
-  and say so — that is the split the evidence supports.
-- **The care manager is not a fourth `UserRole`.** The plan is a profile on an admin user, which
-  keeps the three-way route guard intact. Cheap to agree on early; expensive to change later.
-- **`Alert` still has no resolution note column.** §8's journey 3 says the admin "resolves it with a
-  note" and there is nowhere to put one. Phase 10 owns the alert queue, but if Phase 9 adds alert
-  sources it may be the right moment to add the column.
-- **The Senior Safety Score must store every component, not just the total.** A score a family cannot
-  have explained to them is worse than no score. Same discipline as Phase 4's derived institutional
-  bands: put the arithmetic in one constant block and let a test re-run it.
-- **A wearable ingest endpoint is the second unauthenticated-ish surface** after `POST /leads`. It is
-  API-key authenticated rather than open, but treat it with the same suspicion: cap the payload, rate
-  limit it, and never let device-supplied text reach a log.
+- **`location_source = "demo/unverified"`** is written by `visit_service` on check-in and is asserted
+  in the seed. Replacing it touches the seed, `test_seed.py` and every visit fixture.
+- **Uploads are new I/O.** Nothing in this codebase writes a file to disk yet. Test isolation matters:
+  `tests/conftest.py` builds a throwaway database per test but has no equivalent for a filesystem.
+- **Erasure has three customers waiting**: `assistant_messages` (Phase 7), leads (Phase 8) and now lab
+  results, screenings, device readings and care interactions (Phase 9). Design it once, for all of
+  them, against the consent record.
+- **A zone column still does not exist.** Phase 5 deferred it; zones live as addresses plus
+  `demo_data.ZONES`. The zone view needs it lifted into a column.
+- **The suite is now ~7 minutes**, almost all bcrypt. Phase 5 flagged a test-only cost factor; it is
+  becoming the dominant cost of every verification run.
 
 ### Do not break these
 
 - Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
-  **Lakshmi carries no open alert**. `tests/test_seed.py` pins all four — and Phase 9 adds new alert
-  sources, which is exactly how the last one gets broken.
-- `tests/conftest.py` seeds `SMALL`, sets `GROQ_API_KEY=""` and `REPORTS_SCHEDULER_ENABLED=false`.
+  **Lakshmi carries no open alert** — she now also has a clean clinical record (normal labs, in-range
+  device readings, negative screens, full-coverage score), and `test_seed.py` pins that too.
+- `tests/conftest.py` seeds `SMALL`, which has **no clinical layer**. Keep it that way.
 - The autouse `clean_process_state` fixture resets the rate limiter and the summary cache. **Register
   any new process-global there.**
-- **`core/pricing.py` is read, never written** — unless the real §3 finally arrives, in which case it
-  is the one file that changes.
-- `/public/plans` and authenticated `/plans` must stay byte-identical. A test enforces it.
-- Backend **408**, Vitest **87**. The counts only grow.
+- **`core/pricing.py` and `core/clinical.py` are read, never written** — unless the real spec sections
+  arrive, in which case they are the files that change.
+- `/public/plans` and authenticated `/plans` must stay byte-identical.
+- Backend **623**, Vitest **121**. The counts only grow.
 
 ---
 
@@ -806,9 +908,9 @@ wrong. A defensible order, dependency-first:
   deleted. Either regenerate the screenshots (the app now looks materially different anyway, so
   these are stale) or drop the links. Worth doing as part of Phase 11 docs, or sooner if the founder
   wants the README presentable.
-- **Care manager role.** §4.4 gives care managers their own ratios and worklist. Plan is to model
-  them as a profile on an admin user rather than a fourth `UserRole`, which keeps the three-way
-  route guard intact. Flagged for Phase 9; cheap to agree on early.
+- ✅ **Care manager role** — done in Phase 9, as a **profile on an admin user**, decided with the
+  founder on 2026-08-22. `core/dependencies.py` is untouched, `UserRole` is still exactly three, and
+  a test pins both. The recorded 1:20 / 1:10 ratios are enforced, including on the seed.
 - ✅ **Login footer back-link** — done in Phase 8. `/` is the public home now, so the link goes
   somewhere instead of looping.
 - ✅ **Business documents / prices** — done in Phase 4. Everything lives in
@@ -824,7 +926,23 @@ wrong. A defensible order, dependency-first:
 - ✅ **The billing seed survived the move.** `business.seed_business()` still builds its history by
   calling `billing_service` and `subscription_service`, so the loyalty and credit arithmetic is
   re-proved on every seed run. Keep it that way.
-- **`/visits` returns the newest 250 visits, newest first**, so the admin visit table now leads with
+- ✅ **Clinical features** — done in Phase 9. `core/clinical.py` is the single source of every
+  clinical constant, `services/safety_score.py` holds arithmetic and no numbers, and every invented
+  value is in the reconciliation table under the Phase 9 results. **§4.2–4.9 was never supplied.**
+- ⚠️ **"The documented three actions" (§4.8) are still undocumented.** The plan names them and never
+  lists them. All three are derived and `ASSUMED` in `clinical.WEARABLE_ACTIONS`. Ask the founder
+  again if §4.8 ever arrives — it is the one Phase 9 assumption where the *existence* of a specific
+  answer is recorded and the answer is not.
+- **Safety scores are not recalculated on a schedule.** Computed live on read, stored only on an
+  admin recalculate or a seed run — so the recorded 10-point-drop rule only fires on a stored
+  calculation. `app/scheduler.py` is the seam; it belongs with Phase 11's move to a worker.
+- **Push notifications have no address in this build.** `PushChannel.address_for` returns `None`
+  until a mobile client ships, so Phase 9's critical escalations go out on **SMS + email**. Phase 10
+  owns channel routing and preferences and must not promise dual-channel delivery over a channel
+  that cannot reach anybody.
+- **The pill organiser add-on (₹199) still has no buyer.** Labs became the blood panel's buyer in
+  Phase 9; Phase 10's medication work is the natural place for the other.
+- - **`/visits` returns the newest 250 visits, newest first**, so the admin visit table now leads with
   next week rather than today. Phase 10's visit board should replace it with a windowed, paginated
   query rather than raising the cap again.
 - **The report scheduler is in-process (Phase 6).** APScheduler runs inside the API process, so two
