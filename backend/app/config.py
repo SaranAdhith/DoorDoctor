@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-this-in-development", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=1440, alias="JWT_EXPIRE_MINUTES")
+    # bcrypt's work factor. 12 is the cost every password in this codebase has
+    # been hashed at since Phase 1 and it is the only value production should
+    # ever see. It exists as a setting for exactly one reason: the test suite
+    # verifies ~180 passwords per run at 0.73s each, which was most of a
+    # nine-minute suite. `tests/conftest.py` sets it to 4.
+    bcrypt_rounds: int = Field(default=12, alias="BCRYPT_ROUNDS")
     cors_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173", alias="CORS_ORIGINS")
     # Where password-reset links point. The API never serves that page.
     frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")

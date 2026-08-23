@@ -6,9 +6,12 @@
  * public page needs a *control*, it comes from `components/ui`.
  */
 
+export { ComparisonTable } from './ComparisonTable'
 export { CtaBand } from './CtaBand'
 export { FaqList, type FaqItem } from './FaqList'
 export { FounderPair, FOUNDERS } from './FounderPair'
+export { PartnerStrip } from './PartnerStrip'
+export { ReviewWall } from './ReviewWall'
 export { LeadForm } from './LeadForm'
 export { PageHero } from './PageHero'
 export { PlanCard } from './PlanCard'

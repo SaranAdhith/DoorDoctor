@@ -15,6 +15,12 @@ _TMP = Path(tempfile.mkdtemp(prefix="doordoctor-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP / 'app.db'}"
 os.environ["JWT_SECRET"] = "test-secret-key"
 os.environ["JWT_EXPIRE_MINUTES"] = "60"
+# bcrypt at the production cost of 12 takes ~0.73s per verify, and this suite
+# verifies a password around 180 times. That was most of a nine-minute run.
+# 4 is ~60x faster and is still a real bcrypt hash — a factor low enough to be
+# free would invite a test that proves nothing about the real hashing path.
+# `tests/test_security.py` asserts the production default is still 12.
+os.environ["BCRYPT_ROUNDS"] = "4"
 # `TestClient` as a context manager runs the lifespan, so without this the suite
 # would start a background scheduler thread on every client fixture.
 os.environ["REPORTS_SCHEDULER_ENABLED"] = "false"

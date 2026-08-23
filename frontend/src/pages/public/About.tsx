@@ -89,7 +89,7 @@ export function About() {
         <SectionHeading
           eyebrow="Where we are"
           title="Early, and saying so"
-          description="DoorDoctor is at the beginning. We are not going to put invented customer numbers, borrowed testimonials or partner logos on this page to look further along than we are. If you are considering us, you are considering an early company — you should weigh that, and you should ask us hard questions when we speak."
+          description="DoorDoctor is at the beginning. We are not going to put invented customer numbers, borrowed testimonials or partner logos on this site to look further along than we are — where our home page shows review and tie-up cards, they are marked as placeholders for exactly that reason. If you are considering us, you are considering an early company — you should weigh that, and you should ask us hard questions when we speak."
         />
       </Section>
 

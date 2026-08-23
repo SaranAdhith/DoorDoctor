@@ -13,9 +13,17 @@ _BCRYPT_MAX_BYTES = 72
 
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password with bcrypt."""
+    """Hash a plaintext password with bcrypt.
+
+    The work factor comes from `settings.bcrypt_rounds`, whose default is 12 and
+    whose only other caller is the test suite. A hash is self-describing — the
+    cost is encoded in the string — so lowering the factor for tests does not
+    invalidate anything hashed at a different one, and `verify_password` needs
+    no knowledge of the setting at all.
+    """
     payload = password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
-    return bcrypt.hashpw(payload, bcrypt.gensalt()).decode("utf-8")
+    salt = bcrypt.gensalt(rounds=settings.bcrypt_rounds)
+    return bcrypt.hashpw(payload, salt).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:

@@ -11,13 +11,19 @@ import {
 } from 'lucide-react'
 
 import {
+  ComparisonTable,
   CtaBand,
+  FounderPair,
   ORGANISATION_JSON_LD,
   PageHero,
+  PartnerStrip,
+  PricingGrid,
+  ReviewWall,
   Section,
   SectionHeading,
   Seo,
 } from '../../components/public'
+import { SHOW_SOCIAL_PROOF } from '../../content/social-proof'
 import { LinkButton } from '../../components/ui'
 
 /**
@@ -26,9 +32,20 @@ import { LinkButton } from '../../components/ui'
  * Everything claimed here is something the platform verifiably does — a nurse
  * checks in, records vitals, the reading is compared against that patient's
  * configured thresholds, an out-of-range reading raises an alert, the family
- * sees it. There are no traction numbers, no testimonials and no logos, because
+ * sees it. There are still no traction numbers or customer counts, because
  * DoorDoctor is pre-launch and inventing those is the single easiest way for a
  * marketing page to start lying.
+ *
+ * The reviews and tie-up bands are the one exception, added deliberately: they
+ * render from `content/social-proof.ts`, every entry there is flagged
+ * `placeholder`, and each band shows a visible notice saying so for as long as
+ * that is true. Read that file before touching either — it carries the rules
+ * for replacing the scaffolding with real, consented content, and
+ * `SHOW_SOCIAL_PROOF` turns both bands off in one edit.
+ *
+ * Prices are not written here either. The pricing band renders `PricingGrid`,
+ * which fetches `/public/plans` from `backend/app/core/pricing.py`, so the home
+ * page and `/pricing` cannot drift apart.
  */
 
 const WHAT_HAPPENS = [
@@ -224,6 +241,75 @@ export function Home() {
 
       <Section tone="default">
         <SectionHeading
+          eyebrow="How we compare"
+          title="Against what you are probably doing now"
+          description="Most families are already using one of these three. They are not wrong — they are just missing the record, which is the part that lets anyone act early."
+        />
+        <ComparisonTable />
+      </Section>
+
+      <Section tone="sunken">
+        <SectionHeading
+          eyebrow="Plans and pricing"
+          title="What it costs"
+          description="Every plan covers one parent and includes the whole platform — the visits, the monitoring, the alerts, the summaries and the reports. What changes is how often a nurse comes."
+        />
+        <div className="mt-10">
+          <PricingGrid audience="individual" showCycleToggle ctaTo="/contact" />
+        </div>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <LinkButton to="/pricing" variant="ghost">
+            Full pricing and billing questions
+          </LinkButton>
+          <LinkButton to="/pricing/corporate" variant="ghost">
+            For employers
+          </LinkButton>
+          <LinkButton to="/pricing/institutions" variant="ghost">
+            For residences
+          </LinkButton>
+        </div>
+      </Section>
+
+      {SHOW_SOCIAL_PROOF && (
+        <Section tone="default">
+          <SectionHeading
+            eyebrow="What families say"
+            title="In their words, not ours"
+            description="The only review worth reading is one that names the specific thing that changed."
+          />
+          <ReviewWall />
+        </Section>
+      )}
+
+      {SHOW_SOCIAL_PROOF && (
+        <Section tone="sunken">
+          <SectionHeading
+            eyebrow="Who we work with"
+            title="Hospitals, labs and employers"
+            description="Monitoring at home only helps if the handover works when something is wrong. These are the organisations on the other end of that."
+          />
+          <PartnerStrip />
+        </Section>
+      )}
+
+      <Section tone="default">
+        <SectionHeading
+          eyebrow="Who we are"
+          title="Two founders, one city"
+          description="DoorDoctor is a new company, run by the two people whose names are on it. We are not going to pretend to be more than that."
+        />
+        <div className="mt-10">
+          <FounderPair />
+        </div>
+        <div className="mt-8">
+          <LinkButton to="/about" variant="ghost">
+            Why we started DoorDoctor
+          </LinkButton>
+        </div>
+      </Section>
+
+      <Section tone="sunken">
+        <SectionHeading
           eyebrow="Being straight with you"
           title="What DoorDoctor is not"
           description="A care service that oversells itself is a care service you cannot rely on in the moment it matters."
@@ -245,7 +331,7 @@ export function Home() {
           ].map(([title, body]) => (
             <li
               key={title}
-              className="rounded-2xl border border-border-subtle bg-surface p-5"
+              className="rounded-2xl border border-border-subtle bg-surface-raised p-5"
             >
               <p className="text-body font-semibold text-text-primary">{title}</p>
               <p className="mt-1.5 text-small text-text-secondary">{body}</p>
