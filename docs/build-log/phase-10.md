@@ -298,3 +298,88 @@ and nobody else's.
 - `/public/plans` and authenticated `/plans` stay byte-identical.
 - Nothing outside `alert_service` constructs an `Alert`. Nothing outside `storage` writes a file.
   Nothing outside `audit_service` writes an `AuditEvent`.
+
+---
+
+# As executed
+
+**Ten commits, 623 → 804 backend tests, 121 → 133 Vitest.** The nine planned stages
+landed as ten commits (the plan doc got its own), in the planned order, with no stage abandoned.
+
+## Where the plan held
+
+The three decisions taken before any code were all still the right ones at the end:
+
+- **`core/ops.py` rather than more `core/clinical.py`.** It ended at ~300 lines and is read by
+  eleven services. Keeping the operator's file separate from the clinician's is the difference
+  between two short reconciliation conversations and one long one. A test pins that it imports
+  nothing from the application and that it *points at* `clinical.SLA_DURATIONS_MINUTES` rather than
+  copying it.
+- **One `care_circle_members` table with a nullable `user_id`.** Phase 11's `PatientFamilyMember`
+  is this table. Nothing had to be un-built.
+- **Family requests, admin executes.** This turned out to matter more than expected once the
+  registry existed: erasure walks twenty datasets and destroys files on disk. It is not a button a
+  shared account should have.
+
+## Where the plan was wrong, or too thin
+
+- **The plan said "nine stages, committed as they land" and stage 4 was two stages.** Consent, the
+  audit log, the export registry and the erasure flow are one *feature* and four *mechanisms*; the
+  registry alone is 577 lines. It went in as one commit anyway, and it is the largest in the phase.
+- **The plan did not anticipate `alert_service.backdate`.** It was written as "Alert gains the SLA
+  columns", which is true and useless: the seed rewrites `created_at` on every historical alert, so
+  without moving the deadline with it the entire ninety-day queue reads as freshly raised and never
+  breached. This is the **third** time this phase family of bug has appeared — `business.paid_at`
+  in Phase 4, safety-drop alerts in Phase 9 — so it now has a named function and an invariant test
+  rather than a third open-coded fix.
+- **`ops.ZONE_HUBS` was not in the plan at all.** Hub check-in needs a point to measure against, and
+  the zone centres already existed in `seed/demo_data.py`. Rather than duplicate them, `ops.py`
+  became the single source and the seed reads from it. That is the one-file rule applied to a
+  constant the plan had not noticed was a constant.
+- **`MedicationLogRow` already owned its `<li>`.** The plan said "photo capture on the nurse's
+  medication rows" as if it were a sibling element. It is a `footer` slot on the existing row —
+  nesting an `<li>` inside an `<li>` would have been invalid markup for no gain.
+- **`EmailStr` needed a dependency.** `schemas/lead.py` had already met and solved this in Phase 8;
+  the care circle reuses its shape check rather than adding `email-validator`.
+
+## What the tests could not have caught
+
+- **The privacy page told a family that they themselves had been looking at their mother's record.**
+  Every audit entry was correct; the sentence above them was not. Their four consent decisions were
+  rendered under "who has looked at this record", next to a caption promising their own visits were
+  not logged. Found by reading the rendered page at 375px, not by any assertion, and it is the kind
+  of bug that only exists in the gap between data and the words around it.
+
+## What the tests *did* catch
+
+- **`test_every_patient_scoped_model_is_accounted_for` earned its keep four stages after it was
+  written.** Stage 8's `OnboardingProgress` carries a `patient_id` and was never registered, so a
+  family's setup progress would have survived their own erasure. The test failed on the next run
+  after that stage, named the class, and the fix was a five-line registration. This is exactly why
+  it asserts against the mapper registry rather than a list somebody maintains.
+
+## Bugs found and fixed during the phase
+
+- Two `NurseCredential` states that would have produced a badge meaning nothing — a `verified` enum
+  with no verifier, and an expired credential accepted for verification — are both refused, at the
+  model and at the service.
+- The medication `PATCH` route originally let a nurse change a prescription. A nurse records doses;
+  changing the dose is not theirs to do.
+- The first `plan_channels` returned SMS + push for a critical alert on an account with no phone,
+  which is zero reachable channels reported as two. It now walks the preference order and keeps the
+  ones with an address, recording the rest.
+
+## Numbers
+
+| | Before | After |
+|---|---|---|
+| Backend tests | 623 | **804** |
+| Vitest | 121 | **133** |
+| Model files | 27 | **34** |
+| Service files | 30 | **40** |
+| Router files | 22 | **27** |
+| `<Route>` elements | 47 | **57** |
+
+Seed adds: 28 nurse credentials, 87 medication changes, 18 organiser fills, 39 care circle members,
+112 consent decisions, 18 notification preferences, 66 shift check-ins and one erasure request
+waiting for an admin to carry out live.

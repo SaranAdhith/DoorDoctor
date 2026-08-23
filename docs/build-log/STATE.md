@@ -46,8 +46,8 @@ The full build specification lives in the founder's original prompt. The phase p
 | 7 | AI assistant (family + admin) | ✅ done — `8d91748` |
 | 8 | Public marketing site + leads | ✅ done — `b40cefb` |
 | 9 | Clinical features (labs → escalation) | ✅ done — `235acf9` |
-| 10 | Trust, GPS, medication, community, consent, ops, notifications | ⬜ **next** |
-| 11 | Multi-family, hardening, tests, docs | ⬜ |
+| 10 | Trust, GPS, medication, care circle, consent, ops, notifications | ✅ done — `701e969` |
+| 11 | Multi-family, hardening, tests, docs | ⬜ **next** |
 
 Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats a broken phase 11.
 
@@ -56,14 +56,14 @@ Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats
 ## How to verify (run before every commit)
 
 ```bash
-cd backend  && .venv/bin/python -m pytest          # 623 passing today; the count only grows
+cd backend  && .venv/bin/python -m pytest          # 804 passing today; the count only grows
 cd backend  && .venv/bin/python -m app.seed        # must run clean (~5.4 s, full population)
 cd backend  && .venv/bin/python -m app.seed --small        # the dataset the test suite uses
 cd backend  && .venv/bin/python -m app.seed --demo-reset   # rewind the 148/92 path between demos
 cd backend  && .venv/bin/python -m app.billing --generate-invoices --dry-run   # previews, writes nothing
 cd frontend && npx tsc -p tsconfig.json --noEmit   # zero errors, no `any`, no @ts-ignore
 cd frontend && npm run build                       # clean
-cd frontend && npx vitest run                      # 121 passing today
+cd frontend && npx vitest run                      # 133 passing today
 ```
 
 Note: `npx tsc -b --noEmit` is **invalid** here (referenced project disables emit) — use
@@ -97,6 +97,7 @@ Log in at `http://127.0.0.1:5173/login`, fill email + `Demo@123`, submit. Check 
 | `GROQ_BASE_URL` | Phase 6 | `https://api.groq.com/openai/v1` | Any OpenAI-compatible provider drops in here |
 | `ASSISTANT_ENABLED` | Phase 6 | `true` | Master switch for every LLM call — summary **and** assistant |
 | `REPORTS_SCHEDULER_ENABLED` | Phase 6 | `true` | **`false` in `tests/conftest.py`** — `TestClient` runs the lifespan |
+| `UPLOAD_ROOT` | Phase 10 | `app/uploads` | Where dose photos are written. **Pointed at a temp dir in `tests/conftest.py`** — otherwise the suite writes patient photographs into the source tree. Never served statically |
 
 Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's system libraries
 (pango, cairo, harfbuzz, gobject) are verified present for Phase 6. PyPI and npm are reachable.
@@ -109,6 +110,7 @@ Backend venv is `backend/.venv` (Python 3.13.12). Node v20.20.2. WeasyPrint's sy
 | backend | `weasyprint` 69.0 | Invoice PDFs (Phase 4) — **pulled forward from Phase 6** |
 | backend | `apscheduler` 3.11.3 | Weekly/monthly report scheduling (Phase 6) |
 | frontend | `react-helmet-async` 3.0.0 | Per-route SEO tags (Phase 8) |
+| backend | `pillow` 12.3.0 | Dose photos: magic-byte validation and EXIF stripping (Phase 10). Already present as a WeasyPrint transitive; pinned because it is now imported directly, so **nothing was installed** |
 
 Still planned: `alembic` (backend); `@playwright/test` (frontend).
 **No `anthropic` — the provider is Groq via `httpx`.** Phase 6 added the Groq client and it needed
@@ -818,92 +820,285 @@ All of it lives in **one file**, `backend/app/core/clinical.py`.
 
 ---
 
-## ▶ Starting Phase 10 — Trust, ops and notifications (§4.10–4.18)
+### Phase 10 — trust, operations and notifications → `701e969`
 
-**Read `docs/build-log/phase-9.md` for how the last phase was structured, then write
-`docs/build-log/phase-10.md` before writing any code.**
+Nine feature areas over **ten commits**. **804 backend tests** (was 623) and **133 Vitest**
+(was 121). §4.10–4.18 was never supplied, exactly as §3, §2.3 and §4.2–4.9 were not — four for
+four — so every invented value lives in one new file and has a reconciliation table below.
 
-Phase 9 closed the clinical surface. Phase 10 is about **trust and operations**: proving the nurse is
-who the family thinks, proving the visit happened where it says, and giving both admins and nurses a
-day they can actually work.
+**The idea the phase is built around:** *a promise the platform cannot evidence is a promise it
+should not make.* It cuts both ways, and the second half did most of the work: it forbids the
+confident lie **and** demands the honest negative. `unavailable` is a first-class outcome, a
+suppressed message is a recorded decision, a retained invoice is stated with its reason.
 
-### What Phase 10 covers
+- **`backend/app/core/ops.py` is the third constants file**, sibling to `pricing.py` and
+  `clinical.py`, and it imports nothing from the application. It *reads*
+  `clinical.SLA_DURATIONS_MINUTES` rather than restating it, and a test pins that
+  `ops.ALERT_SLA_MINUTES is clinical.SLA_DURATIONS_MINUTES`. A geofence radius and a quiet-hours
+  window are operational, not clinical: `clinical.py` is the file a clinician reconciles, `ops.py`
+  is the file an operator reconciles, and keeping them apart keeps the two conversations apart.
+- **The audit log is append-only in the mapper, not by convention.** `before_update` and
+  `before_delete` listeners raise, and both are tested. It stores the actor's **name frozen at write
+  time**, because an erasure can remove the account that requested it and the entry has to survive
+  that. `audit_service.record` never commits — an audited action that rolls back must not leave an
+  entry claiming it happened.
+- **`services/storage.py` is the only code in the repo that writes a file**, and a test asserts the
+  app mounts no `StaticFiles` at all. Content-addressed, so the same photo twice is one file. Every
+  image is re-encoded on the way in — **not for size, but because a dose photo taken in the
+  patient's living room carries the patient's home GPS in its EXIF**. Format is decided by what
+  Pillow could decode, never by the client's declared content type.
+- **A credential is verified only with a verifier and a date.** `NurseCredential.is_verified` is
+  defined as all three, so hand-editing the enum produces no badge a family reads as checked, and a
+  test proves the family projection agrees. The **two projections live side by side in one file** so
+  the difference is visible at a glance: a family sees the issuing body and who checked it, never a
+  registration number, and the visit count is scoped to *their own patient* — 240 visits this
+  quarter is a fact about twenty other households.
+- **GPS is measured, and `unavailable` is reachable three ways**, each a true sentence: no fix, no
+  recorded home, or **a fix whose own accuracy is worse than the fence**. That last one is the case
+  that would quietly turn the feature into decoration — coordinates 20 m from the door with a ±500 m
+  error are inside the circle and prove nothing. `demo/unverified` is gone from the schema, the seed
+  and the tests.
+- **An out-of-range check-in does not block the visit.** Refusing it would make the honest thing —
+  letting the phone report a real position — the thing that stops a nurse working, and turning
+  location off the thing that lets them through. It opens an admin task and an audit entry instead.
+- **The seed places coordinates and lets the classifier decide.** Nothing types `"verified"` into a
+  column, so the demo's badge is the live arithmetic: **1,154 verified, 102 unavailable, 35 out of
+  range** across ninety days. Change the geofence in `ops.py` and the seed changes with it.
+- **The pill organiser is the ₹199 add-on's first buyer**, and it is priced *per month*: four weekly
+  fills in March are one ₹199 line, not four. A fill nobody managed to make is not a purchase.
+- **`MedicationChange` is append-only history and only `medication_service` writes one.** A stopped
+  medication is a row, not a missing row. One edit that moves both the dose and the time writes
+  **two** rows — merging them would make the history unreadable exactly when a family is reading it.
+  A nurse records doses; changing a prescription is not theirs to do.
+- **`care_circle_members` carries a nullable `user_id`, and that is the design.** The neighbour two
+  doors down with the spare key has no login and never will, and she is frequently the most useful
+  person to reach at 2am. **This is the table Phase 11 extends** — its `PatientFamilyMember` is this
+  table with `user_id` populated. Nobody is told they will be contacted through a channel that does
+  not exist: `receives_alerts` with no phone and no email is refused at the boundary rather than
+  discovered at 2am.
+- **Consent is never updated in place.** Granting is a row, withdrawing is another, and the current
+  position is the newest. A consent recorded against an older policy version stays a consent and is
+  **flagged for review** rather than silently reinterpreted as agreement to a document nobody saw.
+  Withdrawing a required consent is refused with the honest sentence: that is leaving the service.
+- **Export and erasure are built once, over a registry of twenty-one datasets.** Phase 7's assistant
+  messages, Phase 8's leads and Phase 9's whole clinical layer are customers on day one.
+  `test_every_patient_scoped_model_is_accounted_for` walks every mapped class carrying a
+  `patient_id` and asserts it is exported or explicitly retained with a reason — **and it caught a
+  real gap four stages after it was written** (see below).
+- **Retention is stated, not hidden.** Issued invoices survive because they are financial records;
+  the audit log survives because deleting it would remove the evidence the erasure happened. Both
+  appear on the family's page with their reasons. The patient row is **anonymised rather than
+  deleted** so invoices and audit entries do not dangle, and the stored photographs go from disk as
+  well as from the table.
+- **`notification_service.dispatch` is the single outbound path.** The in-app record is **always**
+  written: quiet hours and channel switches govern what leaves the building, never whether a family
+  can see the alert, and there is deliberately **no in-app switch** at all. Three distinct
+  non-delivery outcomes reach `delivery_log` — `suppressed`, `unreachable`, and switched off — with
+  no body stored, because nothing was transmitted. Dual-channel critical is honoured as *two
+  channels that can actually reach somebody*, which is Phase 9's correction: push has no address, so
+  SMS + push is one channel wearing two names, and push is therefore **off by default** rather than
+  on and inert.
+- **The nurse's day leads with what was left open yesterday.** A visit left open on Tuesday is
+  Wednesday's most urgent item; a chronological sort buries it forever. The next-visit brief is
+  assembled from rows other services wrote and **computes nothing new** — a brief that derived its
+  own numbers would be a second opinion beside the first.
+- **Offline-tolerant capture is a `client_token` on readings and doses.** A replay corrects its own
+  row rather than recording a second reading, and — the part that matters — **does not raise a
+  second alert**.
+- **The visit board replaces `/visits`' newest-250 list**, the deferral STATE.md recorded against
+  this phase by name. It is a window with a page, and its summary describes the **window**, not the
+  page, so clicking "next" does not report a different business.
+- **`Alert` gains the stored SLA clock `EscalationEvent` already had**, in the same shape and for
+  the same reason. `alert_service.backdate` moves the clock with the alert — see the bug note below.
+- **Outcomes and zones compute from rows on every read**; there is not a stored counter in the
+  module. A rate with nothing to divide is `None`, never 0%: 0% reads as a failure and "no data" is
+  not one. SLA attainment counts only alerts that have **had their chance** — an alert raised five
+  minutes ago is neither met nor missed, and counting it as met would flatter every figure.
+- **The zone view reports which side of the recorded 30–45 break-even band each zone is on and
+  invents no margin**, because the cost model behind that band was never supplied. The caveat is
+  served from the constant so it travels with the numbers. Worth knowing: **every seeded zone is
+  below the band**, which is what a pre-launch business with 28 patients across six zones actually
+  looks like. It was not adjusted to look healthier.
+- **Onboarding reads the work instead of counting clicks.** Four of the five steps are derived from
+  the table that would carry the result, so the checklist cannot drift from what it describes. Empty
+  the care circle and that step goes back to incomplete — the checklist being honest, not broken.
+  Only "check your relative's details" is stored, and asking to tick a derived step is refused with
+  the reason.
 
-Nurse credential transparency and a family-facing nurse profile; **real GPS check-in classification**
-(`verified | out_of_range | unavailable`, 150 m default geofence) replacing `"demo/unverified"`; dose
-confirmation photos under `backend/app/uploads/` **behind an authenticated fetch route, never served
-statically**; pill-organiser fills and medication change history; Care Circle; **consent + an
-append-only audit log + a family Privacy & Data page with export and erasure**; onboarding; nurse ops
-(my day, hub check-in, roster, next-visit brief, offline-tolerant capture); admin ops (visit board,
-nurse management, alert queue with SLA, outcome metrics, zone view with the ~30–45 subscriber
-break-even); and full notification channel routing with preferences, quiet hours and dual-channel
-critical alerts.
+#### Bugs this phase found and fixed
 
-### Expect §4.10–4.18 to be missing too — the pattern is now three for three
+- **⚠️ The privacy page told a family that they themselves had been looking at their mother's
+  record.** Every audit entry was correct; the sentence above them was not. Their four consent
+  decisions rendered under "who has looked at this record", beside a caption promising their own
+  visits were not logged. **Found by reading the rendered page at 375px, not by any assertion** —
+  it lived entirely in the gap between correct data and the words around it. The family's own
+  actions are excluded now and the heading says what the list is.
+- **⚠️ `OnboardingProgress` would have survived its own erasure.** Added in stage 8, carrying a
+  `patient_id`, never registered. The coverage test failed on the next run, named the class, and the
+  fix was a five-line registration. **This is exactly why that test asserts against the mapper
+  registry rather than a list somebody maintains** — it caught a gap four stages after it was
+  written, in code written by the same person who wrote the test.
+- **⚠️ The seed's ninety-day alert history would have read as freshly raised and never breached.**
+  The seed rewrites `created_at` on every historical alert; without moving `sla_due_at` with it, the
+  whole queue's deadlines sat fifteen minutes in the future. This is the **third** appearance of one
+  bug family — `business.paid_at` (Phase 4), safety-drop alerts (Phase 9) — so it now has
+  `alert_service.backdate` and an invariant test over every seeded alert rather than a third
+  open-coded fix.
+- **The first channel resolver returned SMS + push for a critical alert on an account with no
+  phone**: zero reachable channels reported as two. It walks the preference order and keeps the ones
+  with an address now, recording the rest.
+- **Two credential states that would have produced a meaningless badge** — a `verified` enum with no
+  verifier, and an expired credential accepted for verification — are refused at the model and at
+  the service.
+- **The medication `PATCH` route originally let a nurse change a prescription.**
 
-§3 (Phase 4), §2.3's intents (Phase 7) and §4.2–4.9 (Phase 9) were all absent. **Assume the same and
-plan for it.** Phase 10 needs at least a geofence radius, photo retention rules, quiet-hours windows
-and channel-routing rules — all `ASSUMED`. Put them in **one file** (`core/clinical.py` already
-exists and the geofence is arguably clinical-operational; a separate `core/ops.py` may be cleaner),
-mark each `ASSUMED` in the source, and add a reconciliation table when the phase closes.
+#### ⚠️ Reconcile with the real §4.10–4.18 — everything below is invented
 
-Sorting recorded from invented, from the plan file:
+All of it lives in **one file**, `backend/app/core/ops.py`.
 
-| Recorded — enforce as-is | Not recorded — will be `ASSUMED` |
-|---|---|
-| GPS classification is **`verified` / `out_of_range` / `unavailable`** | Everything about how it is measured |
-| Geofence default **150 m** | Per-patient overrides, what to do on repeat failures |
-| Photos live under `backend/app/uploads/` and are **never served statically** | Retention, size caps, formats |
-| Zone view shows the **~30–45 subscriber break-even** | The unit economics behind it |
-| Notifications are **dual-channel for critical alerts** | Quiet-hours windows, per-channel defaults, escalation on no-acknowledgement |
-| The audit log is **append-only** | What is audited, and for how long |
+| Value | Assumed | Confidence |
+|---|---|---|
+| `GEOFENCE_ACCURACY_CEILING_M` 150 · `GEOFENCE_ASSUME_ACCURACY_WHEN_MISSING` | invented | the **150 m radius** and the **three classification names** are RECORDED |
+| `GEOFENCE_BLOCKS_CHECKIN = False` and the 24-hour review task | invented | the *reasoning* is recorded above and is the part worth arguing with |
+| `HUB_GEOFENCE_RADIUS_M` 250 and **all six `ZONE_HUBS` coordinates** | invented — published neighbourhood centres standing in for hub addresses | DoorDoctor's actual hub addresses were never supplied |
+| Photo caps: 4 MB · JPEG/PNG/WEBP · 1600 px · quality 82 · **180-day retention** | invented | "under `backend/app/uploads/`, never served statically" is RECORDED. EXIF stripping is **not** configurable and should not become so |
+| `PILL_ORGANISER_COMPARTMENTS` 28 · `_DAYS` 7 · `_LOW_DAYS` 2 | invented | the **₹199 price** is recorded; billing it *per month rather than per fill* is derived from the recorded "per month" unit |
+| `CARE_CIRCLE_MAX_MEMBERS` 8 and the relationship vocabulary | invented | the vocabulary is a suggestion list, not a constraint — the field is free text on purpose |
+| `CONSENT_POLICY_VERSION` and **all four consent kinds**, their wording and which is required | invented | |
+| `AUDIT_RETENTION_DAYS` 7 years | invented | **append-only** is RECORDED |
+| `ERASURE_DESTROYS` / `ERASURE_RETAINS` — the categories **and the reasons** | written here | a lawyer should read this before it is shown to a real customer. The *shape* — say what is kept and why — is the part to keep |
+| `QUIET_HOURS_START` 21 · `QUIET_HOURS_END` 7 | invented | `QUIET_HOURS_NEVER_SUPPRESS_CRITICAL` is a safety rule, not a preference. **Do not make it configurable** |
+| `CHANNEL_ORDER` per notification type · `CHANNEL_DEFAULT_ENABLED` | invented | **dual-channel for critical** is RECORDED; *which* two is not |
+| Consent withdrawal silences **all** outbound channels including critical | invented, and load-bearing | the in-app record is always written. If the founder wants critical alerts to override a withdrawn consent, that is a one-line change and a genuine policy decision |
+| `OUTCOME_WINDOW_DAYS` 30 · `VISIT_BOARD_PAGE_SIZE` 25 | invented | |
+| All five **onboarding steps**, their wording and their order | invented | |
+| Which four onboarding steps are derived vs acknowledged | derived from what the schema can prove | the *principle* is the part to keep |
+| Nurse credential bodies, titles and languages (`seed/demo_data.py`) | invented — real state nursing councils, fictional registration numbers | seed data, not policy |
+| `BREAK_EVEN_MIN/MAX_SUBSCRIBERS` | **RECORDED (30–45)** | the note beside it says the cost model was not supplied, and nothing estimates one |
 
-### Reuse these — do not rebuild them
+#### Deliberately deferred out of Phase 10
 
-- **`notification_delivery`** (Phase 3) is *the* channel seam and Phase 9 already routes escalations
-  through it. Phase 10's preferences and quiet hours extend it; **do not build a second one.**
-  Note the finding above: **push has no address in this build**, so any "dual-channel" rule must pick
-  two channels that can actually reach somebody, or record the attempt it could not make.
-- **`escalation_service.add_step`** for anything that should appear on a timeline. The admin alert
-  queue with SLA is Phase 10 scope and `EscalationEvent` already carries a stored, stamped SLA clock —
-  reuse the pattern rather than inventing a second one for alerts.
-- **`task_service`** is general (`source_type` + `source_id`) and already serves four kinds. A missed
-  visit or a failed check-in should open a task, not a new table.
-- **`core/clinical.EMERGENCY_*`** and `EmergencyBlock` for any new clinical screen.
-- **`lib/breach.ts`** for anything rendering a breached parameter. Three screens already share it.
-- **`Alert.resolution_note`** exists now — the alert queue with SLA can use it immediately.
+- **No photo retention sweep.** `PHOTO_RETENTION_DAYS` is defined and nothing enforces it.
+  `app/scheduler.py` is the seam and it belongs with Phase 11's move to a worker, alongside the
+  safety-score recalculation deferred out of Phase 9.
+- **No audit log pruning.** `audit_service.retention_cutoff()` exists so the privacy page computes
+  its promise from the same constant an operator would edit; nothing calls it. The log is
+  append-only and this build keeps everything.
+- **No family-facing device pairing, still.** Unchanged from Phase 9.
+- **`ShiftCheckIn` has no admin editing.** An admin sees the last fifty shifts; correcting one is
+  a database change. Nobody asked for a correction flow and inventing one would be inventing a
+  process.
+- **The care circle has no invite flow.** That is Phase 11's, on this table, by design.
+- **Notification preferences are per *account*, not per patient.** A family with two parents gets
+  one set of channels. Correct for the recorded scope and worth stating.
+- **Quiet hours are the server's wall clock.** Phase 11 owns timezone correctness; when it lands
+  these become the account's own hours, which is what an NRI family actually needs.
+- **No push channel.** `PushChannel.address_for` still returns `None`, so it is switched off by
+  default rather than pretending. Unchanged from Phase 3, and now *visible* in the UI as
+  "Available once the DoorDoctor mobile app is released" rather than a dead switch.
+- **The offline queue is server-side only.** The `client_token` contract, the idempotency and the
+  tests are all real; the frontend sends a token but does **not** yet queue in `localStorage` and
+  drain on reconnect. The hard half — a replay that cannot double-record or double-alert — is done,
+  and the browser half is a Phase 11 UI task.
+
+---
+
+## ▶ Starting Phase 11 — Multi-family, hardening, tests, docs (§5.1, §5.3–5.5)
+
+**Read `docs/build-log/phase-10.md` for how the last phase was structured, then write
+`docs/build-log/phase-11.md` before writing any code.**
+
+Phase 10 closed the feature surface. **Phase 11 is the only phase with no new product in it** — it
+is about making what exists survive contact with a second family member, a second replica, a real
+database and a stranger reading the code in a year.
+
+### What Phase 11 covers
+
+`PatientFamilyMember` + invite flow, with every authorization path in `core/dependencies.py`
+migrated to membership; refresh tokens with rotation (access token out of `localStorage`, into
+memory + refresh cookie); rate limiting; structured JSON logging with a request id that never logs
+a reading or an identifier; error boundaries; **Alembic** with an initial migration; Postgres-ready
+`DATABASE_URL`; timezone correctness (store UTC, render Asia/Kolkata, render the account's own zone
+for NRI); ≥80% coverage on `services/`; Vitest for the new components; **Playwright** for the three
+demo journeys; GitHub Actions CI. Then rewrite `README.md` and `DESIGN.md` and add
+`docs/DEMO_SCRIPT.md`.
+
+### Start here — Phase 10 built the table you need
+
+**`care_circle_members` is `PatientFamilyMember`.** It already carries a nullable `user_id`, and
+every patient's `family_user` is already mirrored in as the primary member. The multi-family work is
+therefore:
+
+1. Populate `user_id` when somebody accepts an invite.
+2. Migrate `core/dependencies.authorize_patient` from `Patient.family_user_id == user.id` to a
+   membership lookup on this table.
+3. Keep `Patient.family_user_id` populated as the primary contact — Phase 10's `ensure_primary`
+   depends on it and so does the erasure request's `requested_by`.
+
+**Do not build a second membership table.** If that looks necessary, something has been
+misunderstood; read `models/care_circle.py`'s docstring first.
+
+`Plan.entitlements[FAMILY_SEATS]` is the cap on members *with a login*. `ops.CARE_CIRCLE_MAX_MEMBERS`
+is the cap on the circle overall. They are different limits and both should hold.
 
 ### Things that will bite
 
-- **`location_source = "demo/unverified"`** is written by `visit_service` on check-in and is asserted
-  in the seed. Replacing it touches the seed, `test_seed.py` and every visit fixture.
-- **Uploads are new I/O.** Nothing in this codebase writes a file to disk yet. Test isolation matters:
-  `tests/conftest.py` builds a throwaway database per test but has no equivalent for a filesystem.
-- **Erasure has three customers waiting**: `assistant_messages` (Phase 7), leads (Phase 8) and now lab
-  results, screenings, device readings and care interactions (Phase 9). Design it once, for all of
-  them, against the consent record.
-- **A zone column still does not exist.** Phase 5 deferred it; zones live as addresses plus
-  `demo_data.ZONES`. The zone view needs it lifted into a column.
-- **The suite is now ~7 minutes**, almost all bcrypt. Phase 5 flagged a test-only cost factor; it is
-  becoming the dominant cost of every verification run.
+- **`authorize_patient` is called from every router.** Migrating it is a one-function change with a
+  whole-suite blast radius. Do it first, alone, and commit it alone.
+- **The access token is in `localStorage` and `api/client.ts` is the only reader.** That is the good
+  news. The bad news is `attachmentObjectUrl` and `medicationDepthApi.uploadPhoto` both call `fetch`
+  directly with `getToken()`, and so does `requestBlob` — **three call sites, not one**, and all
+  three need whatever replaces it.
+- **Alembic arrives into a schema that `create_all()` has been building since Phase 1.** The initial
+  migration has to be generated *from the current models* and then verified against a database the
+  seed built, not against an empty one.
+- **Timezone correctness will touch `database.now()`**, which every model's `default=` points at.
+  Phase 10 added `quiet_start_hour` / `quiet_end_hour` as **server wall-clock** integers; they
+  become account-local when this lands, and `NotificationPreference.in_quiet_hours` is the one place
+  that compares them.
+- **Coverage on `services/` will find `payment_gateway.py` and the LLM paths.** Both are deliberately
+  thin and mostly unexercised because no provider exists. Decide whether they are excluded or
+  covered with fakes *before* chasing a percentage.
+- **The suite is 804 tests and runs in ~9 minutes on an idle machine** (it was 62 minutes on a
+  loaded one during Phase 10 — check `uptime` before blaming a change). bcrypt is still the dominant
+  cost and a test-only cost factor is still the obvious fix, flagged since Phase 5.
+
+### Reuse these — do not rebuild them
+
+- **`core/ops.py`, `core/pricing.py`, `core/clinical.py`** are read, never written, unless the real
+  spec sections arrive.
+- **`privacy_service.REGISTRY`** — a new table with a `patient_id` is a **registration**, not a
+  rewrite, and `test_every_patient_scoped_model_is_accounted_for` will fail until it is one.
+- **`notification_service.dispatch`** is the only outbound path. Anything Phase 11 sends — an invite,
+  a password reset — goes through it, not through `notification_delivery` directly.
+- **`audit_service.record`** for anything worth being able to prove later. It never commits; it joins
+  your transaction.
+- **`location_service.classify`** for any new geofence question. It holds no numbers.
+- **`alert_service.backdate`** whenever a seed or a fixture moves an alert in time.
 
 ### Do not break these
 
 - Patient 1 is Lakshmi, nurse 1 is Anitha, **Anitha holds exactly one open visit today**, and
-  **Lakshmi carries no open alert** — she now also has a clean clinical record (normal labs, in-range
-  device readings, negative screens, full-coverage score), and `test_seed.py` pins that too.
-- `tests/conftest.py` seeds `SMALL`, which has **no clinical layer**. Keep it that way.
-- The autouse `clean_process_state` fixture resets the rate limiter and the summary cache. **Register
-  any new process-global there.**
-- **`core/pricing.py` and `core/clinical.py` are read, never written** — unless the real spec sections
-  arrive, in which case they are the files that change.
-- `/public/plans` and authenticated `/plans` must stay byte-identical.
-- Backend **623**, Vitest **121**. The counts only grow.
-
----
+  **Lakshmi carries no open alert**.
+- `tests/conftest.py` seeds `SMALL`. Phase 9's clinical layer and most of Phase 10's trust layer are
+  `FULL` only — **except Anitha's credentials, which are in `core.py` on purpose** so the
+  family-facing nurse profile renders in the suite.
+- The autouse `clean_process_state` fixture resets every process-global. **Register any new one.**
+- `/public/plans` and authenticated `/plans` stay byte-identical.
+- Nothing outside `alert_service` builds an `Alert`. Nothing outside `storage` writes a file.
+  Nothing outside `audit_service` writes an `AuditEvent`. Nothing outside `medication_service`
+  writes a `MedicationChange`.
+- **`UPLOAD_ROOT` must stay pointed at a temp directory in `tests/conftest.py`**, or the suite writes
+  patient photographs into the source tree.
+- Backend **804**, Vitest **133**. The counts only grow.
 
 ## Open items and deferrals
 
+- ✅ **Clinical trust, operations and privacy** — done in Phase 10. `core/ops.py` is the single
+  source of every operational constant, `privacy_service.REGISTRY` is the single definition of what
+  is exported and erased, and `notification_service.dispatch` is the single outbound path. Every
+  invented value is in the reconciliation table under the Phase 10 results. **§4.10–4.18 was never
+  supplied** — the fourth section in a row.
 - **README image links.** `README.md` references `docs/screenshots/*.png`, which the history rewrite
   deleted. Either regenerate the screenshots (the app now looks materially different anyway, so
   these are stale) or drop the links. Worth doing as part of Phase 11 docs, or sooner if the founder
@@ -936,15 +1131,23 @@ Sorting recorded from invented, from the plan file:
 - **Safety scores are not recalculated on a schedule.** Computed live on read, stored only on an
   admin recalculate or a seed run — so the recorded 10-point-drop rule only fires on a stored
   calculation. `app/scheduler.py` is the seam; it belongs with Phase 11's move to a worker.
-- **Push notifications have no address in this build.** `PushChannel.address_for` returns `None`
-  until a mobile client ships, so Phase 9's critical escalations go out on **SMS + email**. Phase 10
-  owns channel routing and preferences and must not promise dual-channel delivery over a channel
-  that cannot reach anybody.
-- **The pill organiser add-on (₹199) still has no buyer.** Labs became the blood panel's buyer in
-  Phase 9; Phase 10's medication work is the natural place for the other.
-- - **`/visits` returns the newest 250 visits, newest first**, so the admin visit table now leads with
-  next week rather than today. Phase 10's visit board should replace it with a windowed, paginated
-  query rather than raising the cap again.
+  **Phase 10 added two more jobs to that same seam**: the dose-photo retention sweep
+  (`ops.PHOTO_RETENTION_DAYS` is defined and nothing enforces it) and audit-log pruning
+  (`audit_service.retention_cutoff()` exists and nothing calls it). Three deferred jobs, one worker.
+- ⚠️ **Push notifications still have no address in this build.** `PushChannel.address_for` returns
+  `None` until a mobile client ships. Phase 10's routing handles it honestly: push is **off by
+  default** rather than on and inert, the resolver picks two channels that can *actually reach*
+  somebody, and the settings screen says "Available once the DoorDoctor mobile app is released"
+  instead of offering a dead switch. **The recorded dual-channel promise is being kept with SMS and
+  email.** When a mobile client ships, `address_for` is the only thing that changes.
+- ✅ **The pill organiser add-on (₹199) has a buyer** — done in Phase 10.
+  `medication_service.record_fill` bills it **once per billing month, not once per fill**, because
+  the recorded price is per month: four weekly fills in March are one ₹199 line. A fill nobody
+  managed to make is not a purchase.
+- ✅ **The newest-250 visit list has a replacement** — done in Phase 10. `/admin/visit-board` is a
+  windowed, paginated query whose summary describes the **window** rather than the page.
+  `GET /visits` still exists and still caps at 250 for the nurse's own list, which is a different
+  question with a different answer.
 - **The report scheduler is in-process (Phase 6).** APScheduler runs inside the API process, so two
   replicas would both generate Sunday's reports. Idempotency means the result is still one report per
   patient, but the work is done twice. Move to a worker in Phase 11 alongside Postgres.
@@ -973,6 +1176,17 @@ Sorting recorded from invented, from the plan file:
   Helmet, so a crawler that does not execute JavaScript sees an empty shell. If organic search
   matters commercially this needs SSR or a prerender step — a Phase 11-scale decision, recorded here
   rather than quietly ignored.
+- **Every seeded zone is below the 30–45 subscriber break-even band.** 28 patients across six zones
+  is ~5 each, so the admin zone view is six rows of "Below the band". That is what a pre-launch
+  business actually looks like and it was **not** adjusted to look healthier. If a demo needs one
+  healthy zone to make the feature legible, that is a seed change and a conversation, not a bug.
+- **The offline queue is server-side only.** The `client_token` contract, the idempotency and the
+  tests are real, and the frontend sends a token — but it does **not** yet queue in `localStorage`
+  and drain on reconnect. The hard half (a replay that cannot double-record or double-alert) is
+  done; the browser half is a Phase 11 UI task.
+- **Notification preferences are per account, not per patient**, and quiet hours are the **server's**
+  wall clock. Both become account-local when Phase 11 does timezones — which is what an NRI family
+  in a different timezone actually needs.
 - **`frontend/public/sitemap.xml` is hand-maintained.** Fourteen URLs and no build step. If the
   public route list grows much past this, generate it.
 
