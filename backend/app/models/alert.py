@@ -39,6 +39,16 @@ class Alert(Base):
     # What the admin did about it. §8's journey 3 says the alert is resolved
     # "with a note" and until Phase 9 there was nowhere to put one.
     resolution_note: Mapped[Optional[str]] = mapped_column(Text)
+
+    # --- Phase 10, the alert queue's clock (§4.17) -------------------------
+    # The same shape as `EscalationEvent`'s, deliberately: budget and deadline
+    # are stored, and the breach is stamped when it is observed. A queue that
+    # computed "overdue" from today's constants would quietly un-breach every
+    # historical alert the moment somebody edited an SLA.
+    sla_minutes: Mapped[Optional[int]] = mapped_column()
+    sla_due_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    sla_breached_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True, nullable=False)
 
     patient: Mapped["Patient"] = relationship(back_populates="alerts")

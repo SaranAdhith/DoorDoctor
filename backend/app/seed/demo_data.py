@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Mapping
 
-from ..core import pricing
+from ..core import ops, pricing
 
 DEMO_PASSWORD: Final = "Demo@123"
 
@@ -85,13 +85,11 @@ KORAMANGALA: Final = 0  # Lakshmi's zone, and Anitha's
 # of six real Bangalore neighbourhoods; the *addresses* remain fictional, and
 # each home is placed a few hundred metres off the centre by
 # `generators.home_coordinates` so twenty-eight patients do not share a doorstep.
-ZONE_CENTRES: Final[tuple[tuple[float, float], ...]] = (
-    (12.9352, 77.6245),  # Koramangala
-    (12.9784, 77.6408),  # Indiranagar
-    (12.9250, 77.5938),  # Jayanagar
-    (12.9116, 77.6389),  # HSR Layout
-    (12.9698, 77.7500),  # Whitefield
-    (13.0037, 77.5727),  # Malleshwaram
+# Read from `core/ops.ZONE_HUBS` rather than restated: that module is where a
+# real hub address would be corrected, and two copies of a coordinate is how the
+# seed and the live geofence start disagreeing about where the office is.
+ZONE_CENTRES: Final[tuple[tuple[float, float], ...]] = tuple(
+    ops.ZONE_HUBS[name] for name, _pincode in ZONES
 )
 
 

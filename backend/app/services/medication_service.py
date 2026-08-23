@@ -213,6 +213,16 @@ def log_administration(
     if medication is None or medication.patient_id != visit.patient_id:
         raise NotFoundError("Medication not found for this patient.")
 
+    if payload.client_token:
+        replayed = db.scalar(
+            select(MedicationLog).where(
+                MedicationLog.visit_id == visit.id,
+                MedicationLog.client_token == payload.client_token,
+            )
+        )
+        if replayed is not None:
+            return replayed
+
     existing = db.scalar(
         select(MedicationLog).where(
             MedicationLog.visit_id == visit.id,
@@ -237,6 +247,7 @@ def log_administration(
         status=payload.status,
         reason=reason,
         recorded_by=recorded_by,
+        client_token=payload.client_token,
         recorded_at=now(),
     )
     db.add(log)

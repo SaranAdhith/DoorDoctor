@@ -78,6 +78,7 @@ from .privacy import Consent, ErasureRequest
 from .referral import Credit, Referral
 from .report import Report
 from .safety import SafetyScore
+from .shift import ShiftCheckIn
 from .screening import Screening
 from .subscription import Plan, QuotaUsage, Subscription
 from .task import FollowUpTask
@@ -175,6 +176,7 @@ __all__ = [
     "SafetyScore",
     "Screening",
     "ScreeningInstrument",
+    "ShiftCheckIn",
     "Subscription",
     "SubscriptionStatus",
     "TaskKind",

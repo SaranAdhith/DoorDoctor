@@ -62,6 +62,10 @@ class MedicationLog(Base):
     # The photograph the nurse took as they gave the dose. Optional forever:
     # a phone with no camera permission must not stop a dose being recorded.
     photo_attachment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("attachments.id"))
+    # Offline-tolerant capture (§4.16): the same idempotency token `Vital`
+    # carries, for the same reason — a queued dose replayed after signal returns
+    # must correct the record rather than add a second one.
+    client_token: Mapped[Optional[str]] = mapped_column(String(64), index=True)
 
     medication: Mapped["Medication"] = relationship(back_populates="logs")
     visit: Mapped[Optional["Visit"]] = relationship(back_populates="medication_logs")

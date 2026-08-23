@@ -563,7 +563,7 @@ def _raise_alerts(
         )
         # `create_threshold_alert` stamps the real clock, which is right in
         # production and wrong here — the whole queue would be raised today.
-        alert.created_at = vital.recorded_at
+        alert_service.backdate(alert, vital.recorded_at)
 
         if excursion.resolved:
             ack = generators.cycle(demo_data.ACK_MINUTES, index)
@@ -744,7 +744,7 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
     clinical_summary = clinical.build(db, records)
     # Phase 10 last: the medication history and the organiser fills are written
     # over medications and subscriptions that everything above created.
-    trust_summary = trust.build(db, records)
+    trust_summary = trust.build(db, records, core)
     db.flush()
 
     return {

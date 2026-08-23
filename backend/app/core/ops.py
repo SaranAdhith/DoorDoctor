@@ -58,6 +58,28 @@ GEOFENCE_ASSUME_ACCURACY_WHEN_MISSING: Final = True
 
 EARTH_RADIUS_M: Final = 6_371_008.8  # IUGG mean earth radius — arithmetic, not a policy
 
+# The zone hubs a nurse starts their shift from (§4.16). ASSUMED in full — the
+# published approximate centres of the six Bangalore neighbourhoods DoorDoctor
+# operates in, standing in for addresses that were never supplied.
+#
+# This is the **single source** of those coordinates: `seed/demo_data.ZONE_CENTRES`
+# reads them from here rather than restating them, so a real hub address is a
+# one-line edit and the seed follows it.
+ZONE_HUBS: Final[Mapping[str, tuple[float, float]]] = MappingProxyType(
+    {
+        "Koramangala": (12.9352, 77.6245),
+        "Indiranagar": (12.9784, 77.6408),
+        "Jayanagar": (12.9250, 77.5938),
+        "HSR Layout": (12.9116, 77.6389),
+        "Whitefield": (12.9698, 77.7500),
+        "Malleshwaram": (13.0037, 77.5727),
+    }
+)
+
+# Wider than a home's 150 m: a hub is a building with a car park, and a nurse
+# checking in from the gate is at work. ASSUMED.
+HUB_GEOFENCE_RADIUS_M: Final = 250.0
+
 # An out-of-range check-in does NOT block the visit. A nurse in a stairwell with
 # a bad fix must still be able to work; refusing the check-in would make the
 # honest thing (letting the phone report a real position) the thing that stops

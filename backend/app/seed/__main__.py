@@ -104,6 +104,9 @@ def main() -> None:
             f"{result['erasure_requests']} erasure request waiting on Admin -> Privacy, "
             f"{result['preferences']} notification preferences"
         )
+        print(
+            f"  Shifts  : {result['shifts']} hub check-ins on Admin -> Shifts"
+        )
     print()
     print("Demo accounts (password for all of them: Demo@123)")
     print("  family@doordoctor.in - family member")

@@ -32,6 +32,8 @@ class MedicationLogCreate(BaseModel):
     medication_id: int
     status: MedicationLogStatus
     reason: str | None = None
+    #: Offline-tolerant capture (§4.16). See `VitalCreate.client_token`.
+    client_token: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def _reason_required_when_not_administered(self) -> Self:

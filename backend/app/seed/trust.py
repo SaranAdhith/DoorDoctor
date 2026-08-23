@@ -418,7 +418,104 @@ def _preferences(db: Session, records) -> int:
     return written
 
 
-def build(db: Session, records) -> dict[str, int]:
+# --------------------------------------------------------------------------
+# Shift check-ins (§4.16)
+# --------------------------------------------------------------------------
+
+
+def _shifts(db: Session, core) -> int:
+    """A week of closed shifts, and one open one belonging to somebody else.
+
+    Anitha is left with **no open shift on purpose**: the hub check-in is a live
+    demo step, and a shift already open would make the button refuse. One other
+    nurse is mid-shift so the admin's shift list is not empty either way.
+    """
+    from ..core.ops import HUB_GEOFENCE_RADIUS_M, ZONE_HUBS
+    from ..models import Nurse, NurseStatus, ShiftCheckIn
+    from ..services import location_service
+
+    rng = random.Random(demo_data.RANDOM_SEED + 720)
+    nurses = list(
+        db.scalars(select(Nurse).where(Nurse.status == NurseStatus.ACTIVE).order_by(Nurse.id))
+    )
+    written = 0
+
+    for index, nurse in enumerate(nurses):
+        hub = ZONE_HUBS.get(nurse.zone or "")
+        for days_ago in range(1, 6):
+            started = now().replace(hour=8, minute=30, second=0, microsecond=0) - timedelta(
+                days=days_ago
+            )
+            metres = rng.uniform(5.0, 120.0)
+            fix = (
+                generators.offset_coordinates(
+                    hub[0], hub[1], metres=metres, bearing_deg=(index * 53 + days_ago * 11) % 360
+                )
+                if hub
+                else (None, None)
+            )
+            verdict = location_service.classify(
+                fix_lat=fix[0],
+                fix_lng=fix[1],
+                home_lat=hub[0] if hub else None,
+                home_lng=hub[1] if hub else None,
+                accuracy_m=15.0 if hub else None,
+                radius_m=HUB_GEOFENCE_RADIUS_M,
+            )
+            db.add(
+                ShiftCheckIn(
+                    nurse_id=nurse.id,
+                    zone=nurse.zone,
+                    started_at=started,
+                    ended_at=started + timedelta(hours=rng.randint(7, 9)),
+                    lat=fix[0],
+                    lng=fix[1],
+                    location_source=verdict.source,
+                    location_status=verdict.status,
+                    location_distance_m=verdict.distance_m,
+                    location_accuracy_m=verdict.accuracy_m,
+                    location_detail=verdict.detail,
+                )
+            )
+            written += 1
+
+    open_for = next((nurse for nurse in nurses if nurse.id != core.nurse.id), None)
+    if open_for is not None:
+        hub = ZONE_HUBS.get(open_for.zone or "")
+        fix = (
+            generators.offset_coordinates(hub[0], hub[1], metres=22.0, bearing_deg=95)
+            if hub
+            else (None, None)
+        )
+        verdict = location_service.classify(
+            fix_lat=fix[0],
+            fix_lng=fix[1],
+            home_lat=hub[0] if hub else None,
+            home_lng=hub[1] if hub else None,
+            accuracy_m=12.0 if hub else None,
+            radius_m=HUB_GEOFENCE_RADIUS_M,
+        )
+        db.add(
+            ShiftCheckIn(
+                nurse_id=open_for.id,
+                zone=open_for.zone,
+                started_at=now().replace(hour=8, minute=15, second=0, microsecond=0),
+                lat=fix[0],
+                lng=fix[1],
+                location_source=verdict.source,
+                location_status=verdict.status,
+                location_distance_m=verdict.distance_m,
+                location_accuracy_m=verdict.accuracy_m,
+                location_detail=verdict.detail,
+            )
+        )
+        written += 1
+
+    db.flush()
+    return written
+
+
+def build(db: Session, records, core) -> dict[str, int]:
     """Layer Phase 10's trust and operations data over a populated database."""
     admins = list(db.scalars(select(User).where(User.role == UserRole.ADMIN).order_by(User.id)))
     nurse_users = list(db.scalars(select(User).where(User.role == UserRole.NURSE).order_by(User.id)))
@@ -430,4 +527,5 @@ def build(db: Session, records) -> dict[str, int]:
         "consents": _consents(db, records),
         "erasure_requests": _erasure_request(db, records),
         "preferences": _preferences(db, records),
+        "shifts": _shifts(db, core),
     }

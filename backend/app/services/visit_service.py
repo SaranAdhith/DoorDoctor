@@ -246,6 +246,25 @@ def record_vitals(db: Session, visit: Visit, payload: VitalCreate) -> dict[str, 
     if patient is None:  # pragma: no cover - defensive
         raise NotFoundError("Patient not found.")
 
+    # Offline-tolerant capture (§4.16). A reading taken in a flat with no signal
+    # is queued on the device and replayed later; a replay carries the token it
+    # was minted with, so it corrects its own row instead of recording a second
+    # reading — and, crucially, instead of raising a second alert about it.
+    if payload.client_token:
+        existing = db.scalar(
+            select(Vital).where(
+                Vital.visit_id == visit.id, Vital.client_token == payload.client_token
+            )
+        )
+        if existing is not None:
+            return {
+                "vitals": vitals_service.serialize(existing),
+                "threshold_breached": existing.threshold_breached,
+                "breached_parameters": [],
+                "alerts_created": [],
+                "replayed": True,
+            }
+
     vital = Vital(
         patient_id=patient.id,
         visit_id=visit.id,
@@ -256,6 +275,7 @@ def record_vitals(db: Session, visit: Visit, payload: VitalCreate) -> dict[str, 
         spo2=payload.spo2,
         temperature=payload.temperature,
         weight=payload.weight,
+        client_token=payload.client_token,
         recorded_at=now(),
     )
     db.add(vital)
@@ -283,6 +303,7 @@ def record_vitals(db: Session, visit: Visit, payload: VitalCreate) -> dict[str, 
         "threshold_breached": vital.threshold_breached,
         "breached_parameters": breaches,
         "alerts_created": [alert_service.serialize(alert) for alert in alerts],
+        "replayed": False,
     }
 
 

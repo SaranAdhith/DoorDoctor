@@ -24,6 +24,9 @@ class AlertOut(BaseModel):
     acknowledged_at: datetime | None = None
     resolved_at: datetime | None = None
     resolution_note: str | None = None
+    sla_minutes: int | None = None
+    sla_due_at: datetime | None = None
+    sla_breached_at: datetime | None = None
     created_at: datetime
 
 

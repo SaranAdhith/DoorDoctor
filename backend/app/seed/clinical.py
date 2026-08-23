@@ -53,6 +53,7 @@ from ..models import (
     UserRole,
 )
 from ..services import (
+    alert_service,
     care_service,
     consult_service,
     device_service,
@@ -322,7 +323,7 @@ def _settle_lab_alert(
     if alert is None:  # pragma: no cover - defensive
         return
 
-    alert.created_at = raised_at
+    alert_service.backdate(alert, raised_at)
     if leave_open:
         return
 
@@ -643,7 +644,7 @@ def _settle_drop_alerts(db: "Session") -> int:
             .limit(1)
         )
         if score is not None:
-            alert.created_at = score.calculated_at
+            alert_service.backdate(alert, score.calculated_at)
 
     # Newest first, so the one left open is the most recent drop.
     alerts.sort(key=lambda a: a.created_at, reverse=True)

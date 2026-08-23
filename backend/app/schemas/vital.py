@@ -18,6 +18,9 @@ class VitalCreate(BaseModel):
     spo2: float = Field(..., ge=50, le=100, description="%")
     temperature: float = Field(..., ge=80, le=115, description="degrees Fahrenheit")
     weight: float = Field(..., ge=20, le=250, description="kg")
+    #: Minted by the client before the reading is queued. Replaying the same
+    #: token corrects the reading it created rather than recording a second one.
+    client_token: str | None = Field(default=None, max_length=64)
 
 
 class VitalOut(BaseModel):
@@ -42,3 +45,7 @@ class VitalRecordResponse(BaseModel):
     threshold_breached: bool
     breached_parameters: list[dict[str, Any]] = []
     alerts_created: list[dict[str, Any]] = []
+    #: True when this submission carried a `client_token` that had already been
+    #: recorded — the queued-offline case. The reading is returned unchanged and
+    #: no second alert is raised.
+    replayed: bool = False

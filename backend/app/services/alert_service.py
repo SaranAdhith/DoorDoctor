@@ -1,11 +1,14 @@
 """Alert creation, listing and lifecycle transitions."""
 
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ..core.clinical import SLA_DEFAULT_MINUTES
 from ..core.exceptions import BadRequestError, NotFoundError
+from ..core.ops import ALERT_SLA_MINUTES
 from ..database import now
 from ..models import (
     Alert,
@@ -68,6 +71,7 @@ def create_alert(
     breaches: list[dict[str, Any]] | None = None,
     vital: Vital | None = None,
     notify: bool = True,
+    as_of: datetime | None = None,
 ) -> Alert:
     """Create an alert from any source. **The only place an `Alert` row is built.**
 
@@ -80,6 +84,8 @@ def create_alert(
     `notify_alert_recipients` is the only reason a family ever hears about one.
     A second constructor would be a silent alert.
     """
+    moment = as_of or now()
+    budget = ALERT_SLA_MINUTES.get(severity.value, SLA_DEFAULT_MINUTES)
     alert = Alert(
         patient_id=patient.id,
         vitals_id=vital.id if vital is not None else None,
@@ -88,6 +94,12 @@ def create_alert(
         title=title,
         message=message,
         status=AlertStatus.ACTIVE,
+        created_at=moment,
+        # Phase 10: the clock starts when the alert does, and both halves are
+        # stored. Computing "overdue" from today's constants would un-breach
+        # every historical alert the moment somebody edits an SLA.
+        sla_minutes=budget,
+        sla_due_at=moment + timedelta(minutes=budget),
     )
     alert.breached_parameters = breaches or []
     db.add(alert)
@@ -155,6 +167,38 @@ def get_alert_for_user(db: Session, user: User, alert_id: int) -> Alert:
     raise NotFoundError("Alert not found.")
 
 
+def backdate(alert: Alert, moment: datetime) -> Alert:
+    """Move an alert to when it actually happened, clock and all.
+
+    The seed builds ninety days of history and then moves each alert back to the
+    reading that raised it. The SLA deadline has to travel with it: an alert
+    created sixty days ago whose deadline is fifteen minutes from now would make
+    the whole queue look freshly raised and never breached. Phase 9 fixed the
+    same class of bug twice — `business.paid_at` and the safety-drop alerts —
+    so this phase gives it a named function rather than a third open-coded fix.
+    """
+    alert.created_at = moment
+    if alert.sla_minutes is not None:
+        alert.sla_due_at = moment + timedelta(minutes=alert.sla_minutes)
+    return alert
+
+
+def refresh_sla(alert: Alert, as_of: datetime | None = None) -> Alert:
+    """Stamp the breach once it happens, so it survives the constants changing.
+
+    The same function `escalation_service` runs against `EscalationEvent`, in
+    the same shape and for the same reason. An alert that breached last week
+    still says so after somebody edits `core/clinical.py`.
+    """
+    if alert.sla_due_at is None or alert.sla_breached_at is not None:
+        return alert
+    if alert.status == AlertStatus.RESOLVED:
+        return alert
+    if (as_of or now()) > alert.sla_due_at:
+        alert.sla_breached_at = alert.sla_due_at
+    return alert
+
+
 def acknowledge(db: Session, alert: Alert, user: User) -> Alert:
     if alert.status == AlertStatus.RESOLVED:
         raise BadRequestError("This alert has already been resolved.")
@@ -206,5 +250,8 @@ def serialize(alert: Alert) -> dict[str, Any]:
         "acknowledged_at": alert.acknowledged_at,
         "resolved_at": alert.resolved_at,
         "resolution_note": alert.resolution_note,
+        "sla_minutes": alert.sla_minutes,
+        "sla_due_at": alert.sla_due_at,
+        "sla_breached_at": alert.sla_breached_at,
         "created_at": alert.created_at,
     }
