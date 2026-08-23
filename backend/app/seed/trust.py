@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import (
+    CareCircleRole,
     CredentialKind,
     Nurse,
     NurseCredential,
@@ -238,6 +239,85 @@ def _pill_organiser(db: Session, records, nurse_users: list[User]) -> int:
     return filled
 
 
+# --------------------------------------------------------------------------
+# Care circles (§4.13)
+# --------------------------------------------------------------------------
+
+# ASSUMED. Chosen so the demo contains the case the feature exists for: a person
+# with no DoorDoctor login who is nonetheless the one who can be at the house in
+# ten minutes. Lakshmi's circle is the one an evaluator will open.
+LAKSHMI_CIRCLE: tuple[dict[str, object], ...] = (
+    {
+        "name": "Rohan D'Souza",
+        "relationship_label": "Grandson",
+        "phone": "+91 90000 10021",
+        "email": "rohan.dsouza@example.in",
+        "role": CareCircleRole.CONTRIBUTOR,
+        "receives_alerts": True,
+        "receives_reports": True,
+    },
+    {
+        "name": "Vasanthi Rao",
+        "relationship_label": "Neighbour",
+        "phone": "+91 90000 10022",
+        "role": CareCircleRole.EMERGENCY_CONTACT,
+        "receives_alerts": True,
+        "note": "Two doors down and has the spare key. Call her first if nobody answers.",
+    },
+    {
+        "name": "Dr Suresh Iyer",
+        "relationship_label": "Family physician",
+        "phone": "+91 90000 10023",
+        "role": CareCircleRole.VIEWER,
+        "receives_reports": True,
+    },
+)
+
+OTHER_CIRCLE: tuple[dict[str, object], ...] = (
+    {
+        "name": "Sandeep Nair",
+        "relationship_label": "Son",
+        "phone": "+91 90000 10031",
+        "role": CareCircleRole.CONTRIBUTOR,
+        "receives_alerts": True,
+    },
+    {
+        "name": "Latha Menon",
+        "relationship_label": "Neighbour",
+        "phone": "+91 90000 10032",
+        "role": CareCircleRole.EMERGENCY_CONTACT,
+        "receives_alerts": True,
+    },
+)
+
+
+def _care_circles(db: Session, records, actor: User) -> int:
+    """A primary member for everyone, and a real circle for a few.
+
+    Every patient gets their family user mirrored as the primary member, because
+    Phase 11 migrates authorization onto this table and a patient with no row
+    here would be a patient nobody could reach.
+    """
+    from ..services import care_circle_service
+
+    added = 0
+    for record in records:
+        care_circle_service.ensure_primary(db, record.patient)
+        added += 1
+
+        if record.slot == 0:
+            entries = LAKSHMI_CIRCLE
+        elif record.slot % 6 == 0:
+            entries = OTHER_CIRCLE
+        else:
+            continue
+
+        for entry in entries:
+            care_circle_service.add_member(db, record.patient, actor=actor, **entry)
+            added += 1
+    return added
+
+
 def build(db: Session, records) -> dict[str, int]:
     """Layer Phase 10's trust and operations data over a populated database."""
     admins = list(db.scalars(select(User).where(User.role == UserRole.ADMIN).order_by(User.id)))
@@ -246,4 +326,5 @@ def build(db: Session, records) -> dict[str, int]:
     return {
         "medication_changes": _medication_history(db, records, admins),
         "organiser_fills": _pill_organiser(db, records, nurse_users),
+        "circle_members": _care_circles(db, records, admins[0]),
     }

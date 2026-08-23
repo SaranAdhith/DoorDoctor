@@ -24,6 +24,7 @@ from .routers import (
     auth,
     billing,
     care,
+    care_circle,
     consults,
     devices,
     escalations,
@@ -140,6 +141,7 @@ app.include_router(safety.router, prefix=api_prefix)
 app.include_router(labs.router, prefix=api_prefix)
 app.include_router(consults.router, prefix=api_prefix)
 app.include_router(care.router, prefix=api_prefix)
+app.include_router(care_circle.router, prefix=api_prefix)
 app.include_router(screenings.router, prefix=api_prefix)
 app.include_router(devices.router, prefix=api_prefix)
 app.include_router(escalations.router, prefix=api_prefix)

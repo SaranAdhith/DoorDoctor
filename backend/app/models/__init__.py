@@ -6,6 +6,7 @@ from .attachment import Attachment
 from .audit import AppendOnlyError, AuditEvent
 from .billing import Invoice, InvoiceLine
 from .care import CareAssignment, CareInteraction, CareManager
+from .care_circle import CareCircleMember
 from .device import Device, DeviceReading
 from .escalation import EscalationEvent, EscalationStep
 from .hospital import HospitalBooking
@@ -97,6 +98,7 @@ __all__ = [
     "BillingCycle",
     "CareAssignment",
     "CareChannel",
+    "CareCircleMember",
     "CareCircleRole",
     "CareDirection",
     "CareInteraction",

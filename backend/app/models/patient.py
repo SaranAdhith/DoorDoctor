@@ -13,6 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from .alert import Alert
     from .attachment import Attachment
     from .care import CareAssignment, CareInteraction
+    from .care_circle import CareCircleMember
     from .device import Device
     from .escalation import EscalationEvent
     from .hospital import HospitalBooking
@@ -108,6 +109,11 @@ class Patient(Base):
     # a dose photograph, a consent record or a care-circle contact behind.
     attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
+    )
+    care_circle: Mapped[list["CareCircleMember"]] = relationship(
+        back_populates="patient",
+        cascade="all, delete-orphan",
+        order_by="CareCircleMember.id",
     )
 
 
