@@ -1,7 +1,7 @@
 """Nurse profiles linked to nurse user accounts."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,6 +30,7 @@ class Nurse(Base):
         default=NurseStatus.ACTIVE,
         nullable=False,
     )
+    zone: Mapped[Optional[str]] = mapped_column(String(60), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="nurse_profile")

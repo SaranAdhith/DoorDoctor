@@ -36,6 +36,16 @@ class Patient(Base):
     gender: Mapped[str] = mapped_column(String(20), nullable=False)
     address: Mapped[str] = mapped_column(String(255), nullable=False)
     emergency_contact: Mapped[Optional[str]] = mapped_column(String(120))
+    # --- Phase 10, operations (§4.11, §4.17) -----------------------------
+    # Phase 5 kept the zone as a lookup table in `seed/demo_data.py` and left a
+    # note to lift it into a column when something needed to *query* by it. The
+    # admin zone view is that something.
+    zone: Mapped[Optional[str]] = mapped_column(String(60), index=True)
+    # The centre of the geofence. Without these a check-in can only ever be
+    # classified `unavailable`, which is the honest answer and is exactly what
+    # `visit_service` returns for a patient whose home was never located.
+    home_lat: Mapped[Optional[float]] = mapped_column(Float)
+    home_lng: Mapped[Optional[float]] = mapped_column(Float)
     family_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     status: Mapped[PatientStatus] = mapped_column(
         SAEnum(PatientStatus, values_callable=lambda e: [m.value for m in e]),

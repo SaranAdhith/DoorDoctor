@@ -21,6 +21,9 @@ os.environ["REPORTS_SCHEDULER_ENABLED"] = "false"
 # The suite must never reach a real provider. Tests that exercise the assisted
 # path monkeypatch `llm_client` explicitly.
 os.environ["GROQ_API_KEY"] = ""
+# Uploads are new I/O this phase. The suite writes photos into its own throwaway
+# directory, never into the source tree.
+os.environ["UPLOAD_ROOT"] = str(_TMP / "uploads")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402

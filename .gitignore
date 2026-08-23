@@ -11,6 +11,9 @@ venv/
 .pytest_cache/
 *.egg-info/
 
+# Uploads (Phase 10). Dose photographs of named patients. Never committed.
+backend/app/uploads/
+
 # Database
 *.db
 *.sqlite

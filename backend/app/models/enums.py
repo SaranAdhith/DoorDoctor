@@ -337,3 +337,98 @@ class HospitalBookingStatus(str, Enum):
     CONFIRMED = "confirmed"
     ADMITTED = "admitted"
     CANCELLED = "cancelled"
+
+
+# --------------------------------------------------------------------------
+# Phase 10 — trust, operations and notifications (§4.10-4.18)
+# --------------------------------------------------------------------------
+
+
+class LocationStatus(str, Enum):
+    """How much the platform actually knows about where a check-in happened.
+
+    RECORDED, and exactly these three. `UNAVAILABLE` is a first-class outcome,
+    not a failure state: "we do not know where the nurse was" is a true sentence
+    the platform must be able to say out loud.
+    """
+
+    VERIFIED = "verified"
+    OUT_OF_RANGE = "out_of_range"
+    UNAVAILABLE = "unavailable"
+
+
+class CredentialKind(str, Enum):
+    NURSING_REGISTRATION = "nursing_registration"
+    QUALIFICATION = "qualification"
+    BACKGROUND_CHECK = "background_check"
+    TRAINING = "training"
+
+
+class AttachmentKind(str, Enum):
+    DOSE_PHOTO = "dose_photo"
+    NURSE_PHOTO = "nurse_photo"
+
+
+class MedicationChangeKind(str, Enum):
+    """Append-only history. A stopped medication is a row, not a missing row."""
+
+    STARTED = "started"
+    DOSAGE_CHANGED = "dosage_changed"
+    SCHEDULE_CHANGED = "schedule_changed"
+    STOPPED = "stopped"
+    RESUMED = "resumed"
+
+
+class PillOrganiserStatus(str, Enum):
+    FILLED = "filled"
+    PARTIAL = "partial"
+    NOT_FILLED = "not_filled"
+
+
+class CareCircleRole(str, Enum):
+    """What a circle member may do, independent of whether they have a login."""
+
+    PRIMARY = "primary"
+    CONTRIBUTOR = "contributor"
+    VIEWER = "viewer"
+    EMERGENCY_CONTACT = "emergency_contact"
+
+
+class ConsentStatus(str, Enum):
+    GRANTED = "granted"
+    WITHDRAWN = "withdrawn"
+
+
+class AuditAction(str, Enum):
+    """What the append-only log records. Values are stable strings — they are
+    read back by admins long after the code that wrote them changed."""
+
+    RECORD_VIEWED = "record_viewed"
+    RECORD_EXPORTED = "record_exported"
+    CONSENT_GRANTED = "consent_granted"
+    CONSENT_WITHDRAWN = "consent_withdrawn"
+    ERASURE_REQUESTED = "erasure_requested"
+    ERASURE_EXECUTED = "erasure_executed"
+    ERASURE_DECLINED = "erasure_declined"
+    CREDENTIAL_VERIFIED = "credential_verified"
+    CREDENTIAL_REJECTED = "credential_rejected"
+    CARE_CIRCLE_CHANGED = "care_circle_changed"
+    MEDICATION_CHANGED = "medication_changed"
+    ALERT_RESOLVED = "alert_resolved"
+    LOCATION_OUT_OF_RANGE = "location_out_of_range"
+
+
+class ErasureStatus(str, Enum):
+    REQUESTED = "requested"
+    EXECUTED = "executed"
+    DECLINED = "declined"
+
+
+class OnboardingStepKey(str, Enum):
+    """Mirrors `core.ops.ONBOARDING_STEPS`; the labels and order live there."""
+
+    CONFIRM_PATIENT = "confirm_patient"
+    CONSENT = "consent"
+    THRESHOLDS = "thresholds"
+    CARE_CIRCLE = "care_circle"
+    NOTIFICATIONS = "notifications"

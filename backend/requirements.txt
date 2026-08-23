@@ -9,5 +9,9 @@ bcrypt==4.2.1
 python-multipart==0.0.20
 httpx==0.28.1
 weasyprint==69.0
+# Phase 10: dose photos are validated by decoding them and re-encoded to strip
+# EXIF. Already present as a WeasyPrint transitive; pinned here because we now
+# import it directly.
+pillow==12.3.0
 pytest==8.3.4
 apscheduler==3.11.3

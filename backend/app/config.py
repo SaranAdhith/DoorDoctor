@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     assistant_enabled: bool = Field(default=True, alias="ASSISTANT_ENABLED")
 
+    # --- Uploads (Phase 10) ------------------------------------------------
+    # Where dose photos land. RECORDED: under `backend/app/uploads/`, and never
+    # served statically — `routers/attachments.py` streams them behind the same
+    # authorization every other patient record goes through. A setting rather
+    # than a constant so the test suite writes into its own temp directory
+    # instead of the source tree.
+    upload_root: str = Field(default="app/uploads", alias="UPLOAD_ROOT")
+
     # --- Reports (Phase 6) -------------------------------------------------
     # False under tests: `TestClient` as a context manager runs the lifespan,
     # and a test suite must not start a background scheduler thread.
