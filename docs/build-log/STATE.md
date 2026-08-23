@@ -4,8 +4,9 @@ Running ledger for the multi-phase build. **Read this first in a new session**, 
 `docs/build-log/phase-N.md` for the phase you are starting. Together with `git log` this restores
 full context without re-reading the codebase.
 
-The full build specification lives in the founder's original prompt. The phase plan is at
-`/home/saran/.claude/plans/doordoctor-platform-clever-hippo.md`.
+The full build specification lives in the founder's original prompt, and the overarching phase plan
+alongside it. Both sit outside this repo, on the founder's machine. Inside the repo,
+`docs/build-log/phase-N.md` is the record of each phase and `git log` is the record of the work.
 
 ---
 
