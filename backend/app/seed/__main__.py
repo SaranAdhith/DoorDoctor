@@ -99,6 +99,10 @@ def main() -> None:
             f"{result['organiser_fills']} pill organiser fills, "
             f"{result['circle_members']} care circle members"
         )
+        print(
+            f"  Privacy : {result['consents']} consent decisions, "
+            f"{result['erasure_requests']} erasure request waiting on Admin -> Privacy"
+        )
     print()
     print("Demo accounts (password for all of them: Demo@123)")
     print("  family@doordoctor.in - family member")

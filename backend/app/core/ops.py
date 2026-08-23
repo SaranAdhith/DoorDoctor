@@ -188,6 +188,7 @@ AUDIT_RETENTION_DAYS: Final = 365 * 7  # ASSUMED
 # exists to stop, so the exceptions are stated up front and each carries its
 # reason.
 ERASURE_DESTROYS: Final[tuple[str, ...]] = (
+    "Your relative's name, address, contact details and home location",
     "Health readings, visit records and visit notes",
     "Medication schedules, dose records and dose photographs",
     "Lab orders and results, mood check answers and safety scores",

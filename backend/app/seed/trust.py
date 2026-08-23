@@ -318,6 +318,69 @@ def _care_circles(db: Session, records, actor: User) -> int:
     return added
 
 
+# --------------------------------------------------------------------------
+# Consent and the erasure queue (§4.14)
+# --------------------------------------------------------------------------
+
+
+def _consents(db: Session, records) -> int:
+    """Every family has agreed to the care they are paying for.
+
+    The optional consents are deliberately mixed: a demo where everybody agreed
+    to everything shows a consent screen that never did anything. Two families
+    have declined the assistant, and one has declined outside-the-app messages —
+    and the notification routing has to honour that.
+    """
+    from ..core.ops import CONSENT_KINDS
+    from ..services import consent_service
+
+    written = 0
+    for record in records:
+        family = db.get(User, record.patient.family_user_id)
+        if family is None:  # pragma: no cover - defensive
+            continue
+        for spec in CONSENT_KINDS:
+            granted = True
+            if spec.key == "assistant" and record.slot % 9 == 4:
+                granted = False
+            if spec.key == "notifications" and record.slot % 11 == 7:
+                granted = False
+            consent_service.record_decision(
+                db,
+                user=family,
+                kind=spec.key,
+                granted=granted,
+                patient=record.patient,
+                source="seed",
+                commit=False,
+            )
+            written += 1
+    return written
+
+
+def _erasure_request(db: Session, records) -> int:
+    """One request waiting, so an admin can carry one out live.
+
+    Deliberately not Lakshmi's: executing it during a demo would destroy the
+    dataset every other screen is built on. It belongs to a patient far enough
+    down the roster that nothing else in the demo depends on them.
+    """
+    from ..services import privacy_service
+
+    target = next((record for record in records if record.slot == 23), None)
+    if target is None:  # pragma: no cover - the roster is 28 patients
+        return 0
+
+    family = db.get(User, target.patient.family_user_id)
+    privacy_service.request_erasure(
+        db,
+        patient=target.patient,
+        actor=family,
+        reason="Moving my mother's care to a provider closer to my brother in Chennai.",
+    )
+    return 1
+
+
 def build(db: Session, records) -> dict[str, int]:
     """Layer Phase 10's trust and operations data over a populated database."""
     admins = list(db.scalars(select(User).where(User.role == UserRole.ADMIN).order_by(User.id)))
@@ -327,4 +390,6 @@ def build(db: Session, records) -> dict[str, int]:
         "medication_changes": _medication_history(db, records, admins),
         "organiser_fills": _pill_organiser(db, records, nurse_users),
         "circle_members": _care_circles(db, records, admins[0]),
+        "consents": _consents(db, records),
+        "erasure_requests": _erasure_request(db, records),
     }

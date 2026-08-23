@@ -34,6 +34,7 @@ from .routers import (
     notifications,
     nurses,
     patients,
+    privacy,
     public,
     referrals,
     reports,
@@ -142,6 +143,7 @@ app.include_router(labs.router, prefix=api_prefix)
 app.include_router(consults.router, prefix=api_prefix)
 app.include_router(care.router, prefix=api_prefix)
 app.include_router(care_circle.router, prefix=api_prefix)
+app.include_router(privacy.router, prefix=api_prefix)
 app.include_router(screenings.router, prefix=api_prefix)
 app.include_router(devices.router, prefix=api_prefix)
 app.include_router(escalations.router, prefix=api_prefix)

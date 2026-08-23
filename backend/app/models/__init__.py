@@ -73,6 +73,7 @@ from .notification import Notification
 from .organization import Organization
 from .password_reset import PasswordResetToken
 from .patient import Patient, PatientThreshold
+from .privacy import Consent, ErasureRequest
 from .referral import Credit, Referral
 from .report import Report
 from .safety import SafetyScore
@@ -104,6 +105,7 @@ __all__ = [
     "CareInteraction",
     "CareManager",
     "CareManagerKind",
+    "Consent",
     "ConsentStatus",
     "Consult",
     "ConsultStatus",
@@ -117,6 +119,7 @@ __all__ = [
     "DeviceKind",
     "DeviceReading",
     "DeviceStatus",
+    "ErasureRequest",
     "ErasureStatus",
     "EscalationEvent",
     "EscalationStatus",
