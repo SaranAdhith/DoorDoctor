@@ -306,3 +306,63 @@ into components that add up to what it says.
 - `core/pricing.py` is read, never written.
 - Any new process-global goes in `clean_process_state`.
 - Backend **408**, Vitest **87**. The counts only grow.
+
+---
+
+# As executed
+
+Written after the phase closed. The plan above is what was intended; this is what happened and where
+the two differ. **The differences are the useful part** — a plan that matched its execution exactly
+would mean nothing was learned.
+
+## Staging changed once, on the first day
+
+The plan put `SafetyScore` in stage 1 and each other model in its own stage. That does not work: the
+safety score reads **screenings** (stage 5) and **device readings** (stage 6), so its service cannot
+be written before those tables exist.
+
+**All twelve Phase 9 tables therefore landed together in stage 1** — one schema pass, one
+`models/__init__.py` edit, one re-seed. Services then followed stage by stage as planned. If a
+future phase has a component that reads across its own stages, do the same: models are cheap and
+interdependent, services are not.
+
+Committed as six commits rather than eight — stages 4+5 (care manager, PHQ-2) and 6+7 (wearables,
+escalations) each landed together, because in both cases the second depended on the first and
+splitting them would have committed a half-wired feature.
+
+| Commit | Stage(s) | Tests after |
+|---|---|---|
+| `725358c` | 0–1 — clinical.py, general alert path, all models, safety score | 434 |
+| `cd338ca` | 2 — labs and follow-up tasks | 469 |
+| `f618557` | 3 — telemedicine | 492 |
+| `05c4a06` | 4–5 — care managers, PHQ-2 | 544 |
+| `d27e9eb` | 6–7 — wearables, escalations, hospital | 608 |
+| `e576527` | 8a — the clinical seed | 623 |
+| `0f98ee8` | 8b — six screens, the emergency block | 623 · Vitest 113 |
+| `235acf9` | fixes found in the browser | 623 · Vitest 121 |
+
+## Where the plan was wrong, or too thin
+
+- **The plan said "`services/safety_score.py` (the weight block)".** The weights went in
+  `core/clinical.py` instead and the service holds only arithmetic — the same split as `pricing.py`
+  against `subscription_service.py`. That means **one** file to hand the founder when §4 arrives, not
+  two. A test now asserts the two files' numeric literals are disjoint, so the split is enforced.
+- **The plan did not anticipate a heterogeneous `breached_parameters`.** It assumed the three new
+  alert sources would slot into the existing alert rendering. They do not: a threshold has a bound
+  and a direction, a lab result has a *range*, a wearable breach has a sentence. This was the phase's
+  most serious bug (both alert screens blank) and it was invisible to 623 backend tests.
+  `lib/breach.ts` is the fix and the place a fourth source declares itself.
+- **The plan's acceptance list said "a consult booked on Care Plus and the second one refused with a
+  409".** Care Plus includes **one** consult a month, so there is no second to refuse through the UI —
+  the button correctly disables. The 409 was verified against the API directly, and its sentence is
+  what the toast renders. Worth knowing before writing a similar acceptance line.
+- **Nothing in the plan protected the demo account's *demonstrability*.** Two seed choices were
+  correct behaviour and dead demos: a PHQ-2 recorded three days ago (so the nurse screen correctly
+  hid the form) and the month's only consult already spent. **When seeding a feature, check that the
+  demo account can still perform it**, not just that the data exists.
+
+## What the tests could not have caught
+
+Five of the six bugs were found by driving the real app. The backend suite was green throughout.
+That is not an argument for more backend tests — it is the reason the live pass is in the
+per-phase verification list, and it has now earned its place in four consecutive phases.
