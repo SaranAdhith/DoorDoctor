@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export const ROLE_HOME: Record<Role, string> = {
   family: '/family/dashboard',
-  nurse: '/nurse/visits',
+  nurse: '/nurse/my-day',
   admin: '/admin/dashboard',
 }
 

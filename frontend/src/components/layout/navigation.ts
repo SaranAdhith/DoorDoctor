@@ -1,16 +1,23 @@
 import {
   Activity,
   Bell,
+  BellRing,
+  CalendarCheck,
   CalendarDays,
+  CalendarRange,
+  ClipboardList,
   CreditCard,
   FileText,
   FlaskConical,
   HeartPulse,
   Inbox,
   LayoutDashboard,
+  LineChart,
+  MapPinned,
   MessageCircleQuestion,
   Pill,
   ShieldAlert,
+  ShieldCheck,
   Stethoscope,
   TrendingUp,
   Users,
@@ -69,12 +76,21 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     },
     {
       title: 'Account',
-      items: [{ to: '/family/plan', label: 'My Plan', icon: CreditCard, primary: true }],
+      items: [
+        { to: '/family/plan', label: 'My Plan', icon: CreditCard, primary: true },
+        { to: '/family/care-circle', label: 'Care circle', icon: UsersRound },
+        { to: '/family/notifications', label: 'Notifications', icon: BellRing },
+        { to: '/family/privacy', label: 'Privacy and data', icon: ShieldCheck },
+      ],
     },
   ],
   nurse: [
     {
-      items: [{ to: '/nurse/visits', label: "Today's visits", icon: CalendarDays, primary: true }],
+      items: [
+        { to: '/nurse/my-day', label: 'My day', icon: CalendarCheck, primary: true },
+        { to: '/nurse/visits', label: 'All my visits', icon: CalendarDays, primary: true },
+        { to: '/nurse/roster', label: 'My week', icon: CalendarRange, primary: true },
+      ],
     },
   ],
   admin: [
@@ -84,8 +100,9 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     {
       title: 'Operations',
       items: [
-        { to: '/admin/visits', label: 'Visits', icon: CalendarDays, primary: true },
-        { to: '/admin/alerts', label: 'Alerts', icon: Bell, primary: true },
+        { to: '/admin/board', label: 'Visit board', icon: ClipboardList, primary: true },
+        { to: '/admin/visits', label: 'All visits', icon: CalendarDays },
+        { to: '/admin/alerts', label: 'Alert queue', icon: Bell, primary: true },
         { to: '/admin/escalations', label: 'Escalations', icon: ShieldAlert },
         { to: '/admin/assistant', label: 'Ask DoorDoctor', icon: MessageCircleQuestion },
       ],
@@ -109,8 +126,14 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
         { to: '/admin/revenue', label: 'Revenue', icon: TrendingUp },
+        { to: '/admin/outcomes', label: 'Outcomes', icon: LineChart },
+        { to: '/admin/zones', label: 'Zones', icon: MapPinned },
         { to: '/admin/leads', label: 'Leads', icon: Inbox },
       ],
+    },
+    {
+      title: 'Governance',
+      items: [{ to: '/admin/privacy', label: 'Privacy', icon: ShieldCheck }],
     },
   ],
 }

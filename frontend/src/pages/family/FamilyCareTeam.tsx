@@ -2,11 +2,20 @@ import { HeartPulse, MessageSquare, Phone, StickyNote, Video } from 'lucide-reac
 
 import { careApi, safetyApi, screeningsApi } from '../../api/clinical'
 import { patientsApi } from '../../api/patients'
+import { nursesApi } from '../../api/trust'
 import { EmergencyBlock, SafetyScoreCard, SafetyScoreCardSkeleton } from '../../components/clinical'
 import { Badge, Card, EmptyState, ErrorState, LoadingScreen } from '../../components/ui'
+import { Link } from 'react-router-dom'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatRelative } from '../../lib/format'
-import type { CareChannel, CareTeam, Patient, SafetyScore, ScreeningStatus } from '../../types'
+import type {
+  CareChannel,
+  CareTeam,
+  NurseProfile,
+  Patient,
+  SafetyScore,
+  ScreeningStatus,
+} from '../../types'
 
 /**
  * The family's care page: who looks after this patient, how they have been, and
@@ -36,6 +45,12 @@ export function FamilyCareTeam() {
   )
   const team = useAsync<CareTeam | null>(
     async () => (patientId ? careApi.team(patientId) : null),
+    [patientId],
+  )
+  // The nurses who have actually been to this house (§4.10). Not the roster —
+  // there is no route a family can call to browse the staff list.
+  const nurses = useAsync<NurseProfile[]>(
+    async () => (patientId ? nursesApi.forPatient(patientId) : []),
     [patientId],
   )
   const screening = useAsync<ScreeningStatus | null>(
@@ -73,6 +88,39 @@ export function FamilyCareTeam() {
       {score.data && <SafetyScoreCard score={score.data} />}
 
       <EmergencyBlock />
+
+      <Card
+        title="Your nurses"
+        description="The people who come to the house. Every credential here was checked by a named member of the DoorDoctor team."
+      >
+        {nurses.loading && <LoadingScreen label="Loading nurses" />}
+        {nurses.error && <ErrorState message={nurses.error} onRetry={() => nurses.reload()} />}
+        {nurses.data?.length === 0 && (
+          <p className="text-small text-text-muted">
+            No nurse has visited yet. The first visit will show here.
+          </p>
+        )}
+        <ul className="divide-y divide-border-subtle">
+          {nurses.data?.map((nurse) => (
+            <li key={nurse.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <Link
+                  to={`/family/nurse/${nurse.id}`}
+                  className="font-medium text-text-primary hover:underline"
+                >
+                  {nurse.name}
+                </Link>
+                <p className="text-small text-text-secondary">
+                  {nurse.credential}
+                  {nurse.visits_to_this_patient > 0 &&
+                    ` · ${nurse.visits_to_this_patient} visit${nurse.visits_to_this_patient === 1 ? '' : 's'} here`}
+                </p>
+              </div>
+              {nurse.verification_status === 'verified' && <Badge tone="good">Verified</Badge>}
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       <Card title="Your care manager">
         {team.loading && <LoadingScreen label="Loading care team" />}

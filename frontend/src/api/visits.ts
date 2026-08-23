@@ -16,7 +16,8 @@ export const visitsApi = {
     api.post<Visit>('/visits', payload),
   assign: (visitId: number, nurseId: number) =>
     api.post<Visit>(`/visits/${visitId}/assign`, { nurse_id: nurseId }),
-  checkIn: (visitId: number, location?: { lat: number; lng: number }) =>
+  /** `accuracy_m` travels with the fix: the server needs it to classify. */
+  checkIn: (visitId: number, location?: { lat: number; lng: number; accuracy_m?: number }) =>
     api.post<Visit>(`/visits/${visitId}/checkin`, location ?? {}),
   checkOut: (visitId: number) => api.post<Visit>(`/visits/${visitId}/checkout`),
   saveNotes: (visitId: number, notes: string) => api.post<Visit>(`/visits/${visitId}/notes`, { notes }),
@@ -24,7 +25,13 @@ export const visitsApi = {
     api.post<VitalsRecordResult>(`/visits/${visitId}/vitals`, payload),
   logMedication: (
     visitId: number,
-    payload: { medication_id: number; status: MedicationLogStatus; reason?: string | null },
+    payload: {
+      medication_id: number
+      status: MedicationLogStatus
+      reason?: string | null
+      /** Offline-tolerant capture: replaying this token corrects, never doubles. */
+      client_token?: string
+    },
   ) => api.post<MedicationLog>(`/visits/${visitId}/medication-logs`, payload),
   complete: (visitId: number) => api.post<Visit>(`/visits/${visitId}/complete`),
 }

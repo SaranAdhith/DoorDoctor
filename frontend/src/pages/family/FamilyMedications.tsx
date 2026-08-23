@@ -1,11 +1,33 @@
 import { useState, type FormEvent } from 'react'
 
 import { patientsApi } from '../../api/patients'
+import { medicationDepthApi } from '../../api/trust'
 import { ApiError } from '../../api/client'
 import { AdherenceCard } from '../../components/cards/AdherenceCard'
 import { useAsync } from '../../hooks/useAsync'
-import type { Patient } from '../../types'
-import { Button, Card, EmptyState, ErrorState, Input, LoadingScreen, Select, useToast } from '../../components/ui'
+import { formatDate, formatDateTime } from '../../lib/format'
+import type { MedicationChange, Patient, PillOrganiserFill } from '../../types'
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Input,
+  LoadingScreen,
+  ProgressMeter,
+  Select,
+  useToast,
+} from '../../components/ui'
+
+/** How a change reads to a family, in the words they would use. */
+const CHANGE_LABELS: Record<MedicationChange['kind'], string> = {
+  started: 'Started',
+  dosage_changed: 'Dose changed',
+  schedule_changed: 'Time changed',
+  stopped: 'Stopped',
+  resumed: 'Restarted',
+}
 
 export function FamilyMedications() {
   const { notify } = useToast()
@@ -20,6 +42,17 @@ export function FamilyMedications() {
             adherence: await patientsApi.adherence(patientId),
           }
         : null,
+    [patientId],
+  )
+
+  // "Why is she on half the dose now?" is one of the questions families ask
+  // most, and a current-state schedule cannot answer it (§4.12).
+  const history = useAsync<MedicationChange[]>(
+    async () => (patientId ? medicationDepthApi.history(patientId) : []),
+    [patientId],
+  )
+  const organiser = useAsync<PillOrganiserFill[]>(
+    async () => (patientId ? medicationDepthApi.organiser(patientId) : []),
     [patientId],
   )
 
@@ -90,8 +123,73 @@ export function FamilyMedications() {
           </Card>
         </div>
 
-        <AdherenceCard adherence={adherence} />
+        <div className="space-y-6">
+          <AdherenceCard adherence={adherence} />
+
+          {organiser.data && organiser.data.length > 0 && (
+            <Card
+              title="Pill organiser"
+              description={`Last filled by ${organiser.data[0].filled_by_name}.`}
+            >
+              <ProgressMeter
+                value={organiser.data[0].compartments_filled}
+                max={organiser.data[0].compartments_total}
+                label="Compartments filled"
+                showLabel
+                valueText={`${organiser.data[0].compartments_filled} of ${organiser.data[0].compartments_total}`}
+                tone={organiser.data[0].status === 'filled' ? 'good' : 'watch'}
+              />
+              {organiser.data[0].covers_until && (
+                <p className="mt-3 text-small text-text-secondary">
+                  Covers doses until {formatDate(organiser.data[0].covers_until)}.
+                </p>
+              )}
+              {organiser.data[0].note && (
+                <p className="mt-1 text-caption text-text-muted">{organiser.data[0].note}</p>
+              )}
+            </Card>
+          )}
+        </div>
       </div>
+
+      <Card
+        title="What has changed"
+        description="Every change to the schedule, with who made it and why."
+      >
+        {history.data && history.data.length > 0 ? (
+          <ol className="space-y-3">
+            {history.data.map((change) => (
+              <li key={change.id} className="flex gap-3">
+                <Badge tone={change.kind === 'stopped' ? 'watch' : 'neutral'}>
+                  {CHANGE_LABELS[change.kind]}
+                </Badge>
+                <div className="min-w-0">
+                  <p className="text-small text-text-primary">
+                    <span className="font-medium">{change.medication_name}</span>
+                    {change.previous_value && change.new_value && (
+                      <>
+                        {' '}
+                        — {change.previous_value} to {change.new_value}
+                      </>
+                    )}
+                    {!change.previous_value && change.new_value && <> — {change.new_value}</>}
+                  </p>
+                  {change.reason && (
+                    <p className="text-small text-text-secondary">{change.reason}</p>
+                  )}
+                  <p className="text-caption text-text-muted">
+                    {change.changed_by_name} · {formatDateTime(change.changed_at)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-small text-text-muted">
+            Nothing has changed since the schedule was set up.
+          </p>
+        )}
+      </Card>
 
       <Card title="Add a medication">
         <form onSubmit={addMedication} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

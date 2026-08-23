@@ -3,18 +3,20 @@ import { Link } from 'react-router-dom'
 import { MessageCircleQuestion } from 'lucide-react'
 
 import { patientsApi } from '../../api/patients'
+import { onboardingApi } from '../../api/trust'
 import { useAuth } from '../../auth/AuthContext'
 import { AlertBanner } from '../../components/alerts/AlertBanner'
 import { AdherenceCard } from '../../components/cards/AdherenceCard'
 import { safetyApi } from '../../api/clinical'
 import { SafetyScoreCard, SafetyScoreCardSkeleton } from '../../components/clinical'
 import { PlainSummary } from '../../components/family/PlainSummary'
+import { OnboardingChecklist } from '../../components/trust'
 import { VitalCard } from '../../components/cards/VitalCard'
 import { VitalsTrendChart } from '../../components/charts/VitalsTrendChart'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatDateTime, formatNumber, formatTime, greeting } from '../../lib/format'
 import { bloodPressure, evaluateReading } from '../../lib/vitals'
-import type { Patient, SafetyScore } from '../../types'
+import type { OnboardingProgress, Patient, SafetyScore } from '../../types'
 import { Card, EmptyState, ErrorState, LinkButton, LoadingScreen, Select, VisitStatusBadge } from '../../components/ui'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -39,6 +41,12 @@ export function FamilyDashboard() {
   // score must not blank the whole page.
   const safety = useAsync<SafetyScore | null>(
     () => (patientId ? safetyApi.get(patientId) : Promise.resolve(null)),
+    [patientId],
+  )
+  // The setup checklist removes itself once every step is done, so it is not a
+  // permanent fixture on the screen a family opens every day.
+  const onboarding = useAsync<OnboardingProgress | null>(
+    () => (patientId ? onboardingApi.progress(patientId) : Promise.resolve(null)),
     [patientId],
   )
 
@@ -94,6 +102,16 @@ export function FamilyDashboard() {
       </div>
 
       {alerts.length > 0 && <AlertBanner alert={alerts[0]} to={`/family/alerts?alert=${alerts[0].id}`} />}
+
+      {onboarding.data && !onboarding.data.complete && (
+        <OnboardingChecklist
+          progress={onboarding.data}
+          onAcknowledge={async (step) => {
+            const updated = await onboardingApi.acknowledge(patient.id, step)
+            onboarding.setData(updated)
+          }}
+        />
+      )}
 
       <PlainSummary patientId={patient.id} />
 

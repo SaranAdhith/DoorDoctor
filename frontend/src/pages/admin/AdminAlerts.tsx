@@ -1,26 +1,62 @@
 import { useState } from 'react'
 
 import { alertsApi } from '../../api/alerts'
+import { adminOpsApi } from '../../api/trust'
 import { ApiError } from '../../api/client'
 import { AlertCard } from '../../components/alerts/AlertCard'
 import { useAsync } from '../../hooks/useAsync'
 import { breachContext, breachLabel, breachValue } from '../../lib/breach'
 import { formatDateTime } from '../../lib/format'
-import type { Alert, AlertDetail } from '../../types'
-import { Button, Card, EmptyState, ErrorState, LoadingScreen, useToast } from '../../components/ui'
+import type { Alert, AlertDetail, QueuedAlert } from '../../types'
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  LoadingScreen,
+  Modal,
+  Textarea,
+  useToast,
+} from '../../components/ui'
+
+/**
+ * The alert queue (§4.17).
+ *
+ * The open list is **the server's queue**, not this page's sort: breached
+ * first, then soonest deadline, which is the order an operator actually works
+ * it. The SLA clock is stored on the alert, so an alert that breached last week
+ * still says so after somebody edits the constants.
+ *
+ * Resolving asks for a note, because §8's journey 3 has always described the
+ * admin resolving an alert *with a note* and until Phase 9 there was nowhere to
+ * put one.
+ */
+function slaBadge(alert: QueuedAlert) {
+  if (alert.breached) return <Badge tone="critical">Past deadline</Badge>
+  if (alert.minutes_remaining == null) return null
+  const minutes = alert.minutes_remaining
+  return (
+    <Badge tone={minutes <= 15 ? 'attention' : 'neutral'}>
+      {minutes < 60 ? `${minutes} min left` : `${Math.round(minutes / 60)} hrs left`}
+    </Badge>
+  )
+}
 
 export function AdminAlerts() {
   const { notify } = useToast()
-  const alerts = useAsync<Alert[]>(() => alertsApi.list(), [])
+  const queue = useAsync<QueuedAlert[]>(() => adminOpsApi.alertQueue(), [])
+  const alerts = useAsync<Alert[]>(() => alertsApi.list('resolved'), [])
   const [selected, setSelected] = useState<AlertDetail | null>(null)
+  const [resolving, setResolving] = useState<number | null>(null)
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
 
-  if (alerts.loading) return <LoadingScreen label="Loading alerts" />
-  if (alerts.error) return <ErrorState message={alerts.error} onRetry={() => void alerts.reload()} />
+  if (queue.loading) return <LoadingScreen label="Loading alerts" />
+  if (queue.error) return <ErrorState message={queue.error} onRetry={() => void queue.reload()} />
 
-  const rows = alerts.data ?? []
-  const active = rows.filter((alert) => alert.status !== 'resolved')
-  const resolved = rows.filter((alert) => alert.status === 'resolved')
+  const active = queue.data ?? []
+  const resolved = alerts.data ?? []
 
   async function open(alertId: number) {
     try {
@@ -30,17 +66,21 @@ export function AdminAlerts() {
     }
   }
 
-  async function act(alertId: number, action: 'acknowledge' | 'resolve') {
+  async function act(alertId: number, action: 'acknowledge' | 'resolve', resolutionNote?: string) {
     setBusy(true)
     try {
-      await (action === 'acknowledge' ? alertsApi.acknowledge(alertId) : alertsApi.resolve(alertId))
+      await (action === 'acknowledge'
+        ? alertsApi.acknowledge(alertId)
+        : alertsApi.resolve(alertId, resolutionNote ?? null))
       notify(action === 'acknowledge' ? 'Alert acknowledged.' : 'Alert resolved.', 'success')
-      await alerts.reload({ quiet: true })
+      await Promise.all([queue.reload({ quiet: true }), alerts.reload({ quiet: true })])
       if (selected?.id === alertId) setSelected(await alertsApi.get(alertId))
     } catch (error) {
       notify(error instanceof ApiError ? error.message : 'Could not update the alert.', 'error')
     } finally {
       setBusy(false)
+      setResolving(null)
+      setNote('')
     }
   }
 
@@ -97,7 +137,7 @@ export function AdminAlerts() {
             </Button>
             <Button
               disabled={busy || selected.status === 'resolved'}
-              onClick={() => void act(selected.id, 'resolve')}
+              onClick={() => setResolving(selected.id)}
             >
               Resolve
             </Button>
@@ -108,12 +148,18 @@ export function AdminAlerts() {
       )}
 
       <section className="space-y-3">
-        <h2 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">Active</h2>
+        <h2 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+          Open — breached first, then soonest due
+        </h2>
         {active.length === 0 ? (
-          <EmptyState title="No active alerts" description="Nothing needs attention right now." />
+          <EmptyState title="No open alerts" description="Nothing needs attention right now." />
         ) : (
           active.map((alert) => (
             <AlertCard key={alert.id} alert={alert}>
+              <span className="mr-auto flex items-center gap-2">
+                <span className="text-small text-text-secondary">{alert.patient_name}</span>
+                {slaBadge(alert)}
+              </span>
               <Button variant="ghost" size="sm" onClick={() => void open(alert.id)}>
                 View details
               </Button>
@@ -125,13 +171,43 @@ export function AdminAlerts() {
               >
                 Acknowledge
               </Button>
-              <Button size="sm" disabled={busy} onClick={() => void act(alert.id, 'resolve')}>
+              <Button size="sm" disabled={busy} onClick={() => setResolving(alert.id)}>
                 Resolve
               </Button>
             </AlertCard>
           ))
         )}
       </section>
+
+      <Modal
+        open={resolving !== null}
+        onClose={() => setResolving(null)}
+        title="Resolve this alert"
+      >
+        <div className="space-y-4">
+          <p className="text-small text-text-secondary">
+            What was done about it? The family sees this on their alerts page.
+          </p>
+          <Textarea
+            label="Resolution note"
+            hint="Optional, but it is the only record of what happened."
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={3}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setResolving(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => resolving !== null && void act(resolving, 'resolve', note.trim())}
+            >
+              {busy ? 'Resolving…' : 'Resolve'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {resolved.length > 0 && (
         <section className="space-y-3">

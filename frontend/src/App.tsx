@@ -21,9 +21,15 @@ import { Terms } from './pages/public/Terms'
 import { TrustAndSafety } from './pages/public/TrustAndSafety'
 import { WhatIsDoorDoctor } from './pages/public/WhatIsDoorDoctor'
 import { WhoItsFor } from './pages/public/WhoItsFor'
+import { NurseMyDay } from './pages/nurse/NurseMyDay'
+import { NurseRoster } from './pages/nurse/NurseRoster'
 import { NurseVisitDetail } from './pages/nurse/NurseVisitDetail'
 import { NurseVisits } from './pages/nurse/NurseVisits'
 import { AdminAlerts } from './pages/admin/AdminAlerts'
+import { AdminOutcomes } from './pages/admin/AdminOutcomes'
+import { AdminPrivacy } from './pages/admin/AdminPrivacy'
+import { AdminVisitBoard } from './pages/admin/AdminVisitBoard'
+import { AdminZones } from './pages/admin/AdminZones'
 import { AdminCare } from './pages/admin/AdminCare'
 import { AdminEscalations } from './pages/admin/AdminEscalations'
 import { AdminLabs } from './pages/admin/AdminLabs'
@@ -36,6 +42,10 @@ import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminPatients } from './pages/admin/AdminPatients'
 import { AdminVisits } from './pages/admin/AdminVisits'
 import { FamilyAlerts } from './pages/family/FamilyAlerts'
+import { FamilyCareCircle } from './pages/family/FamilyCareCircle'
+import { FamilyNotifications } from './pages/family/FamilyNotifications'
+import { FamilyNurseProfile } from './pages/family/FamilyNurseProfile'
+import { FamilyPrivacy } from './pages/family/FamilyPrivacy'
 import { FamilyCareTeam } from './pages/family/FamilyCareTeam'
 import { FamilyConsults } from './pages/family/FamilyConsults'
 import { FamilyLabs } from './pages/family/FamilyLabs'
@@ -107,12 +117,16 @@ export default function App() {
         <Route path="patient/:patientId" element={<PatientProfile />} />
         <Route path="medications" element={<FamilyMedications />} />
         <Route path="care" element={<FamilyCareTeam />} />
+        <Route path="care-circle" element={<FamilyCareCircle />} />
+        <Route path="nurse/:nurseId" element={<FamilyNurseProfile />} />
         <Route path="labs" element={<FamilyLabs />} />
         <Route path="consults" element={<FamilyConsults />} />
         <Route path="alerts" element={<FamilyAlerts />} />
         <Route path="assistant" element={<FamilyAssistant />} />
         <Route path="reports" element={<FamilyReports />} />
         <Route path="plan" element={<MyPlan />} />
+        <Route path="notifications" element={<FamilyNotifications />} />
+        <Route path="privacy" element={<FamilyPrivacy />} />
       </Route>
 
       <Route
@@ -123,7 +137,9 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/nurse/visits" replace />} />
+        <Route index element={<Navigate to="/nurse/my-day" replace />} />
+        <Route path="my-day" element={<NurseMyDay />} />
+        <Route path="roster" element={<NurseRoster />} />
         <Route path="visits" element={<NurseVisits />} />
         <Route path="visits/:visitId" element={<NurseVisitDetail />} />
       </Route>
@@ -145,7 +161,11 @@ export default function App() {
         <Route path="escalations" element={<AdminEscalations />} />
         <Route path="labs" element={<AdminLabs />} />
         <Route path="visits" element={<AdminVisits />} />
+        <Route path="board" element={<AdminVisitBoard />} />
         <Route path="alerts" element={<AdminAlerts />} />
+        <Route path="outcomes" element={<AdminOutcomes />} />
+        <Route path="zones" element={<AdminZones />} />
+        <Route path="privacy" element={<AdminPrivacy />} />
         <Route path="assistant" element={<AdminAssistant />} />
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="revenue" element={<AdminRevenue />} />

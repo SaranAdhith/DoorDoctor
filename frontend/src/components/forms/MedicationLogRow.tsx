@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import { cn } from '../../lib/cn'
 import type { Medication, MedicationLog, MedicationLogStatus } from '../../types'
@@ -9,6 +9,13 @@ interface Props {
   existingLog?: MedicationLog
   disabled: boolean
   onSubmit: (status: MedicationLogStatus, reason: string | null) => Promise<void>
+  /**
+   * Rendered inside this row, under the controls. Phase 10 puts the dose
+   * photograph here rather than beside the row, because this component owns the
+   * `<li>` and a sibling `<li>` holding one button would be invalid markup for
+   * no gain.
+   */
+  footer?: ReactNode
 }
 
 const OPTIONS: { value: MedicationLogStatus; label: string; active: string }[] = [
@@ -23,7 +30,13 @@ const LOGGED_LABELS: Record<MedicationLogStatus, string> = {
   refused: 'Refused',
 }
 
-export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }: Props) {
+export function MedicationLogRow({
+  medication,
+  existingLog,
+  disabled,
+  onSubmit,
+  footer,
+}: Props) {
   const [status, setStatus] = useState<MedicationLogStatus | null>(existingLog?.status ?? null)
   const [reason, setReason] = useState(existingLog?.reason ?? '')
   const [error, setError] = useState<string | null>(null)
@@ -121,6 +134,8 @@ export function MedicationLogRow({ medication, existingLog, disabled, onSubmit }
       >
         {existingLog ? 'Update log' : 'Save medication log'}
       </Button>
+
+      {footer && <div className="mt-3 border-t border-border-subtle pt-3">{footer}</div>}
     </li>
   )
 }

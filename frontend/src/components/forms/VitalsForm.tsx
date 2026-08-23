@@ -3,8 +3,15 @@ import { useState, type FormEvent } from 'react'
 import type { VitalsSubmission } from '../../types'
 import { Button, Input } from '../ui'
 
+/**
+ * The seven readings only. `VitalsSubmission` also carries `client_token`, which
+ * the offline queue mints rather than the nurse typing it — a form field for an
+ * idempotency token would be a form field for a bug.
+ */
+type MetricName = Exclude<keyof VitalsSubmission, 'client_token'>
+
 interface VitalField {
-  name: keyof VitalsSubmission
+  name: MetricName
   label: string
   unit: string
   min: number
@@ -24,7 +31,7 @@ const FIELDS: VitalField[] = [
   { name: 'weight', label: 'Weight', unit: 'kg', min: 20, max: 250, step: 0.1, placeholder: '64' },
 ]
 
-type FormValues = Record<keyof VitalsSubmission, string>
+type FormValues = Record<MetricName, string>
 
 const EMPTY: FormValues = {
   systolic_bp: '',
@@ -44,11 +51,11 @@ interface Props {
 
 export function VitalsForm({ disabled = false, submitting = false, onSubmit }: Props) {
   const [values, setValues] = useState<FormValues>(EMPTY)
-  const [errors, setErrors] = useState<Partial<Record<keyof VitalsSubmission, string>>>({})
+  const [errors, setErrors] = useState<Partial<Record<MetricName, string>>>({})
 
   function validate(): VitalsSubmission | null {
-    const nextErrors: Partial<Record<keyof VitalsSubmission, string>> = {}
-    const parsed: Partial<VitalsSubmission> = {}
+    const nextErrors: Partial<Record<MetricName, string>> = {}
+    const parsed: Partial<Record<MetricName, number>> = {}
 
     for (const field of FIELDS) {
       const raw = values[field.name].trim()

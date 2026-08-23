@@ -83,7 +83,13 @@ export interface Visit {
   status: VisitStatus
   checkin_at: string | null
   checkout_at: string | null
+  /** Where the coordinates came from: `browser` or `none`. */
   location_source: string
+  /** What the platform is willing to claim about them (§4.11). */
+  location_status: LocationStatus
+  location_distance_m: number | null
+  location_accuracy_m: number | null
+  location_detail: string | null
   notes: string | null
   patient?: { id: number; name: string; age: number; address: string }
   nurse?: { id: number; name: string; credential: string; phone: string | null }
@@ -116,6 +122,8 @@ export interface MedicationLog {
   status: MedicationLogStatus
   reason: string | null
   recorded_at: string
+  /** The dose confirmation photograph, if the nurse took one (§4.12). */
+  photo?: Attachment | null
 }
 
 export interface Adherence {
@@ -175,6 +183,10 @@ export interface Alert {
   acknowledged_by: number | null
   acknowledged_at: string | null
   resolved_at: string | null
+  /** Phase 10's stored SLA clock (§4.17), the same shape escalations carry. */
+  sla_minutes: number | null
+  sla_due_at: string | null
+  sla_breached_at: string | null
   created_at: string
 }
 
@@ -294,6 +306,12 @@ export interface VitalsSubmission {
   spo2: number
   temperature: number
   weight: number
+  /**
+   * Offline-tolerant capture (§4.16). Minted by the device before the reading
+   * is queued; replaying it corrects the reading it created rather than
+   * recording a second one — and does not raise a second alert.
+   */
+  client_token?: string
 }
 
 export interface VitalsRecordResult {
@@ -301,6 +319,8 @@ export interface VitalsRecordResult {
   threshold_breached: boolean
   breached_parameters: BreachedParameter[]
   alerts_created: Alert[]
+  /** True when this submission replayed a token already recorded. */
+  replayed?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -932,4 +952,357 @@ export interface EmergencyBlock {
   title: string
   body: string
   ladder: string[]
+}
+
+/* ------------------------------------------------------------------ */
+/* Phase 10 — trust, operations and notifications (§4.10-4.18)          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What the platform is willing to claim about where a check-in happened.
+ *
+ * `unavailable` is a real answer, not an error state: "we do not know where the
+ * nurse was" is a true sentence, and the UI says it in words rather than
+ * showing an empty badge.
+ */
+export type LocationStatus = 'verified' | 'out_of_range' | 'unavailable'
+
+export interface NurseCredential {
+  id: number
+  kind: string
+  title: string
+  issuing_body: string
+  verified_at: string | null
+  verified_by_name: string | null
+  expires_on: string | null
+  expired: boolean
+  /** Admin projection only. A family never receives this field at all. */
+  registration_number?: string | null
+  issued_on?: string | null
+  verification_status?: string
+  note?: string | null
+}
+
+/** The nurse as their patient's family is entitled to see them. */
+export interface NurseProfile {
+  id: number
+  name: string
+  credential: string
+  verification_status: string
+  status: string
+  zone: string | null
+  joined_on: string | null
+  years_experience: number | null
+  languages: string[]
+  bio: string | null
+  credentials: NurseCredential[]
+  visits_to_this_patient: number
+  last_visit_at: string | null
+}
+
+export interface NurseAdminRecord extends Omit<NurseProfile, 'visits_to_this_patient' | 'last_visit_at'> {
+  user_id: number
+  email: string
+  phone: string | null
+  open_visits: number
+  completed_visits: number
+  patients_covered: number
+  expiring_credentials: NurseCredential[]
+}
+
+export type CareCircleRole = 'primary' | 'contributor' | 'viewer' | 'emergency_contact'
+
+export interface CareCircleMember {
+  id: number
+  patient_id: number
+  user_id: number | null
+  name: string
+  relationship_label: string
+  phone: string | null
+  email: string | null
+  role: CareCircleRole
+  is_primary: boolean
+  receives_alerts: boolean
+  receives_reports: boolean
+  has_login: boolean
+  note: string | null
+}
+
+export interface Attachment {
+  id: number
+  kind: string
+  content_type: string
+  size_bytes: number
+  width: number | null
+  height: number | null
+  created_at: string
+  /** Relative to the API base. Fetched with the bearer token, never linked to. */
+  url: string
+}
+
+export interface MedicationChange {
+  id: number
+  medication_id: number
+  medication_name: string | null
+  kind: 'started' | 'dosage_changed' | 'schedule_changed' | 'stopped' | 'resumed'
+  previous_value: string | null
+  new_value: string | null
+  reason: string | null
+  changed_by_name: string
+  changed_at: string
+}
+
+export interface PillOrganiserFill {
+  id: number
+  patient_id: number
+  visit_id: number | null
+  filled_by_name: string
+  status: 'filled' | 'partial' | 'not_filled'
+  compartments_filled: number
+  compartments_total: number
+  covers_until: string | null
+  note: string | null
+  charged: boolean
+  filled_at: string
+}
+
+export interface ConsentState {
+  kind: string
+  label: string
+  blurb: string
+  required: boolean
+  status: string | null
+  granted: boolean
+  decided_at: string | null
+  decided_by_name: string | null
+  version: string | null
+  current_version: string
+  needs_review: boolean
+}
+
+export interface ConsentRecord {
+  id: number
+  kind: string
+  label: string
+  version: string
+  status: string
+  decided_at: string
+  decided_by_name: string
+  source: string
+}
+
+export interface AuditEntry {
+  id: number
+  at: string
+  actor_label: string
+  actor_role: string | null
+  action: string
+  subject_type: string
+  subject_id: number | null
+  patient_id: number | null
+  detail: string | null
+}
+
+export interface ErasureRequest {
+  id: number
+  patient_id: number
+  patient_name: string
+  requested_by_name: string
+  reason: string | null
+  status: 'requested' | 'executed' | 'declined'
+  decided_by_name: string | null
+  decided_at: string | null
+  decision_note: string | null
+  outcome: string | null
+  created_at: string
+}
+
+export interface PrivacyOverview {
+  patient_id: number
+  patient_name: string
+  policy_version: string
+  audit_retention_days: number
+  erasure_destroys: string[]
+  erasure_retains: { label: string; reason: string }[]
+  holdings: { key: string; label: string; count: number }[]
+  consents: ConsentState[]
+  consent_history: ConsentRecord[]
+  audit_trail: AuditEntry[]
+  erasure_request: ErasureRequest | null
+}
+
+export interface NotificationPreferences {
+  channels: Record<string, boolean>
+  quiet_hours_enabled: boolean
+  quiet_start_hour: number
+  quiet_end_hour: number
+  in_quiet_hours_now: boolean
+  critical_always_delivered: boolean
+  critical_channel_count: number
+}
+
+export interface DeliveryRecord {
+  id: number
+  channel: string
+  recipient: string
+  subject: string
+  status: 'simulated' | 'sent' | 'failed' | 'suppressed' | 'unreachable'
+  detail: string | null
+  created_at: string
+}
+
+export interface ShiftCheckIn {
+  id: number
+  nurse_id: number
+  zone: string | null
+  started_at: string
+  ended_at: string | null
+  location_status: LocationStatus
+  location_distance_m: number | null
+  location_accuracy_m: number | null
+  location_detail: string | null
+  note: string | null
+  is_open: boolean
+}
+
+export interface WorklistVisit {
+  id: number
+  patient_id: number
+  patient_name: string
+  address: string
+  zone: string | null
+  scheduled_at: string
+  status: VisitStatus
+  location_status: LocationStatus
+  open_alerts: number
+  carried_over: boolean
+}
+
+export interface NurseDay {
+  date: string
+  nurse_id: number
+  zone: string | null
+  shift: ShiftCheckIn | null
+  carried_over: WorklistVisit[]
+  visits: WorklistVisit[]
+  counts: { total: number; completed: number; remaining: number; carried_over: number }
+  tasks: { id: number; patient_id: number; title: string; due_at: string; overdue: boolean }[]
+}
+
+export interface NurseRoster {
+  from: string
+  to: string
+  days: { date: string; visits: WorklistVisit[] }[]
+  total: number
+}
+
+export interface VisitBrief {
+  visit_id: number
+  patient: {
+    id: number
+    name: string
+    age: number
+    address: string
+    zone: string | null
+    emergency_contact: string | null
+  }
+  scheduled_at: string
+  last_visit: {
+    id: number
+    scheduled_at: string
+    notes: string | null
+    location_status: LocationStatus
+  } | null
+  last_reading: Vitals | null
+  open_alerts: { id: number; title: string; severity: AlertSeverity; created_at: string }[]
+  medications_due: Medication[]
+  doses_logged_here: MedicationLog[]
+  safety: { score: number; band: string; calculated_at: string } | null
+  pill_organiser: PillOrganiserFill | null
+}
+
+export interface VisitBoard {
+  from: string
+  to: string
+  page: number
+  page_size: number
+  total: number
+  pages: number
+  visits: Visit[]
+  summary: Record<string, number>
+}
+
+export interface QueuedAlert extends AlertDetail {
+  patient_name: string
+  zone: string | null
+  breached: boolean
+  minutes_remaining: number | null
+}
+
+export interface Outcomes {
+  window_days: number
+  since: string
+  visits: {
+    scheduled: number
+    completed: number
+    missed: number
+    cancelled: number
+    completion_rate: number | null
+  }
+  alerts: {
+    raised: number
+    resolved: number
+    median_minutes_to_resolve: number | null
+    sla_judged: number
+    sla_met: number
+    sla_attainment: number | null
+  }
+  medication: { logged: number; administered: number; adherence: number | null }
+  location: {
+    checked_in: number
+    verified: number
+    out_of_range: number
+    unavailable: number
+    verified_rate: number | null
+  }
+  escalations: { opened: number; still_open: number }
+}
+
+export interface ZoneRow {
+  zone: string
+  patients: number
+  active_patients: number
+  nurses: number
+  visits_in_window: number
+  open_alerts: number
+  patients_per_nurse: number | null
+  break_even: 'below' | 'within' | 'above'
+  to_break_even: number
+}
+
+export interface ZoneView {
+  window_days: number
+  break_even_min: number
+  break_even_max: number
+  note: string
+  zones: ZoneRow[]
+}
+
+export interface OnboardingStep {
+  key: string
+  label: string
+  blurb: string
+  path: string
+  done: boolean
+  /** True when the step reads the work rather than a stored tick. */
+  derived: boolean
+}
+
+export interface OnboardingProgress {
+  patient_id: number
+  steps: OnboardingStep[]
+  completed: number
+  total: number
+  complete: boolean
+  next_step: OnboardingStep | null
 }

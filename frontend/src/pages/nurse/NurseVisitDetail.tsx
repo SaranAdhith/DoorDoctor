@@ -3,10 +3,12 @@ import { Link, useParams } from 'react-router-dom'
 
 import { ApiError } from '../../api/client'
 import { visitsApi } from '../../api/visits'
+import { nurseOpsApi } from '../../api/trust'
 import { screeningsApi } from '../../api/clinical'
 import { AlertCard } from '../../components/alerts/AlertCard'
 import { EmergencyBlock, Phq2Form } from '../../components/clinical'
 import { MedicationLogRow } from '../../components/forms/MedicationLogRow'
+import { DosePhotoButton, LocationBadge } from '../../components/trust'
 import { VitalsForm } from '../../components/forms/VitalsForm'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDateTime, formatNumber, formatTime } from '../../lib/format'
@@ -16,26 +18,43 @@ import type {
   MedicationLogStatus,
   ScreeningInstrument,
   ScreeningStatus,
+  VisitBrief,
   VisitDetail,
   VitalsSubmission,
 } from '../../types'
 import { Button, Card, EmptyState, ErrorState, LoadingScreen, Textarea, VisitStatusBadge, useToast } from '../../components/ui'
 
-/** Optional browser location; check-in never blocks on it in this MVP. */
-async function tryGetLocation(): Promise<{ lat: number; lng: number } | undefined> {
+/**
+ * The browser's position, with **its own estimate of how good it is**.
+ *
+ * `accuracy` travels with the fix because the server needs it: a position 20 m
+ * from the door with a ±500 m error is not evidence the nurse was at the door,
+ * and classifying it `verified` would be the platform lying about the one thing
+ * this feature exists to prove.
+ *
+ * A refused or failed fix is not an error. The server classifies a missing
+ * position as `unavailable`, which is a true answer, and the check-in proceeds.
+ */
+async function tryGetLocation(): Promise<
+  { lat: number; lng: number; accuracy_m?: number } | undefined
+> {
   if (!('geolocation' in navigator)) return undefined
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(undefined), 4000)
+    const timeout = setTimeout(() => resolve(undefined), 6000)
     navigator.geolocation.getCurrentPosition(
       (position) => {
         clearTimeout(timeout)
-        resolve({ lat: position.coords.latitude, lng: position.coords.longitude })
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy_m: position.coords.accuracy,
+        })
       },
       () => {
         clearTimeout(timeout)
         resolve(undefined)
       },
-      { timeout: 4000 },
+      { enableHighAccuracy: true, timeout: 6000 },
     )
   })
 }
@@ -60,6 +79,9 @@ export function NurseVisitDetail() {
     () => (patientId ? screeningsApi.status(patientId) : Promise.resolve(null)),
     [patientId],
   )
+  // What to know before knocking (§4.16). Assembled server-side from rows other
+  // services already wrote, so this screen reads one endpoint rather than four.
+  const brief = useAsync<VisitBrief>(() => nurseOpsApi.brief(id), [id])
 
   async function recordScreening(answers: number[]) {
     if (!patientId) return
@@ -98,8 +120,15 @@ export function NurseVisitDetail() {
     setBusy(true)
     try {
       const location = await tryGetLocation()
-      await visitsApi.checkIn(id, location)
-      notify('Checked in. You can now record vitals.', 'success')
+      const started = await visitsApi.checkIn(id, location)
+      notify(
+        started.location_status === 'verified'
+          ? 'Checked in at the home. You can now record vitals.'
+          : started.location_status === 'out_of_range'
+            ? 'Checked in. Your position was away from the recorded home address, and the office has been told.'
+            : 'Checked in. Your location could not be confirmed.',
+        started.location_status === 'verified' ? 'success' : 'warning',
+      )
       await visit.reload({ quiet: true })
     } catch (error) {
       handleError(error, 'Could not start the visit.')
@@ -183,6 +212,15 @@ export function NurseVisitDetail() {
               Scheduled {formatDateTime(data.scheduled_at)}
               {data.checkin_at ? ` · Checked in ${formatTime(data.checkin_at)}` : ''}
             </p>
+            {data.checkin_at && (
+              <div className="mt-2">
+                <LocationBadge
+                  status={data.location_status}
+                  distanceM={data.location_distance_m}
+                  detail={data.location_detail}
+                />
+              </div>
+            )}
           </div>
           <VisitStatusBadge status={data.status} />
         </div>
@@ -280,11 +318,96 @@ export function NurseVisitDetail() {
                 existingLog={data.medication_logs.find((log) => log.medication_id === medication.id)}
                 disabled={!isInProgress}
                 onSubmit={(status, reason) => logMedication(medication.id, status, reason)}
+                footer={(() => {
+                  // The photograph belongs to the dose, so it can only be added
+                  // once the dose itself has been recorded.
+                  const log = data.medication_logs.find(
+                    (entry) => entry.medication_id === medication.id,
+                  )
+                  return log ? (
+                    <DosePhotoButton
+                      log={log}
+                      disabled={!isInProgress}
+                      onUploaded={() => void visit.reload({ quiet: true })}
+                    />
+                  ) : null
+                })()}
               />
             ))}
           </ul>
         )}
       </Card>
+
+      {/* Before knocking (§4.16). One request, assembled server-side, so the
+          nurse is not opening four screens on a doorstep. */}
+      {brief.data && (
+        <Card title="Before you knock">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <h3 className="text-small font-semibold text-text-primary">Last visit</h3>
+              {brief.data.last_visit ? (
+                <>
+                  <p className="text-small text-text-secondary">
+                    {formatDateTime(brief.data.last_visit.scheduled_at)}
+                  </p>
+                  {brief.data.last_visit.notes && (
+                    <p className="mt-1 text-small text-text-secondary">
+                      {brief.data.last_visit.notes}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-small text-text-muted">This is the first recorded visit.</p>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-small font-semibold text-text-primary">Open alerts</h3>
+              {brief.data.open_alerts.length === 0 ? (
+                <p className="text-small text-text-muted">None.</p>
+              ) : (
+                <ul className="space-y-1 text-small text-text-secondary">
+                  {brief.data.open_alerts.map((alert) => (
+                    <li key={alert.id}>{alert.title}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {brief.data.safety && (
+              <div>
+                <h3 className="text-small font-semibold text-text-primary">Safety score</h3>
+                <p className="text-small text-text-secondary">
+                  <span className="tnum font-medium text-text-primary">
+                    {brief.data.safety.score}
+                  </span>{' '}
+                  · {brief.data.safety.band}
+                </p>
+              </div>
+            )}
+
+            {brief.data.pill_organiser && (
+              <div>
+                <h3 className="text-small font-semibold text-text-primary">Pill organiser</h3>
+                <p className="text-small text-text-secondary">
+                  {brief.data.pill_organiser.compartments_filled} of{' '}
+                  {brief.data.pill_organiser.compartments_total} filled by{' '}
+                  {brief.data.pill_organiser.filled_by_name}
+                </p>
+              </div>
+            )}
+
+            {brief.data.patient.emergency_contact && (
+              <div className="sm:col-span-2">
+                <h3 className="text-small font-semibold text-text-primary">Emergency contact</h3>
+                <p className="text-small text-text-secondary">
+                  {brief.data.patient.emergency_contact}
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Mood check (§4.7). Offered when it is due, and closed once it is not,
           so the visit screen does not ask the same two questions every day. */}
