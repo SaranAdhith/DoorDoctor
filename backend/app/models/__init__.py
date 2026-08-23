@@ -70,6 +70,7 @@ from .lab import LabOrder, LabResult
 from .lead import Lead
 from .medication import Medication, MedicationChange, MedicationLog, PillOrganiserFill
 from .notification import Notification
+from .onboarding import OnboardingProgress
 from .organization import Organization
 from .password_reset import PasswordResetToken
 from .patient import Patient, PatientThreshold
@@ -155,6 +156,7 @@ __all__ = [
     "Nurse",
     "NurseCredential",
     "NurseStatus",
+    "OnboardingProgress",
     "OnboardingStepKey",
     "Organization",
     "OrganizationType",
