@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from ..database import now
 from ..models import (
     Alert,
+    LocationStatus,
     MedicationLog,
     Notification,
     Nurse,
@@ -108,6 +109,14 @@ def demo_reset(db: Session) -> dict[str, int]:
         demo_visit.checkout_at = None
         demo_visit.checkin_lat = None
         demo_visit.checkin_lng = None
+        # The location verdict is rewound with the check-in that produced it. A
+        # visit that says "verified 11 m from home" but has no check-in time is
+        # a record of something that did not happen.
+        demo_visit.location_source = "none"
+        demo_visit.location_status = LocationStatus.UNAVAILABLE
+        demo_visit.location_distance_m = None
+        demo_visit.location_accuracy_m = None
+        demo_visit.location_detail = None
         demo_visit.notes = None
     else:
         demo_visit = Visit(
@@ -115,7 +124,6 @@ def demo_reset(db: Session) -> dict[str, int]:
             nurse_id=nurse.id,
             scheduled_at=at(0, hour=DEMO_VISIT_HOUR, minute=DEMO_VISIT_MINUTE),
             status=VisitStatus.SCHEDULED,
-            location_source="demo/unverified",
         )
         db.add(demo_visit)
 

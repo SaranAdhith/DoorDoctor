@@ -54,7 +54,7 @@ from ..models import (
     Vital,
 )
 from ..services import alert_service, vitals_service
-from . import business, clinical, demo_data, generators
+from . import business, clinical, demo_data, generators, trust
 from .core import CORE_HISTORY_DAYS, HISTORY as CORE_HISTORY, CoreResult, at, demo_password_hash
 
 # Thresholds are identical for every patient in this demo, so the clamp table
@@ -95,6 +95,8 @@ class PatientRecord:
 
 def _build_staff(db: Session, core: CoreResult) -> dict[int, list[Nurse]]:
     """The other two admins and the other thirteen nurses, rostered by zone."""
+    rng = random.Random(demo_data.RANDOM_SEED + 500)
+    today = now().date()
     for name, email, phone in demo_data.EXTRA_ADMINS:
         db.add(
             User(
@@ -128,9 +130,26 @@ def _build_staff(db: Session, core: CoreResult) -> dict[int, list[Nurse]]:
                 VerificationStatus.VERIFIED if spec.verified else VerificationStatus.PENDING
             ),
             status=NurseStatus.ACTIVE if spec.active else NurseStatus.INACTIVE,
+            # --- Phase 10 (§4.10) -----------------------------------------
+            zone=demo_data.ZONES[spec.zone][0],
+            joined_on=(now() - timedelta(days=rng.randint(90, 2200))).date(),
+            languages=demo_data.LANGUAGES_BY_ZONE[spec.zone],
+            years_experience=rng.randint(2, 18),
         )
         db.add(nurse)
         db.flush()
+        # Every nurse has their credentials on file. Shalini's are pending, which
+        # is what gives the admin verification queue something real to work — a
+        # roster where unverified meant "nothing recorded" would leave nothing to
+        # verify and no way to demonstrate the feature.
+        trust.seed_credentials(
+            db,
+            nurse,
+            verifier=core.admin_user,
+            verified=spec.verified,
+            today=today,
+            rng=rng,
+        )
         if spec.active:
             by_zone[spec.zone].append(nurse)
 
@@ -166,9 +185,16 @@ def _medications_for(db: Session, patient: Patient, conditions: tuple[str, ...])
 
 
 def _add_patient(
-    db: Session, *, spec: demo_data.PatientSpec, family: User, zone: int, tenure_months: int
+    db: Session,
+    *,
+    spec: demo_data.PatientSpec,
+    family: User,
+    zone: int,
+    tenure_months: int,
+    rng: random.Random,
 ) -> Patient:
     zone_name, pincode = demo_data.ZONES[zone]
+    home = generators.home_coordinates(rng, zone)
     patient = Patient(
         name=spec.name,
         age=spec.age,
@@ -179,6 +205,13 @@ def _add_patient(
         status=PatientStatus.ACTIVE,
         # Enrolled when the family subscribed, not when the seed ran.
         created_at=at(tenure_months * 30),
+        # --- Phase 10 (§4.11, §4.17) ---------------------------------------
+        # The zone is now a column because the admin zone view queries it, and
+        # every home carries a coordinate because without one a check-in can
+        # only ever be classified `unavailable`.
+        zone=zone_name,
+        home_lat=home[0],
+        home_lng=home[1],
     )
     db.add(patient)
     return patient
@@ -204,7 +237,12 @@ def _build_patients(db: Session, core: CoreResult) -> list[PatientRecord]:
     meera = db.scalar(select(User).where(User.email == "meera@doordoctor.in"))
     assert meera is not None, "business.seed_business must run before the population"
     meera_patient = _add_patient(
-        db, spec=demo_data.MEERA_PATIENT, family=meera, zone=2, tenure_months=3
+        db,
+        spec=demo_data.MEERA_PATIENT,
+        family=meera,
+        zone=2,
+        tenure_months=3,
+        rng=random.Random(demo_data.RANDOM_SEED + 1),
     )
     db.flush()
     records.append(
@@ -239,6 +277,7 @@ def _build_patients(db: Session, core: CoreResult) -> list[PatientRecord]:
                 family=family,
                 zone=spec.zone,
                 tenure_months=spec.tenure_months,
+                rng=random.Random(demo_data.RANDOM_SEED + slot),
             )
             db.flush()
             records.append(
@@ -277,6 +316,40 @@ def _excursions_by_patient() -> dict[int, list[demo_data.Excursion]]:
     for excursion in demo_data.EXCURSIONS:
         grouped.setdefault(excursion.patient_slot, []).append(excursion)
     return grouped
+
+
+# --------------------------------------------------------------------------
+# Check-in locations (§4.11)
+#
+# ASSUMED, and chosen to make the demo honest rather than flattering: roughly
+# one visit in twelve has no location at all and one in forty is recorded from
+# outside the geofence. A dataset where every check-in is `verified` would teach
+# an evaluator that the badge is decoration.
+#
+# Nothing here writes a classification. The coordinates are placed and
+# `location_service` decides, so the seeded verdict is the live arithmetic.
+# --------------------------------------------------------------------------
+
+_UNLOCATED_EVERY = 12
+_OUT_OF_RANGE_EVERY = 40
+
+
+def _locate(record: PatientRecord, visit: Visit, index: int, rng: random.Random) -> None:
+    key = record.slot * 7 + index
+    if key % _OUT_OF_RANGE_EVERY == 0:
+        metres = rng.uniform(240.0, 1400.0)
+    elif key % _UNLOCATED_EVERY == 0:
+        metres = None
+    else:
+        metres = rng.uniform(4.0, 90.0)
+
+    trust.locate_checkin(
+        visit,
+        home_lat=record.patient.home_lat,
+        home_lng=record.patient.home_lng,
+        metres=metres,
+        bearing_deg=(key * 31) % 360,
+    )
 
 
 def _build_visits(
@@ -327,9 +400,10 @@ def _build_visits(
                 status=status,
                 checkin_at=scheduled_at if completed else None,
                 checkout_at=scheduled_at + timedelta(minutes=_VISIT_MINUTES) if completed else None,
-                location_source="demo/unverified",
                 notes=_visit_note(planned.status, index),
             )
+            if completed:
+                _locate(record, visit, index, rng)
             db.add(visit)
             visits.append((visit, planned))
         db.flush()
@@ -561,9 +635,10 @@ def _build_today(
             status=status,
             checkin_at=scheduled_at if started else None,
             checkout_at=scheduled_at + timedelta(minutes=_VISIT_MINUTES) if completed else None,
-            location_source="demo/unverified",
             notes=generators.cycle(demo_data.VISIT_NOTES, slot) if started else None,
         )
+        if started:
+            _locate(record, visit, slot, record.rng)
         db.add(visit)
         db.flush()
         if completed:

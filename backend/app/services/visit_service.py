@@ -7,11 +7,15 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..core.exceptions import BadRequestError, ForbiddenError, NotFoundError
+from ..core.ops import GEOFENCE_TASK_HOURS
 from ..database import now
 from ..models import (
     Alert,
+    AuditAction,
+    LocationStatus,
     Nurse,
     Patient,
+    TaskKind,
     User,
     UserRole,
     Visit,
@@ -19,7 +23,7 @@ from ..models import (
     Vital,
 )
 from ..schemas.vital import VitalCreate
-from . import alert_service, vitals_service
+from . import alert_service, audit_service, location_service, task_service, vitals_service
 
 
 def _day_bounds(day: datetime) -> tuple[datetime, datetime]:
@@ -130,25 +134,80 @@ def assign_nurse(db: Session, visit: Visit, nurse_id: int) -> Visit:
     return visit
 
 
-def check_in(db: Session, visit: Visit, lat: float | None = None, lng: float | None = None) -> Visit:
-    """scheduled -> in_progress. Location is optional in the MVP."""
+def check_in(
+    db: Session,
+    visit: Visit,
+    lat: float | None = None,
+    lng: float | None = None,
+    accuracy_m: float | None = None,
+) -> Visit:
+    """scheduled -> in_progress, with the position classified against the geofence.
+
+    **An out-of-range check-in does not block the visit.** A nurse in a
+    stairwell with a bad fix must still be able to work; refusing the check-in
+    would make the honest thing — letting the phone report a real position — the
+    thing that stops them working, and turning location off the thing that lets
+    them through. It opens a task for the admin instead, and the visit carries
+    its classification for anyone who reads it later.
+    """
     if visit.status == VisitStatus.IN_PROGRESS:
         raise BadRequestError("This visit has already been started.")
     if visit.status != VisitStatus.SCHEDULED:
         raise BadRequestError(f"A visit with status '{visit.status.value}' cannot be started.")
 
+    patient = db.get(Patient, visit.patient_id)
+    verdict = location_service.classify(
+        fix_lat=lat,
+        fix_lng=lng,
+        home_lat=patient.home_lat if patient else None,
+        home_lng=patient.home_lng if patient else None,
+        accuracy_m=accuracy_m,
+    )
+
     visit.status = VisitStatus.IN_PROGRESS
     visit.checkin_at = now()
-    if lat is not None and lng is not None:
-        visit.checkin_lat = lat
-        visit.checkin_lng = lng
-        visit.location_source = "browser"
-    else:
-        visit.location_source = "demo/unverified"
+    visit.checkin_lat = lat
+    visit.checkin_lng = lng
+    visit.location_source = verdict.source
+    visit.location_status = verdict.status
+    visit.location_distance_m = verdict.distance_m
+    visit.location_accuracy_m = verdict.accuracy_m
+    visit.location_detail = verdict.detail
+
+    if verdict.status == LocationStatus.OUT_OF_RANGE and patient is not None:
+        _flag_out_of_range(db, visit, patient, verdict)
 
     db.commit()
     db.refresh(visit)
     return visit
+
+
+def _flag_out_of_range(db: Session, visit: Visit, patient: Patient, verdict) -> None:
+    """Open one task per out-of-range check-in, and audit it.
+
+    A task rather than an alert: this is an operational irregularity for an
+    admin to look into, not a clinical event, and dressing it as an alert would
+    put it in front of the family alongside a blood-pressure breach.
+    """
+    if task_service.open_for_source(db, "visit_location", visit.id) is None:
+        task_service.create(
+            db,
+            patient=patient,
+            kind=TaskKind.LOCATION_REVIEW,
+            title=f"Check-in away from home — visit #{visit.id}",
+            detail=verdict.detail,
+            source_type="visit_location",
+            source_id=visit.id,
+            due_in_hours=GEOFENCE_TASK_HOURS,
+        )
+    audit_service.record(
+        db,
+        action=AuditAction.LOCATION_OUT_OF_RANGE,
+        subject_type="visit",
+        subject_id=visit.id,
+        patient_id=patient.id,
+        detail=verdict.detail,
+    )
 
 
 def check_out(db: Session, visit: Visit) -> Visit:
@@ -261,6 +320,10 @@ def serialize(visit: Visit, *, include_patient: bool = True, include_nurse: bool
         "checkin_at": visit.checkin_at,
         "checkout_at": visit.checkout_at,
         "location_source": visit.location_source,
+        "location_status": visit.location_status.value,
+        "location_distance_m": visit.location_distance_m,
+        "location_accuracy_m": visit.location_accuracy_m,
+        "location_detail": visit.location_detail,
         "notes": visit.notes,
     }
     if include_patient and visit.patient is not None:

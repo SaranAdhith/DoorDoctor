@@ -8,7 +8,7 @@ from .care import CareAssignment, CareInteraction, CareManager
 from .device import Device, DeviceReading
 from .escalation import EscalationEvent, EscalationStep
 from .hospital import HospitalBooking
-from .nurse import Nurse
+from .nurse import Nurse, NurseCredential
 from .delivery import DeliveryLog
 from .enums import (
     AlertSeverity,
@@ -142,6 +142,7 @@ __all__ = [
     "Notification",
     "NotificationType",
     "Nurse",
+    "NurseCredential",
     "NurseStatus",
     "OnboardingStepKey",
     "Organization",

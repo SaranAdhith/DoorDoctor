@@ -30,6 +30,7 @@ from .routers import (
     leads,
     medications,
     notifications,
+    nurses,
     patients,
     public,
     referrals,
@@ -128,6 +129,7 @@ app.include_router(medications.router, prefix=api_prefix)
 app.include_router(alerts.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
+app.include_router(nurses.router, prefix=api_prefix)
 app.include_router(subscriptions.router, prefix=api_prefix)
 app.include_router(billing.router, prefix=api_prefix)
 app.include_router(referrals.router, prefix=api_prefix)

@@ -249,6 +249,9 @@ class TaskKind(str, Enum):
     WEARABLE_CHECK = "wearable_check"
     ESCALATION_FOLLOW_UP = "escalation_follow_up"
     SAFETY_REVIEW = "safety_review"
+    # Phase 10: an out-of-range check-in is an operational irregularity for an
+    # admin to look into, not a clinical finding for a family to read.
+    LOCATION_REVIEW = "location_review"
     GENERAL = "general"
 
 

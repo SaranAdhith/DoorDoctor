@@ -28,18 +28,21 @@ def test_nurse_only_sees_their_own_visits(client, nurse_headers):
 
 
 def test_checkin_moves_the_visit_to_in_progress(client, nurse_headers, scheduled_visit_id):
+    """No fix means `unavailable`, and that is a real answer rather than a failure."""
     response = client.post(f"/api/v1/visits/{scheduled_visit_id}/checkin", headers=nurse_headers)
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "in_progress"
     assert body["checkin_at"] is not None
-    assert body["location_source"] == "demo/unverified"
+    assert body["location_source"] == "none"
+    assert body["location_status"] == "unavailable"
+    assert body["location_distance_m"] is None
 
 
 def test_checkin_records_browser_location_when_provided(client, nurse_headers, scheduled_visit_id):
     response = client.post(
         f"/api/v1/visits/{scheduled_visit_id}/checkin",
-        json={"lat": 12.9352, "lng": 77.6245},
+        json={"lat": 12.9352, "lng": 77.6245, "accuracy_m": 12},
         headers=nurse_headers,
     )
     assert response.status_code == 200

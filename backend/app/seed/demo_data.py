@@ -14,7 +14,8 @@ Two rules keep this file honest:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from types import MappingProxyType
+from typing import Final, Mapping
 
 from ..core import pricing
 
@@ -77,6 +78,62 @@ ZONES: Final[tuple[tuple[str, str], ...]] = (
 )
 
 KORAMANGALA: Final = 0  # Lakshmi's zone, and Anitha's
+
+# Phase 10 lifted the zone into a column on Patient and Nurse, exactly as the
+# note above anticipated, and added a centre point per zone so a check-in has
+# something to be measured against. These are the published approximate centres
+# of six real Bangalore neighbourhoods; the *addresses* remain fictional, and
+# each home is placed a few hundred metres off the centre by
+# `generators.home_coordinates` so twenty-eight patients do not share a doorstep.
+ZONE_CENTRES: Final[tuple[tuple[float, float], ...]] = (
+    (12.9352, 77.6245),  # Koramangala
+    (12.9784, 77.6408),  # Indiranagar
+    (12.9250, 77.5938),  # Jayanagar
+    (12.9116, 77.6389),  # HSR Layout
+    (12.9698, 77.7500),  # Whitefield
+    (13.0037, 77.5727),  # Malleshwaram
+)
+
+
+# --------------------------------------------------------------------------
+# Nurse credentials (§4.10)
+#
+# One registration and one background check each, so a family opening a nurse's
+# profile sees a licence with an issuing body and a date rather than a job
+# title. The councils are the real state nursing councils; the registration
+# numbers are fictional and generated, not copied from anybody.
+#
+# ASSUMED: which qualifications map to which council, and the expiry cadence.
+# --------------------------------------------------------------------------
+
+CREDENTIAL_BODIES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "RN": "Karnataka State Nursing Council",
+        "BSc Nursing": "Karnataka State Nursing Council",
+        "GNM": "Karnataka State Nursing Council",
+        "ANM": "Karnataka State Nursing Council",
+    }
+)
+
+CREDENTIAL_TITLES: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "RN": "Registered Nurse",
+        "BSc Nursing": "BSc Nursing registration",
+        "GNM": "General Nursing and Midwifery registration",
+        "ANM": "Auxiliary Nurse Midwife registration",
+    }
+)
+
+BACKGROUND_CHECK_BODY: Final = "DoorDoctor onboarding"
+
+LANGUAGES_BY_ZONE: Final[tuple[str, ...]] = (
+    "Kannada, English, Hindi",
+    "English, Hindi, Tamil",
+    "Kannada, English, Tamil",
+    "Kannada, English, Telugu",
+    "English, Hindi, Malayalam",
+    "Kannada, English, Hindi",
+)
 
 
 # --------------------------------------------------------------------------

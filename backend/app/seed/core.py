@@ -11,6 +11,7 @@ reason 183 existing tests pass untouched while the demo grows to 28 patients.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
@@ -36,7 +37,14 @@ from ..models import (
     VitalMetric,
 )
 from ..services import vitals_service
+from . import demo_data, trust
 from .demo_data import DEMO_PASSWORD, SKIP_REASONS
+
+# Lakshmi's front door: the Koramangala zone centre itself. Every seeded
+# check-in for her is placed a chosen number of metres from this point and then
+# classified by `location_service`, so the demo's `verified` badge is the output
+# of the live arithmetic rather than a string in a column.
+LAKSHMI_HOME = demo_data.ZONE_CENTRES[demo_data.KORAMANGALA]
 
 DEMO_USERS = [
     {
@@ -72,6 +80,13 @@ HISTORY = [
 # The generator fills in the ninety days behind HISTORY. Anything inside this
 # window is hand-written and asserted, so it must be left alone.
 CORE_HISTORY_DAYS = 8
+
+# How far from Lakshmi's door each historical check-in was recorded, in metres.
+# All well inside the 150 m geofence — Anitha does turn up. The distances differ
+# so the demo shows a measurement rather than a constant, and index 2 has no
+# location at all (§4.11's `unavailable`, the honest negative case).
+CHECKIN_DISTANCES_M = (11.0, 34.0, 8.0, 62.0)
+UNLOCATED_HISTORY_INDEX = 2
 
 MEDICATIONS = [
     {"name": "Amlodipine", "dosage": "5 mg", "frequency": "Once daily", "scheduled_time": "08:00"},
@@ -165,6 +180,15 @@ def build_core(db: Session) -> CoreResult:
         credential="RN/ANM",
         verification_status=VerificationStatus.VERIFIED,
         status=NurseStatus.ACTIVE,
+        # --- Phase 10, the family-facing profile (§4.10) ------------------
+        zone=demo_data.ZONES[demo_data.KORAMANGALA][0],
+        joined_on=(now() - timedelta(days=980)).date(),
+        languages=demo_data.LANGUAGES_BY_ZONE[demo_data.KORAMANGALA],
+        years_experience=9,
+        bio=(
+            "Anitha has worked in home care across south Bengaluru since 2016 and "
+            "has looked after Lakshmi since she joined DoorDoctor."
+        ),
     )
     db.add(nurse)
 
@@ -176,9 +200,29 @@ def build_core(db: Session) -> CoreResult:
         emergency_contact="Darren D'Souza (son) - +91 90000 00001",
         family_user_id=users[UserRole.FAMILY].id,
         status=PatientStatus.ACTIVE,
+        # --- Phase 10, the geofence centre (§4.11) ------------------------
+        # Fixed rather than jittered: every visit-location test in the suite
+        # measures against these two numbers, and a home that moved between
+        # seeds would make those tests measure the generator instead.
+        zone=demo_data.ZONES[demo_data.KORAMANGALA][0],
+        home_lat=LAKSHMI_HOME[0],
+        home_lng=LAKSHMI_HOME[1],
     )
     db.add(patient)
     db.flush()
+
+    # Anitha's licence and police check, verified by Ravi. This lives in the
+    # core rather than in `population.py` because the family-facing nurse
+    # profile is a demo screen and `SMALL` — which the test suite seeds — has to
+    # be able to render it.
+    trust.seed_credentials(
+        db,
+        nurse,
+        verifier=users[UserRole.ADMIN],
+        verified=True,
+        today=now().date(),
+        rng=random.Random(demo_data.RANDOM_SEED + 910),
+    )
 
     for metric, (low, high) in THRESHOLDS.items():
         db.add(
@@ -215,8 +259,17 @@ def build_core(db: Session) -> CoreResult:
             status=VisitStatus.COMPLETED,
             checkin_at=scheduled_at,
             checkout_at=scheduled_at + timedelta(minutes=45),
-            location_source="demo/unverified",
             notes="Routine home visit completed. Patient comfortable and responsive.",
+        )
+        # One visit in the history has no location at all. A demo where every
+        # check-in is verified teaches an evaluator that the badge is decoration;
+        # the `unavailable` row is what proves it is a measurement.
+        trust.locate_checkin(
+            visit,
+            home_lat=patient.home_lat,
+            home_lng=patient.home_lng,
+            metres=None if index == UNLOCATED_HISTORY_INDEX else CHECKIN_DISTANCES_M[index % len(CHECKIN_DISTANCES_M)],
+            bearing_deg=(index * 47) % 360,
         )
         db.add(visit)
         db.flush()
@@ -268,7 +321,6 @@ def build_core(db: Session) -> CoreResult:
         nurse_id=nurse.id,
         scheduled_at=at(0, hour=DEMO_VISIT_HOUR, minute=DEMO_VISIT_MINUTE),
         status=VisitStatus.SCHEDULED,
-        location_source="demo/unverified",
     )
     db.add(today_visit)
 
@@ -279,7 +331,6 @@ def build_core(db: Session) -> CoreResult:
             nurse_id=nurse.id,
             scheduled_at=at(-2, hour=10, minute=30),
             status=VisitStatus.SCHEDULED,
-            location_source="demo/unverified",
         )
     )
     db.flush()

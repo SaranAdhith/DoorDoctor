@@ -17,11 +17,6 @@ def summary(db: DbSession, current_user: AdminUser) -> dict[str, int]:
     return admin_service.summary(db)
 
 
-@router.get("/nurses", response_model=list[dict], summary="Nurse directory (admin)")
-def nurses(db: DbSession, current_user: AdminUser) -> list[dict[str, Any]]:
-    return admin_service.list_nurses(db)
-
-
 @router.get("/admin/revenue", response_model=RevenueSummaryOut, summary="Revenue and MRR")
 def revenue(db: DbSession, current_user: AdminUser) -> dict[str, Any]:
     """Money in, money owed, and what recurs.

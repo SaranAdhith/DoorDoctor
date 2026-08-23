@@ -329,3 +329,45 @@ def cycle(values: Sequence, index: int):
 
 def flatten(groups: Iterable[Iterable]) -> list:
     return [item for group in groups for item in group]
+
+
+# --------------------------------------------------------------------------
+# Locations (Phase 10, §4.11)
+# --------------------------------------------------------------------------
+
+# Roughly how many metres one degree of latitude covers. Longitude shrinks with
+# latitude, and at Bangalore's 13°N the difference is about 2.5% — small enough
+# that this is honest jitter for fictional addresses and not a survey.
+_METRES_PER_DEGREE = 111_320.0
+
+
+def home_coordinates(rng: random.Random, zone: int, *, max_offset_m: float = 700.0) -> tuple[float, float]:
+    """A home a few hundred metres from its zone centre.
+
+    Twenty-eight patients sharing one doorstep would make every geofence
+    measurement identical, and the first out-of-range check-in in the demo would
+    be indistinguishable from an arithmetic bug.
+    """
+    lat, lng = demo_data.ZONE_CENTRES[zone % len(demo_data.ZONE_CENTRES)]
+    north = rng.uniform(-max_offset_m, max_offset_m)
+    east = rng.uniform(-max_offset_m, max_offset_m)
+    return (
+        round(lat + north / _METRES_PER_DEGREE, 6),
+        round(lng + east / (_METRES_PER_DEGREE * math.cos(math.radians(lat))), 6),
+    )
+
+
+def offset_coordinates(lat: float, lng: float, *, metres: float, bearing_deg: float) -> tuple[float, float]:
+    """A point `metres` away from (lat, lng) on the given bearing.
+
+    Used to place a check-in inside or outside the geofence on purpose, so the
+    seeded classification is the output of the same arithmetic the live service
+    runs rather than a value typed into a column.
+    """
+    bearing = math.radians(bearing_deg)
+    north = metres * math.cos(bearing)
+    east = metres * math.sin(bearing)
+    return (
+        round(lat + north / _METRES_PER_DEGREE, 6),
+        round(lng + east / (_METRES_PER_DEGREE * math.cos(math.radians(lat))), 6),
+    )

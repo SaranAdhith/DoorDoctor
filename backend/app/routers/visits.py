@@ -88,7 +88,8 @@ def check_in(
     visit, _ = authorize_nurse_visit(db, current_user, visit_id)
     lat = payload.lat if payload else None
     lng = payload.lng if payload else None
-    return visit_service.check_in(db, visit, lat, lng)
+    accuracy = payload.accuracy_m if payload else None
+    return visit_service.check_in(db, visit, lat, lng, accuracy)
 
 
 @router.post("/{visit_id}/checkout", response_model=VisitOut, summary="Check out of a visit (nurse)")
