@@ -64,6 +64,12 @@ class DeliveryStatus(str, Enum):
     SIMULATED = "simulated"
     SENT = "sent"
     FAILED = "failed"
+    # Phase 10. Both of these are *records*, not gaps. A message the platform
+    # decided not to send during quiet hours and a message it could not send
+    # because the recipient has no address on that channel are different facts,
+    # and an admin answering "I never got the alert" needs to tell them apart.
+    SUPPRESSED = "suppressed"
+    UNREACHABLE = "unreachable"
 
 
 class NotificationType(str, Enum):

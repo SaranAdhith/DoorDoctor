@@ -381,6 +381,43 @@ def _erasure_request(db: Session, records) -> int:
     return 1
 
 
+# --------------------------------------------------------------------------
+# Notification preferences (§4.18)
+# --------------------------------------------------------------------------
+
+
+def _preferences(db: Session, records) -> int:
+    """Defaults for everyone, and two families who have changed them.
+
+    A demo where every account is on defaults shows a preferences screen that
+    has never done anything. One family is on quiet hours; another has switched
+    SMS off and kept WhatsApp — and the routing has to obey both without ever
+    holding back a critical alert.
+    """
+    from ..models import DeliveryChannelName
+    from ..services import notification_service
+
+    seen: set[int] = set()
+    written = 0
+    for record in records:
+        family = db.get(User, record.patient.family_user_id)
+        if family is None or family.id in seen:
+            continue
+        seen.add(family.id)
+
+        preference = notification_service.preferences_for(db, family)
+        written += 1
+
+        if record.slot == 4:
+            preference.quiet_hours_enabled = True
+        elif record.slot == 8:
+            channels = preference.channels
+            channels[DeliveryChannelName.SMS.value] = False
+            preference.channels = channels
+    db.flush()
+    return written
+
+
 def build(db: Session, records) -> dict[str, int]:
     """Layer Phase 10's trust and operations data over a populated database."""
     admins = list(db.scalars(select(User).where(User.role == UserRole.ADMIN).order_by(User.id)))
@@ -392,4 +429,5 @@ def build(db: Session, records) -> dict[str, int]:
         "circle_members": _care_circles(db, records, admins[0]),
         "consents": _consents(db, records),
         "erasure_requests": _erasure_request(db, records),
+        "preferences": _preferences(db, records),
     }

@@ -73,6 +73,7 @@ from .notification import Notification
 from .organization import Organization
 from .password_reset import PasswordResetToken
 from .patient import Patient, PatientThreshold
+from .preference import NotificationPreference
 from .privacy import Consent, ErasureRequest
 from .referral import Credit, Referral
 from .report import Report
@@ -148,6 +149,7 @@ __all__ = [
     "MedicationLog",
     "MedicationLogStatus",
     "Notification",
+    "NotificationPreference",
     "NotificationType",
     "Nurse",
     "NurseCredential",

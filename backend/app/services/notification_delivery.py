@@ -136,6 +136,43 @@ def deliver(
     return record
 
 
+def record_outcome(
+    db: Session,
+    *,
+    channel: DeliveryChannelName,
+    subject: str,
+    recipient: str,
+    status: DeliveryStatus,
+    detail: str | None = None,
+    user: User | None = None,
+) -> DeliveryLog:
+    """Write down a message that was **not** transmitted, and why.
+
+    Phase 10 added two outcomes that are records rather than gaps: `suppressed`
+    (held back during quiet hours) and `unreachable` (the recipient has no
+    address on this channel). An admin answering "I never got the alert" needs
+    to tell those apart, and needs both of them to exist at all — a channel that
+    silently does nothing leaves the same trace as a channel that was never
+    tried.
+
+    The body is deliberately not stored: nothing was sent, and keeping the text
+    of an unsent health message would make `delivery_log` hold readings it has
+    no reason to hold.
+    """
+    record = DeliveryLog(
+        user_id=user.id if user else None,
+        channel=channel,
+        recipient=recipient,
+        subject=subject,
+        body="",
+        status=status,
+        detail=detail,
+    )
+    db.add(record)
+    logger.info("[%s] %s for %s: %s", channel.value, status.value, _mask(recipient), detail or "")
+    return record
+
+
 def redact(body: str, sensitive: Sequence[str]) -> str:
     for secret in sensitive:
         if secret:

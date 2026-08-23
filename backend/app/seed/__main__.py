@@ -101,7 +101,8 @@ def main() -> None:
         )
         print(
             f"  Privacy : {result['consents']} consent decisions, "
-            f"{result['erasure_requests']} erasure request waiting on Admin -> Privacy"
+            f"{result['erasure_requests']} erasure request waiting on Admin -> Privacy, "
+            f"{result['preferences']} notification preferences"
         )
     print()
     print("Demo accounts (password for all of them: Demo@123)")
