@@ -60,6 +60,7 @@ from ..models import (
     MedicationChange,
     MedicationLog,
     Notification,
+    OnboardingProgress,
     Patient,
     PatientStatus,
     PatientThreshold,
@@ -361,6 +362,13 @@ REGISTRY: tuple[DataSet, ...] = (
         lambda db, pid: _rows(db, Notification, pid, ("created_at", "type", "title", "message", "read")),
         lambda db, pid: _wipe(db, Notification, pid),
         covers=("Notification",),
+    ),
+    DataSet(
+        "onboarding",
+        "Setup progress",
+        lambda db, pid: _rows(db, OnboardingProgress, pid, ("step", "completed_at")),
+        lambda db, pid: _wipe(db, OnboardingProgress, pid),
+        covers=("OnboardingProgress",),
     ),
     DataSet(
         "consents",

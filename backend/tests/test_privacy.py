@@ -190,6 +190,27 @@ def test_another_family_cannot_read_or_export_this_record(client, other_family):
     assert client.get(f"{API}/privacy/patients/1/export", headers=headers).status_code == 404
 
 
+def test_the_audit_trail_does_not_show_a_family_their_own_actions(client, family_headers, db):
+    """Found by looking at the rendered page, not by a test.
+
+    The section asks "who has opened this record". A family that had just
+    granted four consents saw four rows under it with their own name, which is
+    alarming and untrue — their own actions are theirs, and the consent history
+    above already lists them.
+    """
+    client.post(
+        f"{API}/privacy/consents",
+        json={"kind": "assistant", "granted": True, "patient_id": 1},
+        headers=family_headers,
+    )
+    client.get(f"{API}/privacy/patients/1/export", headers=family_headers)
+
+    body = client.get(f"{API}/privacy/patients/1", headers=family_headers).json()
+    assert all(entry["actor_role"] != "family" for entry in body["audit_trail"])
+    # The consent itself is still recorded — in the history, where it belongs.
+    assert any(record["kind"] == "assistant" for record in body["consent_history"])
+
+
 def test_a_nurses_read_of_a_record_appears_in_the_audit_trail(client, nurse_headers, family_headers, db):
     from app.services import audit_service
     from app.models import User

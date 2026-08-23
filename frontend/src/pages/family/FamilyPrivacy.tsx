@@ -199,8 +199,8 @@ export function FamilyPrivacy() {
       </Card>
 
       <Card
-        title="Who has looked at this record"
-        description={`Kept for ${Math.round(data.audit_retention_days / 365)} years. Your own visits to these pages are not logged.`}
+        title="Who else has been in this record"
+        description={`Kept for ${Math.round(data.audit_retention_days / 365)} years. Your own visits and your own decisions are not listed here — the consents you have given are above.`}
       >
         <TableWrap>
           <Table>

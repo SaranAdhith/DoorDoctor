@@ -67,14 +67,28 @@ def list_events(
     *,
     patient_id: int | None = None,
     actor_user_id: int | None = None,
+    exclude_actor_user_id: int | None = None,
     action: AuditAction | None = None,
     limit: int = 100,
 ) -> list[AuditEvent]:
+    """Entries, newest first.
+
+    `exclude_actor_user_id` is what the family privacy page uses. That page asks
+    "who has opened this record", and the honest answer excludes the family
+    themselves — otherwise a family that granted four consents sees four rows
+    under a heading about other people looking at their mother's data, which is
+    alarming and untrue.
+    """
     query = select(AuditEvent)
     if patient_id is not None:
         query = query.where(AuditEvent.patient_id == patient_id)
     if actor_user_id is not None:
         query = query.where(AuditEvent.actor_user_id == actor_user_id)
+    if exclude_actor_user_id is not None:
+        query = query.where(
+            (AuditEvent.actor_user_id.is_(None))
+            | (AuditEvent.actor_user_id != exclude_actor_user_id)
+        )
     if action is not None:
         query = query.where(AuditEvent.action == action)
     return list(db.scalars(query.order_by(AuditEvent.at.desc(), AuditEvent.id.desc()).limit(limit)))

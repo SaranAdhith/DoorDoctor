@@ -52,11 +52,19 @@ def overview(patient_id: int, db: DbSession, current_user: CurrentUser) -> dict[
             consent_service.serialize(record)
             for record in consent_service.history(db, user_id=patient.family_user_id, patient_id=patient.id)
         ],
-        # Who has opened this record. The family's own reads are not logged —
-        # logging every one of those would bury the entries that matter.
+        # Who has opened this record. The family's own reads are not logged at
+        # all, and their own *actions* — the consents they granted, the exports
+        # they took — are excluded here too: this section answers "who else has
+        # been in my mother's record", and answering it with the reader's own
+        # four consent rows is alarming and untrue.
         "audit_trail": [
             audit_service.serialize(entry)
-            for entry in audit_service.list_events(db, patient_id=patient.id, limit=50)
+            for entry in audit_service.list_events(
+                db,
+                patient_id=patient.id,
+                exclude_actor_user_id=patient.family_user_id,
+                limit=50,
+            )
         ],
         "erasure_request": privacy_service.serialize_request(open_request) if open_request else None,
     }
