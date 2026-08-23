@@ -4,7 +4,8 @@ import { alertsApi } from '../../api/alerts'
 import { ApiError } from '../../api/client'
 import { AlertCard } from '../../components/alerts/AlertCard'
 import { useAsync } from '../../hooks/useAsync'
-import { METRIC_LABELS, formatDateTime, formatNumber } from '../../lib/format'
+import { breachContext, breachLabel, breachValue } from '../../lib/breach'
+import { formatDateTime } from '../../lib/format'
 import type { Alert, AlertDetail } from '../../types'
 import { Button, Card, EmptyState, ErrorState, LoadingScreen, useToast } from '../../components/ui'
 
@@ -71,22 +72,16 @@ export function AdminAlerts() {
           <p className="mt-4 text-small text-text-secondary">{selected.message}</p>
 
           <ul className="mt-3 space-y-1.5">
-            {selected.breached_parameters.map((breach) => (
+            {selected.breached_parameters.map((breach, index) => (
               <li
-                key={breach.metric}
+                key={`${breach.metric}-${index}`}
                 className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-xl bg-surface px-3 py-2 text-small"
               >
-                <span className="font-medium text-text-primary">
-                  {METRIC_LABELS[breach.metric] ?? breach.metric}
-                </span>
+                <span className="font-medium text-text-primary">{breachLabel(breach)}</span>
                 <span className="tnum text-text-secondary">
                   Reading{' '}
-                  <span className="font-semibold text-text-primary">
-                    {formatNumber(breach.value)}
-                    {breach.unit}
-                  </span>{' '}
-                  · configured threshold {formatNumber(breach.threshold)}
-                  {breach.unit}
+                  <span className="font-semibold text-text-primary">{breachValue(breach)}</span>
+                  {breachContext(breach) && <> · {breachContext(breach)}</>}
                 </span>
               </li>
             ))}

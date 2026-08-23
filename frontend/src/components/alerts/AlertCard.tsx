@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 
 import { cn } from '../../lib/cn'
-import { METRIC_LABELS, formatDateTime, formatNumber } from '../../lib/format'
+import { breachContext, breachLabel, breachValue } from '../../lib/breach'
+import { formatDateTime } from '../../lib/format'
 import type { Alert } from '../../types'
 import { AlertStatusBadge, SeverityBadge } from '../ui'
 
@@ -32,21 +33,15 @@ export function AlertCard({ alert, patientName, children }: Props) {
       </header>
 
       <ul className="mt-3 space-y-1.5">
-        {alert.breached_parameters.map((breach) => (
+        {alert.breached_parameters.map((breach, index) => (
           <li
-            key={breach.metric}
+            key={`${breach.metric}-${index}`}
             className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-xl bg-surface-raised/70 px-3 py-2 text-small"
           >
-            <span className="font-medium text-text-primary">
-              {METRIC_LABELS[breach.metric] ?? breach.metric}
-            </span>
+            <span className="font-medium text-text-primary">{breachLabel(breach)}</span>
             <span className="tnum text-text-secondary">
-              <span className="font-semibold text-text-primary">
-                {formatNumber(breach.value)}
-                {breach.unit}
-              </span>{' '}
-              · {breach.direction} threshold {formatNumber(breach.threshold)}
-              {breach.unit}
+              <span className="font-semibold text-text-primary">{breachValue(breach)}</span>
+              {breachContext(breach) && <> · {breachContext(breach)}</>}
             </span>
           </li>
         ))}

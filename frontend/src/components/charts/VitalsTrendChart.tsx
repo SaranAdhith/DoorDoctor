@@ -66,7 +66,13 @@ export function VitalsTrendChart({ history, thresholds }: Props) {
           description="Trends appear here after the first nurse visit."
         />
       ) : (
-        <div className="h-64 w-full">
+<div className="h-64 w-full min-w-0">
+          {/* `min-w-0` above is load-bearing: a grid or flex item defaults to
+              `min-width: auto` and refuses to shrink below its content's
+              intrinsic width — and a Recharts SVG's is wide. Without it this
+              chart forced the family dashboard to scroll horizontally at 375px.
+              Fixed here rather than at the call site so every future chart
+              inherits it. */}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
               <CartesianGrid {...gridProps} />

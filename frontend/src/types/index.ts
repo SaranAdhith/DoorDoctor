@@ -129,12 +129,37 @@ export interface Adherence {
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 export type AlertStatus = 'active' | 'acknowledged' | 'resolved'
 
+/**
+ * One measurement that caused an alert.
+ *
+ * Since Phase 9 there are **three** sources and they do not describe a breach
+ * the same way, because they genuinely are not the same kind of finding:
+ *
+ * - the threshold engine compares against a single `threshold` in a `direction`;
+ * - a lab result is judged against a reference **range**, and a range is not a
+ *   threshold — flattening it into one would throw away half the information a
+ *   reader needs to check the flag;
+ * - a wearable breach arrives with a ready-made plain-language `reason`.
+ *
+ * So this is a union expressed as optional fields, and anything rendering it
+ * must branch on what is present. `metric` is a plain string rather than
+ * `VitalMetric`: a lab analyte code such as `fasting_glucose` is not one.
+ */
 export interface BreachedParameter {
-  metric: VitalMetric
+  metric: string
   value: number
-  threshold: number
-  direction: 'above' | 'below'
-  unit: string
+  unit?: string
+  /** Threshold engine only. */
+  threshold?: number
+  direction?: 'above' | 'below'
+  /** Lab results only — the range the value was judged against. */
+  label?: string
+  ref_low?: number | null
+  ref_high?: number | null
+  flag?: string
+  /** Wearable breaches only — already a readable sentence. */
+  reason?: string
+  source?: string
 }
 
 export interface Alert {

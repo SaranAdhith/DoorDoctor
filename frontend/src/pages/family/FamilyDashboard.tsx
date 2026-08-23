@@ -236,7 +236,10 @@ export function FamilyDashboard() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        {/* The grid item needs `min-w-0` as well as the chart inside it —
+            the constraint has to be released at every level between the grid
+            and the SVG, or the outermost one that still says `auto` wins. */}
+        <div className="min-w-0 lg:col-span-2">
           <VitalsTrendChart history={data.vitals_history} thresholds={thresholds} />
         </div>
         <AdherenceCard adherence={data.medication_adherence} />

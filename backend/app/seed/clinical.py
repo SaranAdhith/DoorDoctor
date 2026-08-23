@@ -355,8 +355,16 @@ def _seed_consults(db: "Session", records: list["PatientRecord"]) -> dict[str, i
         if family is None:  # pragma: no cover - defensive
             continue
 
-        past = rng.choice((True, True, False))
-        if past:
+        # The demo patient's consult is deliberately placed in a **previous**
+        # month. Care Plus includes one a month, and a consult seeded into the
+        # current window spends the only one the demo family has — leaving the
+        # founder's own account unable to demonstrate booking. Past-month
+        # history shows the feature; the current allowance stays free.
+        if slot == 0:
+            past = True
+            booked_at = now() - timedelta(days=45)
+            scheduled_for = booked_at + timedelta(days=2)
+        elif (past := rng.choice((True, True, False))):
             booked_at = now() - timedelta(days=rng.randint(20, 60))
             scheduled_for = booked_at + timedelta(days=2)
         else:
@@ -416,7 +424,18 @@ def _seed_screenings(db: "Session", records: list["PatientRecord"], nurses) -> d
         nurse_user = nurses[slot % len(nurses)]
         # Two screens each, a cadence apart, so the mood component has a history
         # rather than a single point.
-        for step, days_back in enumerate((constants.PHQ2_CADENCE_DAYS + 4, 3)):
+        #
+        # The demo patient's pair is pushed further back on purpose: with a
+        # screen three days old, `is_due` is False and the nurse's visit screen
+        # correctly hides the questionnaire — which is right behaviour and a
+        # dead demo, because slot 0 is the visit a founder opens. Her last
+        # screen sits just outside the cadence so the form is there to fill in.
+        if slot == 0:
+            offsets = (constants.PHQ2_CADENCE_DAYS * 3, constants.PHQ2_CADENCE_DAYS + 6)
+        else:
+            offsets = (constants.PHQ2_CADENCE_DAYS + 4, 3)
+
+        for step, days_back in enumerate(offsets):
             if slot in POSITIVE_SCREEN_SLOTS and step == 1:
                 answers = [2, rng.choice((1, 2))]
                 positive += 1

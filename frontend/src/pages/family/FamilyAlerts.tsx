@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { alertsApi } from '../../api/alerts'
 import { AlertCard } from '../../components/alerts/AlertCard'
 import { useAsync } from '../../hooks/useAsync'
-import { METRIC_LABELS, formatDateTime, formatNumber } from '../../lib/format'
+import { breachContext, breachLabel, breachValue } from '../../lib/breach'
+import { formatDateTime } from '../../lib/format'
 import type { Alert } from '../../types'
 import { Card, EmptyState, ErrorState, LoadingScreen } from '../../components/ui'
 
@@ -45,22 +46,16 @@ export function FamilyAlerts() {
           </dl>
 
           <div className="mt-4 space-y-2">
-            {detail.data.breached_parameters.map((breach) => (
-              <p key={breach.metric} className="rounded-xl bg-surface px-3 py-2 text-small">
-                <span className="font-semibold text-text-primary">
-                  {METRIC_LABELS[breach.metric] ?? breach.metric}
-                </span>{' '}
-                reading{' '}
-                <span className="font-semibold tnum">
-                  {formatNumber(breach.value)}
-                  {breach.unit}
-                </span>{' '}
-                is {breach.direction} the configured threshold of{' '}
-                <span className="font-semibold tnum">
-                  {formatNumber(breach.threshold)}
-                  {breach.unit}
-                </span>
-                .
+            {detail.data.breached_parameters.map((breach, index) => (
+              <p
+                key={`${breach.metric}-${index}`}
+                className="rounded-xl bg-surface px-3 py-2 text-small"
+              >
+                <span className="font-semibold text-text-primary">{breachLabel(breach)}</span>{' '}
+                reading <span className="font-semibold tnum">{breachValue(breach)}</span>
+                {/* The family register: the same facts without the word Phase 6
+                    banned. */}
+                {breachContext(breach, 'plain') && <> — {breachContext(breach, 'plain')}</>}.
               </p>
             ))}
           </div>
