@@ -24,6 +24,9 @@ import { WhoItsFor } from './pages/public/WhoItsFor'
 import { NurseVisitDetail } from './pages/nurse/NurseVisitDetail'
 import { NurseVisits } from './pages/nurse/NurseVisits'
 import { AdminAlerts } from './pages/admin/AdminAlerts'
+import { AdminCare } from './pages/admin/AdminCare'
+import { AdminEscalations } from './pages/admin/AdminEscalations'
+import { AdminLabs } from './pages/admin/AdminLabs'
 import { AdminAssistant } from './pages/admin/AdminAssistant'
 import { AdminLeads } from './pages/admin/AdminLeads'
 import { AdminRevenue } from './pages/admin/AdminRevenue'
@@ -33,6 +36,9 @@ import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminPatients } from './pages/admin/AdminPatients'
 import { AdminVisits } from './pages/admin/AdminVisits'
 import { FamilyAlerts } from './pages/family/FamilyAlerts'
+import { FamilyCareTeam } from './pages/family/FamilyCareTeam'
+import { FamilyConsults } from './pages/family/FamilyConsults'
+import { FamilyLabs } from './pages/family/FamilyLabs'
 import { FamilyAssistant } from './pages/family/FamilyAssistant'
 import { FamilyDashboard } from './pages/family/FamilyDashboard'
 import { FamilyMedications } from './pages/family/FamilyMedications'
@@ -100,6 +106,9 @@ export default function App() {
         <Route path="dashboard" element={<FamilyDashboard />} />
         <Route path="patient/:patientId" element={<PatientProfile />} />
         <Route path="medications" element={<FamilyMedications />} />
+        <Route path="care" element={<FamilyCareTeam />} />
+        <Route path="labs" element={<FamilyLabs />} />
+        <Route path="consults" element={<FamilyConsults />} />
         <Route path="alerts" element={<FamilyAlerts />} />
         <Route path="assistant" element={<FamilyAssistant />} />
         <Route path="reports" element={<FamilyReports />} />
@@ -132,6 +141,9 @@ export default function App() {
         <Route path="patients" element={<AdminPatients />} />
         <Route path="patients/:patientId" element={<PatientProfile />} />
         <Route path="nurses" element={<AdminNurses />} />
+        <Route path="care" element={<AdminCare />} />
+        <Route path="escalations" element={<AdminEscalations />} />
+        <Route path="labs" element={<AdminLabs />} />
         <Route path="visits" element={<AdminVisits />} />
         <Route path="alerts" element={<AdminAlerts />} />
         <Route path="assistant" element={<AdminAssistant />} />

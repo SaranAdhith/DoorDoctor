@@ -4,13 +4,18 @@ import {
   CalendarDays,
   CreditCard,
   FileText,
+  FlaskConical,
+  HeartPulse,
   Inbox,
   LayoutDashboard,
   MessageCircleQuestion,
   Pill,
+  ShieldAlert,
   Stethoscope,
   TrendingUp,
   Users,
+  UsersRound,
+  Video,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -51,6 +56,18 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       ],
     },
     {
+      // The safety score, the care manager and the mood check live together
+      // under Care: they are one question — "how are they, and who is looking
+      // after them?" — and splitting them across three nav items would make a
+      // family hunt for the answer.
+      title: 'Health',
+      items: [
+        { to: '/family/care', label: 'Care', icon: HeartPulse },
+        { to: '/family/labs', label: 'Tests', icon: FlaskConical },
+        { to: '/family/consults', label: 'Doctor consults', icon: Video },
+      ],
+    },
+    {
       title: 'Account',
       items: [{ to: '/family/plan', label: 'My Plan', icon: CreditCard, primary: true }],
     },
@@ -69,7 +86,15 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/admin/visits', label: 'Visits', icon: CalendarDays, primary: true },
         { to: '/admin/alerts', label: 'Alerts', icon: Bell, primary: true },
+        { to: '/admin/escalations', label: 'Escalations', icon: ShieldAlert },
         { to: '/admin/assistant', label: 'Ask DoorDoctor', icon: MessageCircleQuestion },
+      ],
+    },
+    {
+      title: 'Clinical',
+      items: [
+        { to: '/admin/labs', label: 'Labs', icon: FlaskConical },
+        { to: '/admin/care', label: 'Care managers', icon: UsersRound },
       ],
     },
     {

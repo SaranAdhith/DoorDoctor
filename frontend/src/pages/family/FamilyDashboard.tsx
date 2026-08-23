@@ -6,13 +6,15 @@ import { patientsApi } from '../../api/patients'
 import { useAuth } from '../../auth/AuthContext'
 import { AlertBanner } from '../../components/alerts/AlertBanner'
 import { AdherenceCard } from '../../components/cards/AdherenceCard'
+import { safetyApi } from '../../api/clinical'
+import { SafetyScoreCard, SafetyScoreCardSkeleton } from '../../components/clinical'
 import { PlainSummary } from '../../components/family/PlainSummary'
 import { VitalCard } from '../../components/cards/VitalCard'
 import { VitalsTrendChart } from '../../components/charts/VitalsTrendChart'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDate, formatDateTime, formatNumber, formatTime, greeting } from '../../lib/format'
 import { bloodPressure, evaluateReading } from '../../lib/vitals'
-import type { Patient } from '../../types'
+import type { Patient, SafetyScore } from '../../types'
 import { Card, EmptyState, ErrorState, LinkButton, LoadingScreen, Select, VisitStatusBadge } from '../../components/ui'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -30,6 +32,13 @@ export function FamilyDashboard() {
 
   const dashboard = useAsync(
     () => (patientId ? patientsApi.dashboard(patientId) : Promise.resolve(null)),
+    [patientId],
+  )
+  // Its own loader rather than a field on the dashboard payload: the score is
+  // recalculated live and the dashboard is cached differently, and a failing
+  // score must not blank the whole page.
+  const safety = useAsync<SafetyScore | null>(
+    () => (patientId ? safetyApi.get(patientId) : Promise.resolve(null)),
     [patientId],
   )
 
@@ -87,6 +96,13 @@ export function FamilyDashboard() {
       {alerts.length > 0 && <AlertBanner alert={alerts[0]} to={`/family/alerts?alert=${alerts[0].id}`} />}
 
       <PlainSummary patientId={patient.id} />
+
+      {/* Under the summary, not above it. The summary is the sentence a family
+          reads first; the score is the number they check afterwards, and a
+          number leading the page would be the exact "interpret this yourself"
+          problem Phase 6 moved away from. */}
+      {safety.loading && <SafetyScoreCardSkeleton />}
+      {safety.data && <SafetyScoreCard score={safety.data} />}
 
       {/* The summary answers "how has she been?". This answers everything else,
           in the reader's own words, which is the natural next question. */}

@@ -3,13 +3,22 @@ import { Link, useParams } from 'react-router-dom'
 
 import { ApiError } from '../../api/client'
 import { visitsApi } from '../../api/visits'
+import { screeningsApi } from '../../api/clinical'
 import { AlertCard } from '../../components/alerts/AlertCard'
+import { EmergencyBlock, Phq2Form } from '../../components/clinical'
 import { MedicationLogRow } from '../../components/forms/MedicationLogRow'
 import { VitalsForm } from '../../components/forms/VitalsForm'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDateTime, formatNumber, formatTime } from '../../lib/format'
 import { bloodPressure } from '../../lib/vitals'
-import type { Alert, MedicationLogStatus, VisitDetail, VitalsSubmission } from '../../types'
+import type {
+  Alert,
+  MedicationLogStatus,
+  ScreeningInstrument,
+  ScreeningStatus,
+  VisitDetail,
+  VitalsSubmission,
+} from '../../types'
 import { Button, Card, EmptyState, ErrorState, LoadingScreen, Textarea, VisitStatusBadge, useToast } from '../../components/ui'
 
 /** Optional browser location; check-in never blocks on it in this MVP. */
@@ -41,6 +50,35 @@ export function NurseVisitDetail() {
   const [notes, setNotes] = useState<string | null>(null)
   const [lastAlerts, setLastAlerts] = useState<Alert[]>([])
   const [lastResultMessage, setLastResultMessage] = useState<string | null>(null)
+  const [screeningBusy, setScreeningBusy] = useState(false)
+
+  // Served, not hard-coded: PHQ-2's wording is a published instrument's, and a
+  // frontend does not get to paraphrase it to fit a layout.
+  const instrument = useAsync<ScreeningInstrument>(() => screeningsApi.instrument(), [])
+  const patientId = visit.data?.patient?.id ?? null
+  const screening = useAsync<ScreeningStatus | null>(
+    () => (patientId ? screeningsApi.status(patientId) : Promise.resolve(null)),
+    [patientId],
+  )
+
+  async function recordScreening(answers: number[]) {
+    if (!patientId) return
+    setScreeningBusy(true)
+    try {
+      const recorded = await screeningsApi.record(patientId, answers, id)
+      notify(
+        recorded.positive
+          ? 'Mood check recorded. A follow-up conversation has been added to the care team\u2019s list.'
+          : 'Mood check recorded.',
+        recorded.positive ? 'warning' : 'success',
+      )
+      await screening.reload({ quiet: true })
+    } catch (error) {
+      notify(error instanceof ApiError ? error.message : 'Could not record the mood check.', 'error')
+    } finally {
+      setScreeningBusy(false)
+    }
+  }
 
   if (visit.loading) return <LoadingScreen label="Loading visit" />
   if (visit.error) return <ErrorState message={visit.error} onRetry={() => void visit.reload()} />
@@ -169,6 +207,10 @@ export function NurseVisitDetail() {
         </div>
       </Card>
 
+      {/* Permanent on every clinical screen (§4.9). A nurse standing in
+          somebody's home is the person most likely to need it. */}
+      <EmergencyBlock compact />
+
       {lastResultMessage && (
         <div
           className={`rounded-2xl border px-4 py-3 text-small font-semibold ${
@@ -241,6 +283,30 @@ export function NurseVisitDetail() {
               />
             ))}
           </ul>
+        )}
+      </Card>
+
+      {/* Mood check (§4.7). Offered when it is due, and closed once it is not,
+          so the visit screen does not ask the same two questions every day. */}
+      <Card
+        title="Mood check"
+        description={
+          screening.data?.latest
+            ? `Last recorded ${formatDateTime(screening.data.latest.administered_at)}`
+            : 'Two questions, asked roughly once a month.'
+        }
+      >
+        {screening.data && !screening.data.due && (
+          <p className="text-small text-text-secondary">
+            Not due yet — the last one was inside the {screening.data.cadence_days}-day window.
+          </p>
+        )}
+        {screening.data?.due && instrument.data && (
+          <Phq2Form
+            instrument={instrument.data}
+            submitting={screeningBusy}
+            onSubmit={recordScreening}
+          />
         )}
       </Card>
 

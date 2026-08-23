@@ -544,3 +544,367 @@ export interface LeadSubmission {
   source_page?: string
   company_website?: string
 }
+
+/* ------------------------------------------------------------------ */
+/* Clinical (Phase 9, §4.2-4.9)                                        */
+/*                                                                     */
+/* No clinical constant is written on this side. Weights, reference    */
+/* ranges, SLA durations and the emergency ladder are all served from  */
+/* `backend/app/core/clinical.py`, exactly as no rupee figure is typed */
+/* into the frontend. These are the shapes they arrive in.             */
+/* ------------------------------------------------------------------ */
+
+export type SafetyBandTone = 'good' | 'watch' | 'attention' | 'critical'
+
+export interface SafetyComponent {
+  key: string
+  label: string
+  blurb: string
+  weight: number
+  /** Null when this component had no data — which is not zero. */
+  value: number | null
+  points: number | null
+  detail: string
+  has_data: boolean
+}
+
+export interface SafetyScore {
+  patient_id: number
+  /** False when too little of the scale had data to publish a score at all. */
+  available: boolean
+  score: number | null
+  band: string | null
+  band_label: string | null
+  band_tone: SafetyBandTone | null
+  band_blurb: string | null
+  window_days: number
+  covered_weight: number
+  total_weight: number
+  previous_score: number | null
+  delta: number | null
+  components: SafetyComponent[]
+  calculated_at: string
+  unavailable_reason: string | null
+}
+
+export interface SafetyHistoryPoint {
+  id: number
+  score: number
+  band: string
+  calculated_at: string
+}
+
+export type LabFlag = 'normal' | 'low' | 'high' | 'critical_low' | 'critical_high' | 'unknown'
+export type LabOrderStatus = 'ordered' | 'collected' | 'resulted' | 'cancelled'
+
+export interface LabAnalyte {
+  code: string
+  label: string
+  unit: string
+  ref_low: number | null
+  ref_high: number | null
+}
+
+export interface LabPanel {
+  code: string
+  name: string
+  description: string
+  turnaround_hours: number
+  price_paise: number
+  addon_code: string
+  analytes: LabAnalyte[]
+}
+
+export interface LabResult {
+  id: number
+  analyte_code: string
+  label: string
+  value: number
+  unit: string
+  /** The range this value was judged against, stored at result time. */
+  ref_low: number | null
+  ref_high: number | null
+  flag: LabFlag
+  is_abnormal: boolean
+  description: string
+}
+
+export interface LabOrder {
+  id: number
+  patient_id: number
+  patient_name: string | null
+  panel_code: string
+  panel_name: string
+  status: LabOrderStatus
+  billing: 'entitlement' | 'addon'
+  price_paise: number
+  invoice_line_id: number | null
+  ordered_at: string
+  collected_at: string | null
+  reported_at: string | null
+  cancelled_at: string | null
+  notes: string | null
+  abnormal_count: number
+  results: LabResult[]
+}
+
+export type ConsultStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show'
+
+export interface Consult {
+  id: number
+  patient_id: number
+  patient_name: string | null
+  scheduled_for: string
+  duration_minutes: number
+  status: ConsultStatus
+  reason: string
+  doctor_name: string
+  cancelled_at: string | null
+  cancellation_reason: string | null
+  quota_released: boolean
+  completed_at: string | null
+  summary: string | null
+  created_at: string
+}
+
+export interface ConsultAllowance {
+  subscribed: boolean
+  included: number | null
+  used: number
+  remaining: number | null
+  unlimited: boolean
+  period_start: string | null
+  period_end: string | null
+  duration_minutes: number
+  cancellation_hours: number
+}
+
+export type CareManagerKind = 'shared' | 'dedicated'
+export type CareChannel = 'call' | 'visit' | 'message' | 'video' | 'note'
+
+export interface CareManager {
+  id: number
+  user_id: number
+  name: string
+  email: string | null
+  phone: string | null
+  kind: string
+  /** The recorded 1:20 shared / 1:10 dedicated ratio, served not restated. */
+  capacity: number
+  caseload: number
+  available: number
+  at_capacity: boolean
+  languages: string
+  active: boolean
+}
+
+export interface CareAssignment {
+  id: number
+  patient_id: number
+  care_manager_id: number
+  care_manager_name: string | null
+  care_manager_kind: string | null
+  languages: string | null
+  assigned_at: string
+  ended_at: string | null
+  ended_reason: string | null
+}
+
+export interface CareInteraction {
+  id: number
+  patient_id: number
+  care_manager_id: number | null
+  care_manager_name: string | null
+  channel: CareChannel
+  direction: 'outbound' | 'inbound'
+  subject: string
+  note: string
+  minutes: number | null
+  occurred_at: string
+  visible_to_family: boolean
+}
+
+export interface CareTeam {
+  patient_id: number
+  entitled_kind: string | null
+  assignment: CareAssignment | null
+  interactions: CareInteraction[]
+}
+
+export interface ScreeningAnswerOption {
+  value: number
+  label: string
+}
+
+export interface ScreeningInstrument {
+  code: string
+  name: string
+  preamble: string
+  questions: string[]
+  answers: ScreeningAnswerOption[]
+  max_total: number
+  positive_cutoff: number
+  cadence_days: number
+  disclaimer: string
+}
+
+export interface Screening {
+  id: number
+  patient_id: number
+  instrument: string
+  /** Both answers, paired with the question each belongs to. */
+  answers: { question: string; value: number }[]
+  score: number
+  max_score: number
+  positive: boolean
+  administered_by: number
+  administered_by_name: string | null
+  visit_id: number | null
+  administered_at: string
+  note: string | null
+}
+
+export interface ScreeningStatus {
+  patient_id: number
+  due: boolean
+  cadence_days: number
+  latest: Screening | null
+}
+
+export type DeviceKind =
+  | 'pulse_oximeter'
+  | 'bp_monitor'
+  | 'smartwatch'
+  | 'glucometer'
+  | 'weighing_scale'
+
+export interface Device {
+  id: number
+  patient_id: number
+  kind: DeviceKind
+  label: string
+  serial: string
+  status: 'active' | 'inactive'
+  online: boolean
+  last_seen_at: string | null
+  registered_at: string
+}
+
+/** The one response that ever carries the plaintext key. */
+export interface RegisteredDevice extends Device {
+  api_key: string
+}
+
+export interface DeviceReading {
+  id: number
+  device_id: number
+  metric: VitalMetric
+  /** Already in the family's vocabulary — "oxygen level", not "spo2". */
+  label: string
+  value: number
+  recorded_at: string
+  triggered: boolean
+}
+
+export type EscalationStatus = 'open' | 'acknowledged' | 'resolved'
+
+export interface EscalationStep {
+  id: number
+  /** Steps sharing a sequence went out together — a fan-out, not a queue. */
+  sequence: number
+  actor: string
+  channel: string
+  target: string
+  recipient_user_id: number | null
+  status: string
+  detail: string
+  occurred_at: string
+}
+
+export interface Escalation {
+  id: number
+  patient_id: number
+  patient_name: string | null
+  trigger: string
+  trigger_id: number | null
+  alert_id: number | null
+  severity: AlertSeverity
+  status: EscalationStatus
+  summary: string
+  detail: string
+  opened_at: string
+  sla_minutes: number
+  sla_due_at: string
+  breached_sla: boolean
+  acknowledged_by: number | null
+  acknowledged_at: string | null
+  resolved_by: number | null
+  resolved_at: string | null
+  resolution_note: string | null
+  ladder: string[]
+  steps: EscalationStep[]
+}
+
+export type HospitalBookingStatus =
+  | 'requested'
+  | 'coordinating'
+  | 'confirmed'
+  | 'admitted'
+  | 'cancelled'
+
+export interface HospitalBooking {
+  id: number
+  patient_id: number
+  patient_name: string | null
+  hospital_name: string
+  department: string | null
+  reason: string
+  ambulance_required: boolean
+  preferred_at: string | null
+  status: HospitalBookingStatus
+  requested_by: number
+  requested_at: string
+  sla_minutes: number
+  sla_due_at: string
+  breached_sla: boolean
+  confirmed_at: string | null
+  confirmation_detail: string | null
+  handled_by: number | null
+  escalation_event_id: number | null
+  notes: string | null
+}
+
+export type TaskStatus = 'open' | 'done' | 'cancelled'
+
+export interface FollowUpTask {
+  id: number
+  patient_id: number
+  patient_name: string | null
+  kind: string
+  title: string
+  detail: string
+  due_at: string
+  status: TaskStatus
+  is_overdue: boolean
+  source_type: string | null
+  source_id: number | null
+  assigned_user_id: number | null
+  assigned_user_name: string | null
+  completed_by: number | null
+  completed_at: string | null
+  completion_note: string | null
+  created_at: string
+}
+
+export interface TaskSummary {
+  open: number
+  overdue: number
+}
+
+/** The permanent "call 108" block, served so eight screens cannot drift. */
+export interface EmergencyBlock {
+  number: string
+  title: string
+  body: string
+  ladder: string[]
+}

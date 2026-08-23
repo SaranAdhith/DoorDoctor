@@ -78,6 +78,22 @@ def main() -> None:
             f"{result['alerts_active']} still open"
         )
         print(f"  Leads   : {result['leads']} public enquiries waiting on Admin -> Leads")
+        print(
+            f"  Clinical: {result['lab_orders']} lab orders ({result['lab_abnormal']} abnormal), "
+            f"{result['consults']} consults, {result['screenings']} mood checks"
+        )
+        print(
+            f"  Care    : {result['care_managers']} care managers carrying "
+            f"{result['care_assignments']} patients, {result['care_interactions']} logged contacts"
+        )
+        print(
+            f"  Devices : {result['devices']} connected, {result['device_readings']} readings, "
+            f"{result['device_breaches']} breach(es) -> the three documented actions"
+        )
+        print(
+            f"  Urgent  : {result['hospital_bookings']} hospital requests, "
+            f"{result['safety_scores']} safety scores on Admin -> Escalations"
+        )
     print()
     print("Demo accounts (password for all of them: Demo@123)")
     print("  family@doordoctor.in - family member")
