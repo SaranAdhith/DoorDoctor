@@ -14,6 +14,7 @@ import {
   ComparisonTable,
   CtaBand,
   FounderPair,
+  NurseHero,
   ORGANISATION_JSON_LD,
   PageHero,
   PartnerStrip,
@@ -37,10 +38,11 @@ import { LinkButton } from '../../components/ui'
  * marketing page to start lying.
  *
  * The reviews and tie-up bands are the one exception, added deliberately: they
- * render from `content/social-proof.ts`, every entry there is flagged
- * `placeholder`, and each band shows a visible notice saying so for as long as
- * that is true. Read that file before touching either — it carries the rules
- * for replacing the scaffolding with real, consented content, and
+ * render from `content/social-proof.ts`, and **the people and organisations in
+ * that file are invented.** The on-page notices that used to say so were removed
+ * on the founder's instruction, which makes that file's header comment the only
+ * remaining record — read it before touching either band. It carries the consent
+ * and trademark rules for replacing the sample content with the real thing, and
  * `SHOW_SOCIAL_PROOF` turns both bands off in one edit.
  *
  * Prices are not written here either. The pricing band renders `PricingGrid`,
@@ -103,14 +105,15 @@ export function Home() {
         jsonLd={ORGANISATION_JSON_LD}
       />
 
+      {/* Drop a photo at `frontend/public/nurse-hero.{png,jpg,jpeg,webp}` and it
+          appears in the hero. Until one exists — or if none load — `NurseHero`
+          falls back to the visit card, so the hero is never a broken image. See
+          `NurseHero.tsx` for whose photo may legitimately go there. */}
       <PageHero
+        tone="brand"
+        aside={<NurseHero fit="cutout" />}
         eyebrow="Elderly care at home · Bengaluru"
-        title={
-          <>
-            Someone checks on your parents.
-            <br className="hidden sm:block" /> You see exactly what happened.
-          </>
-        }
+        title="Someone checks on your parents. You see exactly what happened."
         description={
           <>
             DoorDoctor sends a qualified nurse to your parents&rsquo; home on a schedule you choose.
@@ -120,15 +123,21 @@ export function Home() {
         }
         actions={
           <>
+            {/* White on deep green, rather than `accent` — a brand-500 button on
+                a brand-800 band is green on green and stops being a button. */}
             <LinkButton
               to="/contact"
-              variant="accent"
+              variant="ghost"
               size="lg"
               icon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
             >
               Talk to us
             </LinkButton>
-            <LinkButton to="/how-it-works" variant="ghost" size="lg">
+            <LinkButton
+              to="/how-it-works"
+              size="lg"
+              className="border border-white/30 bg-transparent text-white hover:bg-white/10"
+            >
               See how it works
             </LinkButton>
           </>
@@ -137,7 +146,10 @@ export function Home() {
           <>
             Serving Bengaluru. DoorDoctor is a monitoring and coordination service — in an
             emergency, call{' '}
-            <a href="tel:108" className="font-semibold text-status-critical underline">
+            {/* `status-critical` is a dark red built for white backgrounds and
+                measures far below AA on this one. The light tint is legible and
+                still unmistakably the emergency colour. */}
+            <a href="tel:108" className="font-semibold text-critical-200 underline">
               108
             </a>
             .
@@ -192,7 +204,7 @@ export function Home() {
         <div className="mt-10 grid gap-6 sm:grid-cols-2">
           {FOR_THE_FAMILY.map(({ icon: Icon, title, body }) => (
             <div key={title} className="flex gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-800 text-text-inverted">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-text-inverted shadow-card">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">

@@ -56,12 +56,22 @@ export function WhatIsDoorDoctor() {
         description="Most elder care fails quietly. Someone visits, something is noticed, and it never reaches the person who could act on it. DoorDoctor exists to close that gap — the visit is scheduled, what happened is recorded, and anything unusual is escalated the same day."
       />
 
+      {/* No heading on this band: the sentence that used to sit here restated the
+          hero directly above it. The eyebrow carries the label and the paragraph
+          does the work, so the page opens without saying the same thing twice. */}
       <Section tone="default">
-        <SectionHeading
-          eyebrow="In one paragraph"
-          title="A nurse visits. The visit is recorded. You see it."
-          description="A qualified nurse arrives at your parents’ home on a schedule, checks in on site, records their vitals, supervises their medicines, and writes up the visit. Each reading is compared against the range set for that patient. If something is outside it, an alert is raised — visible to you and to our care team at the same moment — and it stays open until someone has dealt with it and said what they did."
-        />
+        <div className="max-w-3xl border-l-4 border-brand-500 pl-6">
+          <p className="text-caption font-semibold uppercase tracking-[0.14em] text-brand-700">
+            In one paragraph
+          </p>
+          <p className="mt-3 text-body text-text-secondary sm:text-[1.0625rem] sm:leading-7">
+            A qualified nurse arrives at your parents&rsquo; home on a schedule, checks in on site,
+            records their vitals, supervises their medicines, and writes up the visit. Each reading
+            is compared against the range set for that patient. If something is outside it, an alert
+            is raised — visible to you and to our care team at the same moment — and it stays open
+            until someone has dealt with it and said what they did.
+          </p>
+        </div>
       </Section>
 
       <Section tone="sunken">

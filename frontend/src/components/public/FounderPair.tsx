@@ -49,7 +49,7 @@ export function FounderPair() {
           <div className="flex items-center gap-4">
             <span
               aria-hidden="true"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-navy-800 text-h2 font-bold text-text-inverted"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-h2 font-bold text-text-inverted"
             >
               {founder.initials}
             </span>

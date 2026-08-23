@@ -209,11 +209,12 @@ export function PublicLayout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-border-subtle bg-surface">
+      <footer className="border-t-4 border-brand-500 bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-1">
-              <Logo variant="header" />
+              {/* No strapline down here — the wordmark alone, as in the header. */}
+              <Logo variant="header" showStrapline={false} />
               <p className="mt-4 max-w-xs text-small text-text-secondary">
                 Scheduled nurse visits at home for elderly parents in Bengaluru, with everything
                 that happens visible to the family.

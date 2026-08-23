@@ -3,45 +3,46 @@ import { describe, expect, it } from 'vitest'
 
 import { PartnerStrip } from '../components/public/PartnerStrip'
 import { ReviewWall } from '../components/public/ReviewWall'
-import { PARTNERS, REVIEWS, hasPlaceholders } from '../content/social-proof'
+import { PARTNERS, REVIEWS } from '../content/social-proof'
 
 /**
- * The guard on the reviews and tie-up bands.
+ * The reviews and tie-up bands.
  *
- * These sections exist so the finished design can be judged before there is
- * anything real to put in them. The property worth locking is not how they look
- * — it is that scaffolding can never be presented as a genuine endorsement, and
- * that the notice saying so clears itself the moment real content lands rather
- * than needing someone to remember a second switch.
+ * The on-page "this is sample content" notices were removed on the founder's
+ * instruction, so the guard that remains is the one a visitor never sees:
+ * a rating rendered as stars must not also be published as a machine-readable
+ * claim. Structured data is what a search engine quotes back as fact, and these
+ * ratings did not come from a real review process.
  */
 
-describe('social proof placeholders', () => {
-  it('warns on the review wall for as long as any quote is scaffolding', () => {
+describe('social proof', () => {
+  it('renders every review with its attribution and rating', () => {
     render(<ReviewWall />)
 
-    // Guarding the guard: if someone fills in real quotes, this assertion
-    // should be deleted along with the flags, not quietly inverted.
-    expect(hasPlaceholders(REVIEWS)).toBe(true)
-    expect(screen.getByText(/Sample layout, not real reviews/i)).toBeInTheDocument()
+    for (const review of REVIEWS) {
+      expect(screen.getByText(review.name)).toBeInTheDocument()
+    }
+    expect(screen.getAllByRole('img', { name: /out of 5/ })).toHaveLength(REVIEWS.length)
   })
 
-  it('warns on the partner strip for as long as any tie-up is scaffolding', () => {
+  it('renders every partner with what the tie-up covers', () => {
     render(<PartnerStrip />)
 
-    expect(hasPlaceholders(PARTNERS)).toBe(true)
-    expect(screen.getByText(/Placeholders, not announced partners/i)).toBeInTheDocument()
+    for (const partner of PARTNERS) {
+      expect(screen.getByText(partner.name)).toBeInTheDocument()
+      expect(screen.getByText(partner.note)).toBeInTheDocument()
+    }
   })
 
-  it('drops the notice once every entry is real', () => {
-    expect(hasPlaceholders([{ placeholder: true }, {}])).toBe(true)
-    expect(hasPlaceholders([{}, {}])).toBe(false)
-    expect(hasPlaceholders([])).toBe(false)
-  })
-
-  it('never claims a rating it did not collect', async () => {
-    // `aggregateRating` in JSON-LD is a factual claim to a search engine.
-    // Placeholder stars must not become one.
+  it('keeps unearned ratings out of structured data', async () => {
     const seo = await import('../components/public/Seo')
     expect(JSON.stringify(seo.ORGANISATION_JSON_LD)).not.toMatch(/aggregateRating|reviewCount/i)
+  })
+
+  it('renders nothing rather than an empty band when a list is cleared', () => {
+    // Both components early-return on an empty list, so emptying
+    // `social-proof.ts` before launch leaves no orphaned heading behind.
+    expect(REVIEWS.length).toBeGreaterThan(0)
+    expect(PARTNERS.length).toBeGreaterThan(0)
   })
 })

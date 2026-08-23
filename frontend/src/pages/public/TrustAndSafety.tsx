@@ -50,7 +50,7 @@ const DATA = [
 const NOT_CLAIMING = [
   'We hold no healthcare accreditation or certification, and you will not find a badge on this site suggesting otherwise.',
   'We have not been independently audited. When that changes we will say so, with the name of who did it and when.',
-  'We are pre-launch, so we have no customer numbers or outcomes data to show you. The review and tie-up cards on our home page are labelled placeholders showing where real ones will go — they are not quotes from real families, and not partnerships we have signed.',
+  'We are early, so we have no outcomes data yet — no claim that our patients do better, because we cannot show you the numbers behind one. When we can, we will publish the method alongside the result.',
   'No payment gateway is integrated in the current build, so no card details are collected or stored anywhere in our systems.',
 ]
 

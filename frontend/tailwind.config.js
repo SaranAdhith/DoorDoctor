@@ -136,11 +136,26 @@ export default {
           from: { opacity: '0', transform: 'scale(0.97)' },
           to: { opacity: '1', transform: 'none' },
         },
+        // The ECG trace. The strip holding it is 200% wide and contains the same
+        // waveform twice, so travelling exactly -50% lands tile two where tile
+        // one began and the loop has no seam.
+        'ecg-scroll': {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        // The monitor's cursor, sitting where the trace is newest.
+        'ecg-pulse': {
+          '0%, 100%': { opacity: '0.45', transform: 'scale(1)' },
+          '50%': { opacity: '1', transform: 'scale(1.4)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 180ms ease-out',
         'slide-in-right': 'slide-in-right 220ms cubic-bezier(0.22, 1, 0.36, 1)',
         'scale-in': 'scale-in 160ms ease-out',
+        // Slow enough to read as a resting heart rate rather than a loading bar.
+        'ecg-scroll': 'ecg-scroll 9s linear infinite',
+        'ecg-pulse': 'ecg-pulse 1.5s ease-in-out infinite',
       },
     },
   },

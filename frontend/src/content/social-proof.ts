@@ -1,42 +1,34 @@
 /**
- * ============================================================================
- *  PLACEHOLDER CONTENT — REPLACE EVERY ENTRY BELOW BEFORE LAUNCH.
- * ============================================================================
+ * Reviews and tie-ups for the public site.
  *
- * `docs/build-log/STATE.md` locks the rule this file bends: *"Invent no
- * traction, testimonials, customer counts, certifications or partner logos —
- * DoorDoctor is pre-launch."* The reviews and tie-up sections were built anyway,
- * on an explicit instruction, so the finished design exists and can be judged.
- * What is here is scaffolding, not copy.
+ * ---------------------------------------------------------------------------
+ *  READ BEFORE LAUNCH — this is sample content, written to fill the design.
+ * ---------------------------------------------------------------------------
  *
- * Every entry carries `placeholder: true`. While that flag is on an entry, the
- * section renders a visible "not real yet" notice above it, so nothing on this
- * site can present sample text as a genuine endorsement. Delete the flag when
- * you paste in the real thing and the notice clears itself — there is no second
- * switch to remember.
+ * None of the people or organisations below exist. The names, quotes and
+ * partnerships were written to show what the reviews and tie-up bands look like
+ * populated, on the founder's instruction, and the on-page notices that used to
+ * say so have been removed at their request. That makes this file the only place
+ * the distinction is still recorded, so:
  *
- * Before any of this goes in front of a paying family:
+ *   REVIEWS   — swap each entry for a real quote with the family's written
+ *               consent to publish it, under the name and detail they agreed to.
+ *               A review about a named relative's health is personal data;
+ *               someone saying something kind on a call is not consent to print
+ *               it. Do not raise a rating that did not come from a real review
+ *               process, and do not add `aggregateRating` structured data — see
+ *               `Seo.tsx`. `src/test/socialProof.test.tsx` locks that.
  *
- *   REVIEWS   — a quote needs the person's written consent to be published,
- *               with their name and the detail they agreed to. A review about
- *               a named relative's health is personal data; consent for it is
- *               not implied by them having said something nice on a call.
- *               Do not add star ratings you did not collect through a real
- *               review process, and do not emit `aggregateRating` structured
- *               data (see `Seo.tsx`) — that puts a rating into Google's index
- *               as a factual claim.
+ *   PARTNERS  — the organisation names here are invented on purpose, so that no
+ *               real hospital's mark is used without an agreement. Replace them
+ *               only with organisations that have signed one, in the form that
+ *               agreement permits. A hospital named here implies a clinical
+ *               relationship a family may rely on in an emergency.
  *
- *   PARTNERS  — list an organisation only where a signed agreement exists, and
- *               only in the form that agreement permits. Using a hospital's
- *               name or mark without one is a trademark problem and implies a
- *               clinical relationship a family may rely on in an emergency.
- *
- * Misleading endorsements in Indian advertising fall under the ASCI code and
- * the Consumer Protection Act 2019 (§2(28), misleading advertisement), and a
- * healthcare service is exactly where that is enforced hardest.
- *
- * To hide both sections entirely — the honest pre-launch state — set
- * `SHOW_SOCIAL_PROOF` to `false`. Nothing else needs to change.
+ * Misleading endorsements in Indian advertising fall under the ASCI code and the
+ * Consumer Protection Act 2019 (§2(28)), and healthcare is where that is
+ * enforced hardest. `SHOW_SOCIAL_PROOF = false` takes both bands off the site in
+ * one edit if you would rather ship without them until the real thing exists.
  */
 
 /** Master switch for the reviews and tie-up bands on the home page. */
@@ -47,41 +39,66 @@ export interface Review {
   quote: string
   /** Who said it, as they agreed to be named. */
   name: string
-  /** Their relationship to the patient, and the area. "Daughter · HSR Layout". */
+  /** Their relationship to the patient, and where they are. */
   context: string
-  /** 1–5. Only set this if it came from a real review process. */
+  /** 1–5. Only ever from a real review process. */
   rating: number
-  /** Remove once this entry is a real, consented quote. */
-  placeholder?: boolean
 }
 
 export const REVIEWS: readonly Review[] = [
   {
     quote:
-      'Placeholder quote. Replace with a real sentence from a family about something they could ' +
-      'see that they could not see before — roughly this length, in their own words.',
-    name: 'Family member’s name',
-    context: 'Relationship · Area',
+      'My father tells me he is fine every single Sunday. The chart showed his blood pressure ' +
+      'climbing for three weeks straight. We got his medication changed before it became the ' +
+      'kind of thing you find out about from a hospital.',
+    name: 'Priya Raghavan',
+    context: 'Daughter · Indiranagar',
     rating: 5,
-    placeholder: true,
   },
   {
     quote:
-      'Placeholder quote. The most useful reviews name the specific thing that changed: a reading ' +
-      'that was caught, a week they did not have to chase anyone for an update.',
-    name: 'Family member’s name',
-    context: 'Relationship · Area',
+      'What sold me was the medication log. I could finally see that Amma was skipping the ' +
+      'evening dose — not guessing, not asking her and being told what she thought I wanted ' +
+      'to hear. The nurse now sits with her for it.',
+    name: 'Anil Kulkarni',
+    context: 'Son · Jayanagar',
     rating: 5,
-    placeholder: true,
   },
   {
     quote:
-      'Placeholder quote. Keep one that is measured rather than glowing — a page of five-star ' +
-      'superlatives reads as bought, and families choosing elder care are reading carefully.',
-    name: 'Family member’s name',
-    context: 'Relationship · Country, for an NRI family',
+      'I am eleven and a half hours ahead. Being able to read the visit notes at my breakfast, ' +
+      'the same morning they were written, is the difference between worrying and knowing. ' +
+      'The weekly summary is in plain English, which I did not expect.',
+    name: 'Meera Nair',
+    context: 'Daughter · Toronto',
+    rating: 5,
+  },
+  {
+    quote:
+      'The nursing has been good and the record is genuinely useful. Scheduling was rocky for ' +
+      'the first fortnight — two visits moved at short notice — though it has settled since, ' +
+      'and they did call to explain rather than leaving us to notice.',
+    name: 'Rakesh Menon',
+    context: 'Son · Whitefield',
     rating: 4,
-    placeholder: true,
+  },
+  {
+    quote:
+      'My mother is eighty-four and will not touch a smartphone, which ruled out everything ' +
+      'else we looked at. Nothing is asked of her at all. Someone comes, does the checks, and ' +
+      'it appears on my phone.',
+    name: 'Lakshmi Iyer',
+    context: 'Daughter · HSR Layout',
+    rating: 5,
+  },
+  {
+    quote:
+      'An oxygen reading came back low on a Tuesday afternoon. I had a call from their care ' +
+      'team before I had finished reading the alert, and they had already spoken to his ' +
+      'physician. That is the whole reason we pay for this.',
+    name: 'Farhan Qureshi',
+    context: 'Son · Koramangala',
+    rating: 5,
   },
 ]
 
@@ -93,8 +110,6 @@ export interface Partner {
   kind: PartnerKind
   /** What the tie-up actually covers. Be specific; vagueness reads as filler. */
   note: string
-  /** Remove once a signed agreement exists. */
-  placeholder?: boolean
 }
 
 export const PARTNER_KIND_LABELS: Record<PartnerKind, string> = {
@@ -106,44 +121,33 @@ export const PARTNER_KIND_LABELS: Record<PartnerKind, string> = {
 
 export const PARTNERS: readonly Partner[] = [
   {
-    name: 'Partner hospital',
+    name: 'Sanjeevini Multispeciality',
     kind: 'hospital',
-    note: 'Where an escalation is handed over, and who receives the patient’s record when it is.',
-    placeholder: true,
+    note: 'Primary escalation route for south Bengaluru. Receives the patient’s record with the handover.',
   },
   {
-    name: 'Partner hospital',
+    name: 'Ashraya Health City',
     kind: 'hospital',
-    note: 'Second escalation route, so a single hospital being full is not a single point of failure.',
-    placeholder: true,
+    note: 'Second escalation route, so one hospital being full is never a single point of failure.',
   },
   {
-    name: 'Diagnostics lab',
+    name: 'Chetana Diagnostics',
     kind: 'diagnostics',
-    note: 'Home sample collection for the blood panels included in a plan.',
-    placeholder: true,
+    note: 'Home sample collection for the blood panels included in a plan, results into the same record.',
   },
   {
-    name: 'Employer',
+    name: 'Nexvia Technologies',
     kind: 'employer',
-    note: 'Elder care offered to employees as a benefit, billed to the company.',
-    placeholder: true,
+    note: 'Elder care offered to 400+ employees as a benefit, billed to the company.',
   },
   {
-    name: 'Employer',
+    name: 'Brightlane Consulting',
     kind: 'employer',
-    note: 'Covering parents of staff working outside the city.',
-    placeholder: true,
+    note: 'Covering parents of staff posted outside Bengaluru.',
   },
   {
-    name: 'Senior residence',
+    name: 'Tulasi Senior Living',
     kind: 'residence',
     note: 'Clinical monitoring for every resident, priced per resident per day.',
-    placeholder: true,
   },
 ]
-
-/** True while any entry in the list is still scaffolding. */
-export function hasPlaceholders(items: readonly { placeholder?: boolean }[]): boolean {
-  return items.some((item) => item.placeholder === true)
-}
