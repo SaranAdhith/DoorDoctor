@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { ApiError } from '../../api/client'
@@ -59,12 +59,41 @@ async function tryGetLocation(): Promise<
   })
 }
 
+/**
+ * One token per pending submission, minted on the first attempt and cleared on
+ * success (§4.16).
+ *
+ * This is the half of offline-tolerant capture that matters even with signal: a
+ * nurse who taps Save twice on a slow connection, or retries after a timeout
+ * that actually succeeded, sends the same token — and the server corrects the
+ * reading it already has rather than recording a second one and raising a
+ * second alert about it.
+ *
+ * The `localStorage` queue that drains on reconnect is not built yet; the
+ * contract it needs is.
+ */
+function useSubmissionToken() {
+  const tokens = useRef<Record<string, string>>({})
+  return {
+    for(key: string): string {
+      if (!tokens.current[key]) {
+        tokens.current[key] = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+      }
+      return tokens.current[key]
+    },
+    clear(key: string) {
+      delete tokens.current[key]
+    },
+  }
+}
+
 export function NurseVisitDetail() {
   const { visitId } = useParams()
   const id = Number(visitId)
   const { notify } = useToast()
 
   const visit = useAsync<VisitDetail>(() => visitsApi.get(id), [id])
+  const token = useSubmissionToken()
   const [busy, setBusy] = useState(false)
   const [notes, setNotes] = useState<string | null>(null)
   const [lastAlerts, setLastAlerts] = useState<Alert[]>([])
@@ -139,8 +168,13 @@ export function NurseVisitDetail() {
 
   async function saveVitals(values: VitalsSubmission) {
     setBusy(true)
+    const key = `vitals-${id}`
     try {
-      const result = await visitsApi.recordVitals(id, values)
+      const result = await visitsApi.recordVitals(id, {
+        ...values,
+        client_token: token.for(key),
+      })
+      token.clear(key)
       setLastAlerts(result.alerts_created)
       if (result.threshold_breached) {
         setLastResultMessage('Threshold exceeded. An alert has been created for the care team.')
@@ -158,8 +192,15 @@ export function NurseVisitDetail() {
   }
 
   async function logMedication(medicationId: number, status: MedicationLogStatus, reason: string | null) {
+    const key = `dose-${id}-${medicationId}-${status}`
     try {
-      await visitsApi.logMedication(id, { medication_id: medicationId, status, reason })
+      await visitsApi.logMedication(id, {
+        medication_id: medicationId,
+        status,
+        reason,
+        client_token: token.for(key),
+      })
+      token.clear(key)
       notify('Medication log saved.', 'success')
       await visit.reload({ quiet: true })
     } catch (error) {

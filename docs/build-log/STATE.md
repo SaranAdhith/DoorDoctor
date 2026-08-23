@@ -1180,10 +1180,12 @@ is the cap on the circle overall. They are different limits and both should hold
   is ~5 each, so the admin zone view is six rows of "Below the band". That is what a pre-launch
   business actually looks like and it was **not** adjusted to look healthier. If a demo needs one
   healthy zone to make the feature legible, that is a seed change and a conversation, not a bug.
-- **The offline queue is server-side only.** The `client_token` contract, the idempotency and the
-  tests are real, and the frontend sends a token — but it does **not** yet queue in `localStorage`
-  and drain on reconnect. The hard half (a replay that cannot double-record or double-alert) is
-  done; the browser half is a Phase 11 UI task.
+- **The offline *queue* is not built; the idempotency under it is.** The nurse screen mints one
+  token per pending submission and clears it on success, so a double-tap or a retry after a timeout
+  that actually succeeded corrects the record rather than doubling it — which is the half that
+  matters even with signal. What is missing is the `localStorage` queue that holds a submission
+  while the device is offline and drains on reconnect. That is a Phase 11 UI task and the contract
+  it needs already exists and is tested.
 - **Notification preferences are per account, not per patient**, and quiet hours are the **server's**
   wall clock. Both become account-local when Phase 11 does timezones — which is what an NRI family
   in a different timezone actually needs.
