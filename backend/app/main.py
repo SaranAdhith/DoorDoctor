@@ -20,6 +20,7 @@ from .routers import (
     admin,
     alerts,
     assistant,
+    attachments,
     auth,
     billing,
     care,
@@ -124,6 +125,7 @@ def health() -> dict[str, str]:
 api_prefix = settings.api_prefix
 app.include_router(auth.router, prefix=api_prefix)
 app.include_router(patients.router, prefix=api_prefix)
+app.include_router(attachments.router, prefix=api_prefix)
 app.include_router(visits.router, prefix=api_prefix)
 app.include_router(medications.router, prefix=api_prefix)
 app.include_router(alerts.router, prefix=api_prefix)

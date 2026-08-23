@@ -16,6 +16,7 @@ from __future__ import annotations
 import random
 from datetime import date, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -23,9 +24,11 @@ from ..models import (
     Nurse,
     NurseCredential,
     User,
+    UserRole,
     VerificationStatus,
     Visit,
 )
+from ..database import now
 from ..services import location_service
 from . import demo_data, generators
 
@@ -128,3 +131,119 @@ def locate_checkin(
     visit.location_distance_m = verdict.distance_m
     visit.location_accuracy_m = verdict.accuracy_m
     visit.location_detail = verdict.detail
+
+
+# --------------------------------------------------------------------------
+# The Phase 10 layer of the seed
+#
+# `FULL` only. `SMALL` — which `tests/conftest.py` seeds — stays exactly as it
+# was, the same rule Phase 9's clinical layer follows, so no existing test
+# changes because a demo grew a feature.
+# --------------------------------------------------------------------------
+
+
+def _medication_history(db: Session, records, actors: list[User]) -> int:
+    """A believable prescription history for the patients a demo will open.
+
+    Every medication gets its `started` row, and a handful of patients get a
+    real change on top: a dose halved after a reading pattern, a time moved
+    because the family asked, one drug stopped. Backdated, because history that
+    all happened at the instant the seed ran is not history.
+    """
+    from ..models import Medication, MedicationChangeKind
+    from ..services import medication_service
+
+    admin = actors[0]
+    written = 0
+    for record in records:
+        medications = list(
+            db.scalars(
+                select(Medication)
+                .where(Medication.patient_id == record.patient.id)
+                .order_by(Medication.id)
+            )
+        )
+        if not medications:
+            continue
+
+        started_at = record.patient.created_at
+        for medication in medications:
+            medication_service.record_change(
+                db,
+                medication,
+                kind=MedicationChangeKind.STARTED,
+                new_value=(
+                    f"{medication.dosage}, {medication.frequency} at {medication.scheduled_time}"
+                ),
+                actor=admin,
+                at=started_at,
+            )
+            written += 1
+
+        if record.slot % 4 != 0:
+            continue
+
+        first = medications[0]
+        medication_service.record_change(
+            db,
+            first,
+            kind=MedicationChangeKind.DOSAGE_CHANGED,
+            previous_value=first.dosage,
+            new_value=f"{first.dosage} (reviewed)",
+            reason="Dose reviewed with the family after a run of higher readings.",
+            actor=admin,
+            at=started_at + timedelta(days=40),
+        )
+        written += 1
+        if len(medications) > 1:
+            second = medications[1]
+            medication_service.record_change(
+                db,
+                second,
+                kind=MedicationChangeKind.SCHEDULE_CHANGED,
+                previous_value=f"{second.frequency} at {second.scheduled_time}",
+                new_value=f"{second.frequency} at 09:00",
+                reason="Moved later so it is taken after breakfast.",
+                actor=admin,
+                at=started_at + timedelta(days=61),
+            )
+            written += 1
+    return written
+
+
+def _pill_organiser(db: Session, records, nurse_users: list[User]) -> int:
+    """Fills for the patients whose families bought the ₹199 add-on.
+
+    Only a handful, and only recent ones. Every fill runs through
+    `medication_service.record_fill`, so the "billed once a month, not once a
+    fill" rule is re-proved on every seed run rather than asserted once.
+    """
+    from ..services import medication_service
+
+    nurse = nurse_users[0]
+    filled = 0
+    for record in records:
+        if record.slot % 5 != 0:
+            continue
+        for weeks_ago in (3, 2, 1):
+            medication_service.record_fill(
+                db,
+                patient=record.patient,
+                filled_by=nurse,
+                compartments_filled=28 if weeks_ago != 2 else 24,
+                note=None if weeks_ago != 2 else "Sunday evening doses left out for the family.",
+                as_of=now() - timedelta(weeks=weeks_ago),
+            )
+            filled += 1
+    return filled
+
+
+def build(db: Session, records) -> dict[str, int]:
+    """Layer Phase 10's trust and operations data over a populated database."""
+    admins = list(db.scalars(select(User).where(User.role == UserRole.ADMIN).order_by(User.id)))
+    nurse_users = list(db.scalars(select(User).where(User.role == UserRole.NURSE).order_by(User.id)))
+
+    return {
+        "medication_changes": _medication_history(db, records, admins),
+        "organiser_fills": _pill_organiser(db, records, nurse_users),
+    }

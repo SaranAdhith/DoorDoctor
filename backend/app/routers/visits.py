@@ -127,9 +127,13 @@ def record_vitals(
 )
 def log_medication(
     visit_id: int, payload: MedicationLogCreate, db: DbSession, current_user: CurrentUser
-):
+) -> dict[str, Any]:
     visit, _ = authorize_nurse_visit(db, current_user, visit_id)
-    return medication_service.log_administration(db, visit, payload, recorded_by=current_user.id)
+    log = medication_service.log_administration(db, visit, payload, recorded_by=current_user.id)
+    # Serialized rather than returned raw: `MedicationLogOut.photo` carries a
+    # fetch URL that the ORM row does not have, and only `serialize_log` builds
+    # it. Returning the model would render `photo: null` on a dose that has one.
+    return medication_service.serialize_log(log)
 
 
 @router.post("/{visit_id}/complete", response_model=VisitOut, summary="Complete a visit (nurse)")

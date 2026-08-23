@@ -2,6 +2,7 @@
 
 from .alert import Alert
 from .assistant import AssistantMessage
+from .attachment import Attachment
 from .audit import AppendOnlyError, AuditEvent
 from .billing import Invoice, InvoiceLine
 from .care import CareAssignment, CareInteraction, CareManager
@@ -66,7 +67,7 @@ from .enums import (
 )
 from .lab import LabOrder, LabResult
 from .lead import Lead
-from .medication import Medication, MedicationLog
+from .medication import Medication, MedicationChange, MedicationLog, PillOrganiserFill
 from .notification import Notification
 from .organization import Organization
 from .password_reset import PasswordResetToken
@@ -89,6 +90,7 @@ __all__ = [
     "AppendOnlyError",
     "AssistantMessage",
     "AssistantSource",
+    "Attachment",
     "AttachmentKind",
     "AuditAction",
     "AuditEvent",
@@ -136,6 +138,7 @@ __all__ = [
     "LeadStatus",
     "LocationStatus",
     "Medication",
+    "MedicationChange",
     "MedicationChangeKind",
     "MedicationLog",
     "MedicationLogStatus",
@@ -152,6 +155,7 @@ __all__ = [
     "PatientStatus",
     "PatientThreshold",
     "PaymentStatus",
+    "PillOrganiserFill",
     "PillOrganiserStatus",
     "Plan",
     "PlanAudience",

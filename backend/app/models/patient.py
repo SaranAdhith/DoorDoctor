@@ -11,6 +11,7 @@ from .enums import PatientStatus, VitalMetric
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .alert import Alert
+    from .attachment import Attachment
     from .care import CareAssignment, CareInteraction
     from .device import Device
     from .escalation import EscalationEvent
@@ -99,6 +100,13 @@ class Patient(Base):
         back_populates="patient", cascade="all, delete-orphan"
     )
     hospital_bookings: Mapped[list["HospitalBooking"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+
+    # --- Phase 10, trust and operations (§4.10-4.18) ----------------------
+    # Same cascade rule as the clinical layer: an erased patient must not leave
+    # a dose photograph, a consent record or a care-circle contact behind.
+    attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="patient", cascade="all, delete-orphan"
     )
 

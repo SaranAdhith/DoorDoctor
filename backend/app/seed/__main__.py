@@ -94,6 +94,10 @@ def main() -> None:
             f"  Urgent  : {result['hospital_bookings']} hospital requests, "
             f"{result['safety_scores']} safety scores on Admin -> Escalations"
         )
+        print(
+            f"  Trust   : {result['medication_changes']} medication changes, "
+            f"{result['organiser_fills']} pill organiser fills"
+        )
     print()
     print("Demo accounts (password for all of them: Demo@123)")
     print("  family@doordoctor.in - family member")

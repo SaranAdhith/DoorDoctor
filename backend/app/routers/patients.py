@@ -86,7 +86,7 @@ def create_medication(
     if current_user.role not in (UserRole.FAMILY, UserRole.ADMIN):
         raise ForbiddenError("Only a family member or admin can change the medication schedule.")
     patient = authorize_patient(db, current_user, patient_id)
-    return medication_service.create_medication(db, patient.id, payload)
+    return medication_service.create_medication(db, patient.id, payload, actor=current_user)
 
 
 @router.get(

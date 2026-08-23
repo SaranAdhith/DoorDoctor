@@ -742,6 +742,9 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
     # screenings and device readings, so everything above has to exist first or
     # every score is computed with two of its six components missing.
     clinical_summary = clinical.build(db, records)
+    # Phase 10 last: the medication history and the organiser fills are written
+    # over medications and subscriptions that everything above created.
+    trust_summary = trust.build(db, records)
     db.flush()
 
     return {
@@ -755,4 +758,5 @@ def build(db: Session, core: CoreResult, profile: demo_data.SeedProfile) -> dict
         "alerts_active": active,
         "leads": leads,
         **clinical_summary,
+        **trust_summary,
     }
