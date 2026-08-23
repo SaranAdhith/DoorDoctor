@@ -332,14 +332,14 @@ splitting them would have committed a half-wired feature.
 
 | Commit | Stage(s) | Tests after |
 |---|---|---|
-| `725358c` | 0–1 — clinical.py, general alert path, all models, safety score | 434 |
-| `cd338ca` | 2 — labs and follow-up tasks | 469 |
-| `f618557` | 3 — telemedicine | 492 |
-| `05c4a06` | 4–5 — care managers, PHQ-2 | 544 |
-| `d27e9eb` | 6–7 — wearables, escalations, hospital | 608 |
-| `e576527` | 8a — the clinical seed | 623 |
-| `0f98ee8` | 8b — six screens, the emergency block | 623 · Vitest 113 |
-| `235acf9` | fixes found in the browser | 623 · Vitest 121 |
+| `9a88b6d` | 0–1 — clinical.py, general alert path, all models, safety score | 434 |
+| `8fe3299` | 2 — labs and follow-up tasks | 469 |
+| `375a42b` | 3 — telemedicine | 492 |
+| `19d4ce5` | 4–5 — care managers, PHQ-2 | 544 |
+| `3063c17` | 6–7 — wearables, escalations, hospital | 608 |
+| `3a1833a` | 8a — the clinical seed | 623 |
+| `3fe4e7a` | 8b — six screens, the emergency block | 623 · Vitest 113 |
+| `43693d9` | fixes found in the browser | 623 · Vitest 121 |
 
 ## Where the plan was wrong, or too thin
 

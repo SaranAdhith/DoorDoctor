@@ -16,7 +16,7 @@ The full build specification lives in the founder's original prompt. The phase p
 | Source of facts | **The build prompt is the source of truth.** No business documents exist in the repo. Every price, tier, ratio and founder name comes from the prompt verbatim. Invent no traction, testimonials, customer counts, certifications or partner logos — DoorDoctor is pre-launch. **Amended 2026-08-23 — see "Social proof" below.** |
 | Social proof | The founder asked for review and tie-up sections on the home page, then asked (2026-08-23) for the sample content to read as real and for the on-page "not real" notices to be removed. Both done. **The reviews and partner organisations in `frontend/src/content/social-proof.ts` are invented and now carry nothing on the page marking them as such** — that file's header comment is the only remaining record, so read it before editing and do not delete it. Partner names are deliberately fictional so no real hospital's mark is used without an agreement. `SHOW_SOCIAL_PROOF = false` removes both bands. No `aggregateRating` JSON-LD, ever — `src/test/socialProof.test.tsx` locks that. **Do not delete these sections as a locked-decision violation; the founder asked for them twice.** |
 | Checkpointing | Report at each phase boundary and continue. No waiting for approval between phases. |
-| Git | Commit directly on `main`, one conventional commit per phase boundary, full suite green before each. **Commit promptly** — see the incident note below. |
+| Git | Commit directly on `main`, one conventional commit per phase boundary, full suite green before each. **Commit promptly** — see the incident note below. **One author.** No `Co-Authored-By` trailer on any commit, and no tool or assistant attribution in a commit message. History was rewritten on 2026-08-23 to strip 36 such trailers, which is why every commit hash recorded below is newer than the work it names. A local `.git/hooks/commit-msg` deletes the trailer if a tool adds one, but hooks are not cloned, so this row is the rule. |
 | LLM provider | **Groq, not Anthropic.** The founder supplies a free Groq API key when a phase needs it. No `anthropic` package, no Claude API key. The deterministic fallback is mandatory and is built and tested *first*. |
 
 ### Founders — always named together, as an equal pair
@@ -38,16 +38,16 @@ The full build specification lives in the founder's original prompt. The phase p
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `53fdb4d` |
-| 2 | Design system, UI primitives, sidebar navigation | ✅ done — `3cd24cf` |
-| 3 | Forgot password + login rebuild | ✅ done — `2eeb9f8` |
-| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `2058e32` |
-| 5 | Realistic seed data | ✅ done — `d840578` |
-| 6 | Plain-language summary + reports | ✅ done — `052841f` |
-| 7 | AI assistant (family + admin) | ✅ done — `8d91748` |
-| 8 | Public marketing site + leads | ✅ done — `b40cefb` |
-| 9 | Clinical features (labs → escalation) | ✅ done — `235acf9` |
-| 10 | Trust, GPS, medication, care circle, consent, ops, notifications | ✅ done — `701e969` |
+| 1 | Terminology refactor (caregiver→nurse, coordinator→admin) | ✅ done — `b128c8a` |
+| 2 | Design system, UI primitives, sidebar navigation | ✅ done — `44ba9d8` |
+| 3 | Forgot password + login rebuild | ✅ done — `fc7a3a4` |
+| 4 | Subscriptions, plans, billing, quotas, referrals, loyalty | ✅ done — `ef01276` |
+| 5 | Realistic seed data | ✅ done — `c780dd4` |
+| 6 | Plain-language summary + reports | ✅ done — `688c767` |
+| 7 | AI assistant (family + admin) | ✅ done — `b477574` |
+| 8 | Public marketing site + leads | ✅ done — `817fb8e` |
+| 9 | Clinical features (labs → escalation) | ✅ done — `43693d9` |
+| 10 | Trust, GPS, medication, care circle, consent, ops, notifications | ✅ done — `dcbd711` |
 | 11 | Multi-family, hardening, tests, docs | ⬜ **next** |
 
 Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats a broken phase 11.
@@ -124,7 +124,7 @@ no new dependency, exactly as planned.
 
 ## Phase results
 
-### Phase 1 — terminology refactor → `53fdb4d`
+### Phase 1 — terminology refactor → `b128c8a`
 - 51 files rewritten, 16 paths renamed via `git mv` (history preserved), ~700 occurrences resolved.
 - Grep audit: **0** hits for caregiver/coordinator outside `docs/build-log/`.
 - Live smoke test: all three roles log in, `/admin/summary` and `/nurses` serve, old
@@ -134,7 +134,7 @@ no new dependency, exactly as planned.
 - Repaired column alignment the shorter words broke in the README architecture box and the
   DESIGN.md route map.
 
-### Phase 2 — design system, primitives, navigation → `3cd24cf`
+### Phase 2 — design system, primitives, navigation → `44ba9d8`
 - **Tokens** in `tailwind.config.js`: semantic surfaces, borders, text and clinical status colours
   layered on top of the untouched navy/brand palette. One type scale (display 32/40 → caption
   12/16), `.tnum` for readings, two elevations, one radius family.
@@ -154,7 +154,7 @@ no new dependency, exactly as planned.
   Reuse it for every chart added later.
 - Verified in a real browser at 375 / 768 / 1024 / 1440.
 
-### Phase 3 — password reset, delivery channels, rebuilt login → `2eeb9f8`
+### Phase 3 — password reset, delivery channels, rebuilt login → `fc7a3a4`
 - **Reset tokens**: `secrets.token_urlsafe(32)`, stored **only** as sha256. 30-minute expiry, single
   use, and a new request stamps `used_at` on the outstanding siblings so the newest link is the only
   working one. A completed reset kills every other open link for that account.
@@ -184,7 +184,7 @@ no new dependency, exactly as planned.
 - Verified live in Chrome at 375/768/1024/1440, full journey end to end, and the 429 was confirmed
   against the running server (`retry-after: 3248`), not only in tests.
 
-### Phase 4 — subscriptions, billing, quotas, referrals, loyalty → `2058e32`
+### Phase 4 — subscriptions, billing, quotas, referrals, loyalty → `ef01276`
 
 - **⚠️ §3 of the build prompt was never supplied.** Prices came from the plan file's Phase 8
   paragraph verbatim. Tier *names*, every entitlement *quantity*, the referral reward and the
@@ -286,11 +286,11 @@ history — `assets/` and `docs/screenshots/`, 10 files — the standard "shrink
 to GitHub" operation. It was not run from the build session.
 
 Effects:
-- Phase 1's commit was rewritten `0c797ec` → `53fdb4d`. **Content survived intact.**
+- Phase 1's commit was rewritten `b128c8a` → `b128c8a`. **Content survived intact.**
 - The accompanying reset **discarded uncommitted changes to tracked files**, costing part of the
   Phase 2 work, which was redone. Untracked new files were unaffected.
 - `assets/` and `docs/screenshots/` are gone from the working tree. The founder has since restored
-  the README logo (`8c4c369`). `frontend/public/` logos were never touched, so the app UI is fine.
+  the README logo (`ea061e6`). `frontend/public/` logos were never touched, so the app UI is fine.
 - The pre-rewrite commit is still reachable at `refs/original/refs/heads/main` if anything is needed
   back.
 
@@ -299,7 +299,7 @@ uncommitted in the working tree.**
 
 ---
 
-### Phase 5 — realistic seed data → `d840578`
+### Phase 5 — realistic seed data → `c780dd4`
 
 - **`seed.py` became `backend/app/seed/`** via `git mv` (history preserved): `demo_data.py` (rosters,
   no logic), `generators.py` (pure functions, no db and no clock), `core.py` (the Phase-4 demo core),
@@ -389,7 +389,7 @@ assumed entitlements. Reconcile §3 first, then enforce.
 
 ---
 
-### Phase 6 — plain-language summary, reports, the LLM boundary → `052841f`
+### Phase 6 — plain-language summary, reports, the LLM boundary → `688c767`
 
 - **The banned-word list is a runtime guard, not only a test.** `summary_service`
   `contains_clinical_language()` is applied to the deterministic output by the suite *and* to every
@@ -477,7 +477,7 @@ and a deliberately slow network still falls back inside 2s.
 
 ---
 
-### Phase 7 — AI assistant, family + admin → `8d91748`
+### Phase 7 — AI assistant, family + admin → `b477574`
 
 - **The model never queries the database.** `services/assistant_context.py` assembles a role-scoped
   **context pack** and that pack is the only thing a model ever sees. Authorization therefore happens
@@ -570,7 +570,7 @@ disclaimer"** rules are all recorded in the plan and are *not* assumed.
 
 ---
 
-### Phase 8 — public marketing site, lead capture, SEO → `b40cefb`
+### Phase 8 — public marketing site, lead capture, SEO → `817fb8e`
 
 - **Decisions taken with the founder before any code (2026-08-22):** §3 was never supplied, and the
   answer was **ship the `ASSUMED` values as they stand, label nothing**, and **leave the 4 / 8 / 12
@@ -658,7 +658,7 @@ disclaimer"** rules are all recorded in the plan and are *not* assumed.
 
 ---
 
-### Phase 9 — clinical features → `235acf9`
+### Phase 9 — clinical features → `43693d9`
 
 Eight feature areas, committed in six stages rather than one drop. **623 backend tests** (was 408)
 and **121 Vitest** (was 87).
@@ -821,7 +821,7 @@ All of it lives in **one file**, `backend/app/core/clinical.py`.
 
 ---
 
-### Phase 10 — trust, operations and notifications → `701e969`
+### Phase 10 — trust, operations and notifications → `dcbd711`
 
 Nine feature areas over **ten commits**. **804 backend tests** (was 623) and **133 Vitest**
 (was 121). §4.10–4.18 was never supplied, exactly as §3, §2.3 and §4.2–4.9 were not — four for
