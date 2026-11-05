@@ -376,6 +376,10 @@ class CredentialKind(str, Enum):
 class AttachmentKind(str, Enum):
     DOSE_PHOTO = "dose_photo"
     NURSE_PHOTO = "nurse_photo"
+    # Phase 12 — an uploaded medical document. A PDF is stored byte-for-byte; an
+    # image is re-encoded like every photo, to drop the camera's metadata.
+    DOCUMENT_PDF = "document_pdf"
+    DOCUMENT_IMAGE = "document_image"
 
 
 class MedicationChangeKind(str, Enum):
@@ -425,6 +429,8 @@ class AuditAction(str, Enum):
     MEDICATION_CHANGED = "medication_changed"
     ALERT_RESOLVED = "alert_resolved"
     LOCATION_OUT_OF_RANGE = "location_out_of_range"
+    DOCUMENT_UPLOADED = "document_uploaded"
+    DOCUMENT_DELETED = "document_deleted"
 
 
 class ErasureStatus(str, Enum):
@@ -441,3 +447,39 @@ class OnboardingStepKey(str, Enum):
     THRESHOLDS = "thresholds"
     CARE_CIRCLE = "care_circle"
     NOTIFICATIONS = "notifications"
+
+
+# --- Phase 12: document intelligence ------------------------------------------
+
+
+class DocumentStatus(str, Enum):
+    """Where an uploaded document is in the pipeline.
+
+    `needs_manual` is a first-class outcome, not a failure: a handwritten page
+    that no engine could read is a true thing the admin queue must say.
+    """
+
+    UPLOADED = "uploaded"
+    EXTRACTING = "extracting"
+    EXTRACTED = "extracted"
+    NEEDS_MANUAL = "needs_manual"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+    FAILED = "failed"
+
+
+class DocumentType(str, Enum):
+    LAB_REPORT = "lab_report"
+    PRESCRIPTION = "prescription"
+    DISCHARGE_SUMMARY = "discharge_summary"
+    IMAGING_REPORT = "imaging_report"
+    OTHER = "other"
+    UNKNOWN = "unknown"
+
+
+class PageMethod(str, Enum):
+    """How a page's text was obtained. `none` means nothing could read it."""
+
+    TEXT_LAYER = "text_layer"
+    OCR = "ocr"
+    NONE = "none"

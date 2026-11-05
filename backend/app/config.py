@@ -52,6 +52,23 @@ class Settings(BaseSettings):
     # and a test suite must not start a background scheduler thread.
     reports_scheduler_enabled: bool = Field(default=True, alias="REPORTS_SCHEDULER_ENABLED")
 
+    # --- Intelligence layers (Phase 12) -------------------------------------
+    # Every one of these may be absent. With the defaults, uploads are stored
+    # and their text layers read, and a scanned page is marked "needs manual
+    # entry" rather than failing: OCR is an engine the platform can do without.
+    documents_enabled: bool = Field(default=True, alias="DOCUMENTS_ENABLED")
+    # `none` | `chandra_local` (llama-server or vLLM on our own hardware) |
+    # `chandra_api` (a hosted OpenAI-compatible endpoint; documents leave us).
+    ocr_engine: str = Field(default="none", alias="OCR_ENGINE")
+    chandra_base_url: str = Field(default="http://127.0.0.1:8080/v1", alias="CHANDRA_BASE_URL")
+    chandra_api_key: str = Field(default="", alias="CHANDRA_API_KEY")
+    chandra_model: str = Field(default="chandra-ocr-2", alias="CHANDRA_MODEL")
+    # Per page. A 4B vision model on a laptop GPU takes seconds to tens of seconds.
+    ocr_timeout_s: float = Field(default=120.0, alias="OCR_TIMEOUT_S")
+    # The background document worker. False under tests, for the same reason
+    # as the report scheduler: a suite must not start a thread per client.
+    intelligence_worker_enabled: bool = Field(default=True, alias="INTELLIGENCE_WORKER_ENABLED")
+
     @field_validator("cors_origins")
     @classmethod
     def _strip_origins(cls, value: str) -> str:

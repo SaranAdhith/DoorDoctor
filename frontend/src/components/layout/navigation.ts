@@ -7,6 +7,7 @@ import {
   CalendarRange,
   ClipboardList,
   CreditCard,
+  FileStack,
   FileText,
   FlaskConical,
   HeartPulse,
@@ -71,6 +72,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/family/care', label: 'Care', icon: HeartPulse },
         { to: '/family/labs', label: 'Tests', icon: FlaskConical },
+        { to: '/family/documents', label: 'Documents', icon: FileStack },
         { to: '/family/consults', label: 'Doctor consults', icon: Video },
       ],
     },
@@ -111,6 +113,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       title: 'Clinical',
       items: [
         { to: '/admin/labs', label: 'Labs', icon: FlaskConical },
+        { to: '/admin/documents', label: 'Documents', icon: FileStack },
         { to: '/admin/care', label: 'Care managers', icon: UsersRound },
       ],
     },

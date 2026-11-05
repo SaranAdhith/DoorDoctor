@@ -32,6 +32,7 @@ import { AdminVisitBoard } from './pages/admin/AdminVisitBoard'
 import { AdminZones } from './pages/admin/AdminZones'
 import { AdminCare } from './pages/admin/AdminCare'
 import { AdminEscalations } from './pages/admin/AdminEscalations'
+import { AdminDocuments } from './pages/admin/AdminDocuments'
 import { AdminLabs } from './pages/admin/AdminLabs'
 import { AdminAssistant } from './pages/admin/AdminAssistant'
 import { AdminLeads } from './pages/admin/AdminLeads'
@@ -48,6 +49,7 @@ import { FamilyNurseProfile } from './pages/family/FamilyNurseProfile'
 import { FamilyPrivacy } from './pages/family/FamilyPrivacy'
 import { FamilyCareTeam } from './pages/family/FamilyCareTeam'
 import { FamilyConsults } from './pages/family/FamilyConsults'
+import { FamilyDocuments } from './pages/family/FamilyDocuments'
 import { FamilyLabs } from './pages/family/FamilyLabs'
 import { FamilyAssistant } from './pages/family/FamilyAssistant'
 import { FamilyDashboard } from './pages/family/FamilyDashboard'
@@ -120,6 +122,7 @@ export default function App() {
         <Route path="care-circle" element={<FamilyCareCircle />} />
         <Route path="nurse/:nurseId" element={<FamilyNurseProfile />} />
         <Route path="labs" element={<FamilyLabs />} />
+        <Route path="documents" element={<FamilyDocuments />} />
         <Route path="consults" element={<FamilyConsults />} />
         <Route path="alerts" element={<FamilyAlerts />} />
         <Route path="assistant" element={<FamilyAssistant />} />
@@ -160,6 +163,7 @@ export default function App() {
         <Route path="care" element={<AdminCare />} />
         <Route path="escalations" element={<AdminEscalations />} />
         <Route path="labs" element={<AdminLabs />} />
+        <Route path="documents" element={<AdminDocuments />} />
         <Route path="visits" element={<AdminVisits />} />
         <Route path="board" element={<AdminVisitBoard />} />
         <Route path="alerts" element={<AdminAlerts />} />

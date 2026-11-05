@@ -31,6 +31,8 @@ from .enums import (
     DeliveryStatus,
     DeviceKind,
     DeviceStatus,
+    DocumentStatus,
+    DocumentType,
     ErasureStatus,
     EscalationStatus,
     EscalationStepStatus,
@@ -50,6 +52,7 @@ from .enums import (
     NurseStatus,
     OnboardingStepKey,
     OrganizationType,
+    PageMethod,
     PatientStatus,
     PaymentStatus,
     PillOrganiserStatus,
@@ -66,6 +69,7 @@ from .enums import (
     VisitStatus,
     VitalMetric,
 )
+from .document import Document, DocumentPage
 from .lab import LabOrder, LabResult
 from .lead import Lead
 from .medication import Medication, MedicationChange, MedicationLog, PillOrganiserFill
@@ -122,6 +126,10 @@ __all__ = [
     "DeviceKind",
     "DeviceReading",
     "DeviceStatus",
+    "Document",
+    "DocumentPage",
+    "DocumentStatus",
+    "DocumentType",
     "ErasureRequest",
     "ErasureStatus",
     "EscalationEvent",
@@ -160,6 +168,7 @@ __all__ = [
     "OnboardingStepKey",
     "Organization",
     "OrganizationType",
+    "PageMethod",
     "PasswordResetToken",
     "Patient",
     "PatientStatus",

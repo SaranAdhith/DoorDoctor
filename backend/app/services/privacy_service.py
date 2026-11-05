@@ -74,6 +74,10 @@ from ..models import (
 )
 from . import attachment_service, audit_service
 
+# Phase 12: the one import of the intelligence layer here — its datasets are
+# registered like every other, so the erasure promise covers them.
+from ..intelligence.documents import service as document_service  # noqa: E402
+
 ERASED_NAME = "Erased patient"
 
 
@@ -213,6 +217,14 @@ def _export_assistant(db: Session, patient_id: int) -> list[dict[str, Any]]:
 
 
 REGISTRY: tuple[DataSet, ...] = (
+    # First, so its rows go before the visits and attachments they point at.
+    DataSet(
+        "documents",
+        "Uploaded documents and the text read from them",
+        document_service.export_for_patient,
+        document_service.erase_for_patient,
+        covers=("Document",),
+    ),
     DataSet(
         "visits",
         "Visits and visit notes",

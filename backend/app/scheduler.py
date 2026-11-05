@@ -42,6 +42,26 @@ def _monthly_job() -> None:
         report_service.run_monthly(db)
 
 
+def _add_document_worker(scheduler: BackgroundScheduler) -> None:
+    """Phase 12 — read uploaded documents every few seconds. Imported here, not
+    at module top, so the scheduler module loads without the intelligence layer."""
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    from .core.intelligence import WORKER_INTERVAL_SECONDS
+    from .intelligence.documents import worker
+
+    scheduler.add_job(
+        worker.scheduled_tick,
+        IntervalTrigger(seconds=WORKER_INTERVAL_SECONDS),
+        id="document-worker",
+        replace_existing=True,
+        # One OCR run at a time: a second tick while Chandra is mid-page would
+        # only queue behind it on the same GPU.
+        max_instances=1,
+        coalesce=True,
+    )
+
+
 def start() -> None:
     """Start the background scheduler, unless it is switched off.
 
@@ -50,13 +70,24 @@ def start() -> None:
     """
     global _scheduler
 
-    if not settings.reports_scheduler_enabled:
+    reports = settings.reports_scheduler_enabled
+    # Phase 12: the document worker is its own switch. Both off is exactly the
+    # old "disabled by configuration" path, so the suite still starts no thread.
+    documents = settings.intelligence_worker_enabled and settings.documents_enabled
+    if not reports and not documents:
         logger.info("Report scheduler disabled by configuration")
         return
     if _scheduler is not None:  # pragma: no cover - defensive against a double start
         return
 
     _scheduler = BackgroundScheduler(timezone=IST)
+    if documents:
+        _add_document_worker(_scheduler)
+    if not reports:
+        _scheduler.start()
+        logger.info("Report scheduler disabled by configuration; document worker started")
+        return
+
     _scheduler.add_job(
         _weekly_job,
         CronTrigger(day_of_week="sun", hour=18, minute=0, timezone=IST),

@@ -13,5 +13,9 @@ weasyprint==69.0
 # EXIF. Already present as a WeasyPrint transitive; pinned here because we now
 # import it directly.
 pillow==12.3.0
+# Phase 12: a PDF's own text layer (exact, no OCR), and rendering scanned pages
+# for OCR. Both ship wheels for Windows and Linux; both are imported lazily.
+pypdf==6.21.4
+pypdfium2==5.14.0
 pytest==8.3.4
 apscheduler==3.11.3

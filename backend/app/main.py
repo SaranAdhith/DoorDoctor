@@ -27,6 +27,7 @@ from .routers import (
     care_circle,
     consults,
     devices,
+    documents,
     escalations,
     labs,
     leads,
@@ -130,6 +131,7 @@ api_prefix = settings.api_prefix
 app.include_router(auth.router, prefix=api_prefix)
 app.include_router(patients.router, prefix=api_prefix)
 app.include_router(attachments.router, prefix=api_prefix)
+app.include_router(documents.router, prefix=api_prefix)  # Phase 12
 app.include_router(visits.router, prefix=api_prefix)
 app.include_router(medications.router, prefix=api_prefix)
 app.include_router(alerts.router, prefix=api_prefix)

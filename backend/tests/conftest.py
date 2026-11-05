@@ -30,6 +30,10 @@ os.environ["GROQ_API_KEY"] = ""
 # Uploads are new I/O this phase. The suite writes photos into its own throwaway
 # directory, never into the source tree.
 os.environ["UPLOAD_ROOT"] = str(_TMP / "uploads")
+# Phase 12: no document worker thread, and no OCR engine — tests that need one
+# install `FakeOcrEngine` explicitly.
+os.environ["INTELLIGENCE_WORKER_ENABLED"] = "false"
+os.environ["OCR_ENGINE"] = "none"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402

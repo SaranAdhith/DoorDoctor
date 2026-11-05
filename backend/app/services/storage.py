@@ -25,10 +25,18 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from ..config import settings
 from ..core.exceptions import BadRequestError
+from ..core.intelligence import (
+    DOCUMENT_IMAGE_FORMATS,
+    DOCUMENT_IMAGE_MAX_EDGE_PX,
+    DOCUMENT_IMAGE_QUALITY,
+    DOCUMENT_MAX_BYTES,
+    PDF_MAGIC,
+    PDF_MAGIC_WINDOW,
+)
 from ..core.ops import (
     PHOTO_ALLOWED_FORMATS,
     PHOTO_MAX_BYTES,
@@ -102,6 +110,87 @@ def store_image(data: bytes, *, at: datetime | None = None) -> StoredFile:
         size_bytes=len(encoded),
         width=image.width,
         height=image.height,
+    )
+
+
+@dataclass(frozen=True)
+class StoredDocument:
+    """What a caller needs to write an `Attachment` row for a medical document."""
+
+    path: str
+    sha256: str
+    content_type: str  # "application/pdf" or "image/jpeg"
+    size_bytes: int
+    width: int | None
+    height: int | None
+
+    @property
+    def is_pdf(self) -> bool:
+        return self.content_type == "application/pdf"
+
+
+def is_pdf(data: bytes) -> bool:
+    """Whether these bytes are a PDF by their own marker, never by a filename."""
+    return PDF_MAGIC in data[:PDF_MAGIC_WINDOW]
+
+
+def store_document(data: bytes, *, at: datetime | None = None) -> StoredDocument:
+    """Validate and write an uploaded document (Phase 12). Raises `BadRequestError`.
+
+    Two different rules, decided by the bytes rather than the client:
+
+    - **A PDF is stored byte-for-byte.** Re-encoding would destroy the text
+      layer, which is the one exact source of a lab value this platform has.
+      Its structure (encryption, page count) is checked by the caller with
+      `pypdf` before this is reached; this module only owns bytes.
+    - **An image is re-encoded**, exactly as `store_image` does and for the same
+      reason — a photo of a prescription taken in the patient's home carries
+      the home's GPS in its EXIF. It is first turned upright from that EXIF,
+      since OCR reads a sideways phone photo badly, and kept much larger than a
+      dose photo so handwriting stays legible.
+
+    `store_image` is deliberately untouched by this function's existence.
+    """
+    if not data:
+        raise BadRequestError("The uploaded file was empty.")
+    if len(data) > DOCUMENT_MAX_BYTES:
+        raise BadRequestError(f"Documents must be under {DOCUMENT_MAX_BYTES // (1024 * 1024)} MB.")
+
+    if is_pdf(data):
+        encoded, content_type, extension, width, height = data, "application/pdf", "pdf", None, None
+    else:
+        try:
+            probe = Image.open(io.BytesIO(data))
+            probe.verify()
+            source_format = (probe.format or "").upper()
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise BadRequestError("Documents must be a PDF or a photo (JPEG, PNG or WEBP).") from exc
+        if source_format not in DOCUMENT_IMAGE_FORMATS:
+            raise BadRequestError("Documents must be a PDF or a photo (JPEG, PNG or WEBP).")
+
+        image = ImageOps.exif_transpose(Image.open(io.BytesIO(data))).convert("RGB")
+        image.thumbnail((DOCUMENT_IMAGE_MAX_EDGE_PX, DOCUMENT_IMAGE_MAX_EDGE_PX))
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=DOCUMENT_IMAGE_QUALITY, optimize=True)
+        encoded, content_type, extension = buffer.getvalue(), "image/jpeg", "jpg"
+        width, height = image.width, image.height
+
+    digest = hashlib.sha256(encoded).hexdigest()
+    stamp = at or now()
+    relative = f"documents/{stamp:%Y/%m}/{digest}.{extension}"
+
+    destination = root() / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if not destination.exists():
+        destination.write_bytes(encoded)
+
+    return StoredDocument(
+        path=relative,
+        sha256=digest,
+        content_type=content_type,
+        size_bytes=len(encoded),
+        width=width,
+        height=height,
     )
 
 

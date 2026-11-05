@@ -218,6 +218,7 @@ ERASURE_DESTROYS: Final[tuple[str, ...]] = (
     "Alerts, escalations and their contact timelines",
     "Reports, and every message exchanged with the assistant",
     "Care circle members and their contact details",
+    "Uploaded documents, and the text read from them",
 )
 
 ERASURE_RETAINS: Final[tuple[tuple[str, str], ...]] = (

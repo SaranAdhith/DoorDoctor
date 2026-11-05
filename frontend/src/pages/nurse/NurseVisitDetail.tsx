@@ -9,6 +9,7 @@ import { AlertCard } from '../../components/alerts/AlertCard'
 import { EmergencyBlock, Phq2Form } from '../../components/clinical'
 import { MedicationLogRow } from '../../components/forms/MedicationLogRow'
 import { DosePhotoButton, LocationBadge } from '../../components/trust'
+import { VisitDocumentsCard } from '../../components/documents/VisitDocumentsCard'
 import { VitalsForm } from '../../components/forms/VitalsForm'
 import { useAsync } from '../../hooks/useAsync'
 import { formatDateTime, formatNumber, formatTime } from '../../lib/format'
@@ -473,6 +474,12 @@ export function NurseVisitDetail() {
           />
         )}
       </Card>
+
+      {/* Phase 12 — a self-contained card with its own fetch; it cannot affect
+          the rest of this screen if the documents API is off or failing. */}
+      {data.patient_id ? (
+        <VisitDocumentsCard visitId={data.id} patientId={data.patient_id} inProgress={isInProgress} />
+      ) : null}
 
       {/* Notes */}
       <Card title="Observations">
