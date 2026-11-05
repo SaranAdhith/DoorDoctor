@@ -49,7 +49,8 @@ alongside it. Both sit outside this repo, on the founder's machine. Inside the r
 | 8 | Public marketing site + leads | ✅ done — `817fb8e` |
 | 9 | Clinical features (labs → escalation) | ✅ done — `43693d9` |
 | 10 | Trust, GPS, medication, care circle, consent, ops, notifications | ✅ done — `dcbd711` |
-| 11 | Multi-family, hardening, tests, docs | ⬜ **next** |
+| 11 | Multi-family, hardening, tests, docs | ⬜ after Phase 12 |
+| 12 | Intelligence layers (documents, routing, risk) — **built before 11** | 🟨 Stages 0–1 done; Stage 2 next — see `phase-12.md` |
 
 Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats a broken phase 11.
 
