@@ -18,8 +18,9 @@ from ..config import settings
 from ..core.dependencies import AdminUser, CurrentUser, DbSession, authorize_patient
 from ..core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from ..core.intelligence import DOCUMENT_MAX_BYTES
-from ..intelligence.documents import access, intake, service
-from ..models import DocumentStatus, DocumentType
+from ..intelligence.documents import access, intake, notify, service, verification
+from ..intelligence.documents.schemas import FactCreate, FactDecision, RejectRequest, VerifyRequest
+from ..models import DocumentStatus, DocumentType, ExtractedFact
 
 
 def _documents_enabled() -> None:
@@ -155,3 +156,93 @@ def admin_list(
     status_filter: DocumentStatus | None = Query(default=None, alias="status"),
 ) -> list[dict[str, Any]]:
     return [service.serialize(d, current_user) for d in service.list_for_admin(db, status=status_filter)]
+
+
+# --- Stage 2: review --------------------------------------------------------------
+
+
+@router.get("/admin/documents/queue", response_model=list[dict], summary="Documents waiting for review (admin)")
+def review_queue(db: DbSession, current_user: AdminUser) -> list[dict[str, Any]]:
+    return [service.serialize(d, current_user) for d in service.review_queue(db)]
+
+
+def _fact(db, document_id: int, fact_id: int) -> ExtractedFact:  # noqa: ANN001
+    fact = db.get(ExtractedFact, fact_id)
+    if fact is None or fact.document_id != document_id:
+        raise NotFoundError("Fact not found.")
+    return fact
+
+
+@router.patch(
+    "/documents/{document_id}/facts/{fact_id}",
+    response_model=dict,
+    summary="Confirm, edit, reject or reopen a fact (admin)",
+)
+def decide_fact(
+    document_id: int, fact_id: int, body: FactDecision, db: DbSession, current_user: AdminUser
+) -> dict[str, Any]:
+    document = access.authorize_document(db, current_user, document_id)
+    fact = verification.decide(
+        db,
+        document,
+        _fact(db, document_id, fact_id),
+        action=body.action,
+        actor=current_user,
+        changes={k: v for k, v in body.changes().items() if k != "action"},
+    )
+    return service.serialize_fact(fact, with_review=True)
+
+
+@router.post(
+    "/documents/{document_id}/facts",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a fact by hand (admin)",
+)
+def add_fact(document_id: int, body: FactCreate, db: DbSession, current_user: AdminUser) -> dict[str, Any]:
+    document = access.authorize_document(db, current_user, document_id)
+    fact = verification.add(db, document, actor=current_user, fields=body.changes() | {"kind": body.kind, "label": body.label})
+    return service.serialize_fact(fact, with_review=True)
+
+
+@router.post("/documents/{document_id}/verify", response_model=dict, summary="Verify a document (admin)")
+def verify(document_id: int, body: VerifyRequest, db: DbSession, current_user: AdminUser) -> dict[str, Any]:
+    document = access.authorize_document(db, current_user, document_id)
+    document = verification.verify(
+        db, document, actor=current_user, doc_type=body.doc_type, document_date=body.document_date
+    )
+    return service.serialize_with_pages(document, current_user)
+
+
+@router.post("/documents/{document_id}/reject", response_model=dict, summary="Keep a document out of the record (admin)")
+def reject(document_id: int, body: RejectRequest, db: DbSession, current_user: AdminUser) -> dict[str, Any]:
+    document = access.authorize_document(db, current_user, document_id)
+    document = verification.reject(db, document, actor=current_user, reason=body.reason)
+    return service.serialize_with_pages(document, current_user)
+
+
+@router.post(
+    "/documents/{document_id}/extract",
+    response_model=dict,
+    summary="Propose facts again from the stored text (admin)",
+)
+def extract_again(document_id: int, db: DbSession, current_user: AdminUser) -> dict[str, Any]:
+    document = access.authorize_document(db, current_user, document_id)
+    verification.re_extract(db, document)
+    db.refresh(document)
+    return service.serialize_with_pages(document, current_user)
+
+
+# --- notifications for the Documents menu item -------------------------------------
+
+
+@router.get("/documents/notifications/unseen", response_model=dict, summary="Unseen document updates")
+def unseen(db: DbSession, current_user: CurrentUser) -> dict[str, int]:
+    """The number on the Documents menu item. Every role: a nurse hears about
+    their own uploads and documents verified for patients on their visit list."""
+    return {"count": notify.unseen_count(db, current_user)}
+
+
+@router.post("/documents/notifications/seen", response_model=dict, summary="Mark document updates as seen")
+def seen(db: DbSession, current_user: CurrentUser) -> dict[str, int]:
+    return {"marked": notify.mark_seen(db, current_user)}

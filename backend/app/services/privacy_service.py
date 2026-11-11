@@ -220,10 +220,10 @@ REGISTRY: tuple[DataSet, ...] = (
     # First, so its rows go before the visits and attachments they point at.
     DataSet(
         "documents",
-        "Uploaded documents and the text read from them",
+        "Uploaded documents, the text read from them, and the facts taken from them",
         document_service.export_for_patient,
         document_service.erase_for_patient,
-        covers=("Document",),
+        covers=("Document", "ExtractedFact"),
     ),
     DataSet(
         "visits",

@@ -10,7 +10,11 @@ import { ApiError, api, getToken, request } from './client'
 import type {
   DocumentFile,
   DocumentStatus,
+  DocumentType,
   DocumentUploadOptions,
+  ExtractedFact,
+  FactAction,
+  FactFields,
   MedicalDocument,
   MedicalDocumentDetail,
 } from '../types/intelligence'
@@ -58,6 +62,28 @@ export const documentsApi = {
   reprocess: (documentId: number) => api.post<MedicalDocument>(`/documents/${documentId}/reprocess`),
   adminList: (status?: DocumentStatus) =>
     api.get<MedicalDocument[]>(`/admin/documents${status ? `?status=${status}` : ''}`),
+
+  // Stage 2 — review
+  queue: () => api.get<MedicalDocument[]>('/admin/documents/queue'),
+  decideFact: (documentId: number, factId: number, action: FactAction, changes: FactFields = {}) =>
+    api.patch<ExtractedFact>(`/documents/${documentId}/facts/${factId}`, { action, ...changes }),
+  addFact: (documentId: number, fields: FactFields & { label: string }) =>
+    api.post<ExtractedFact>(`/documents/${documentId}/facts`, fields),
+  verify: (documentId: number, body: { doc_type?: DocumentType; document_date?: string | null } = {}) =>
+    api.post<MedicalDocumentDetail>(`/documents/${documentId}/verify`, body),
+  reject: (documentId: number, reason: string) =>
+    api.post<MedicalDocumentDetail>(`/documents/${documentId}/reject`, { reason }),
+  extractAgain: (documentId: number) => api.post<MedicalDocumentDetail>(`/documents/${documentId}/extract`),
+}
+
+/** The stored file as an object URL, for showing an image beside its facts. */
+export async function documentObjectUrl(file: DocumentFile): Promise<string> {
+  const token = getToken()
+  const response = await fetch(`${BASE_URL}${file.url}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) throw new Error('Could not load that document.')
+  return URL.createObjectURL(await response.blob())
 }
 
 /** Open the stored file in a new tab, fetched with the bearer token. */

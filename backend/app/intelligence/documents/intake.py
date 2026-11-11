@@ -28,7 +28,7 @@ from ...models import (
     Visit,
 )
 from ...services import audit_service, storage
-from . import pdf_text
+from . import notify, pdf_text
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
 
@@ -107,6 +107,7 @@ def upload(
             + "."
         ),
     )
+    notify.document_event(db, document, notify.Event.UPLOADED, actor=uploader)
     db.commit()
     db.refresh(document)
     return document

@@ -193,6 +193,9 @@ export function DocumentRow({
             {DOCUMENT_TYPE_LABELS[document.doc_type]} · {formatDateTime(document.created_at)}
             {document.uploaded_by_name ? ` · added by ${document.uploaded_by_me ? 'you' : document.uploaded_by_name}` : ''}
             {document.page_count ? ` · ${document.page_count} page${document.page_count > 1 ? 's' : ''}` : ''}
+            {document.status === 'verified' && document.facts_in_record > 0
+              ? ` · ${document.facts_in_record} detail${document.facts_in_record > 1 ? 's' : ''} added to the record`
+              : ''}
           </p>
         </div>
       </div>

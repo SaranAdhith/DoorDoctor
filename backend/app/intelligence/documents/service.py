@@ -7,6 +7,7 @@ read from them without `privacy_service` knowing how either is stored.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -18,11 +19,13 @@ from ...models import (
     Document,
     DocumentPage,
     DocumentStatus,
+    ExtractedFact,
+    FactStatus,
     User,
     UserRole,
 )
 from ...services import attachment_service, audit_service
-from . import access
+from . import access, notify
 
 #: What a family member reads in place of a status code. The nurse and admin
 #: screens show the code itself alongside.
@@ -42,6 +45,7 @@ def _loaded():
         selectinload(Document.attachment),
         selectinload(Document.uploader),
         selectinload(Document.pages),
+        selectinload(Document.facts),
     )
 
 
@@ -58,6 +62,16 @@ def list_for_admin(db: Session, *, status: DocumentStatus | None = None, limit: 
     query = _loaded().order_by(Document.created_at, Document.id).limit(limit)
     if status is not None:
         query = query.where(Document.status == status)
+    return list(db.scalars(query))
+
+
+#: What the admin review queue shows: read, and waiting for a person.
+QUEUE: tuple[DocumentStatus, ...] = (DocumentStatus.EXTRACTED, DocumentStatus.NEEDS_MANUAL)
+
+
+def review_queue(db: Session, *, limit: int = 100) -> list[Document]:
+    """Oldest first: the family who uploaded first has waited longest."""
+    query = _loaded().where(Document.status.in_(QUEUE)).order_by(Document.created_at, Document.id).limit(limit)
     return list(db.scalars(query))
 
 
@@ -81,6 +95,7 @@ def remove(db: Session, document: Document, *, actor: User) -> None:
     attachment = document.attachment
     patient_id = document.patient_id
     document_id = document.id
+    notify.document_event(db, document, notify.Event.REMOVED, actor=actor)
     db.delete(document)  # pages go with it (delete-orphan)
     db.flush()
     if attachment is not None:
@@ -124,7 +139,11 @@ def serialize(document: Document, user: User) -> dict[str, Any]:
         else None,
         "can_delete": access.can_delete(user, document),
     }
+    in_record = [f for f in document.facts if f.status in _IN_RECORD]
+    body["facts_in_record"] = len(in_record) if document.status == DocumentStatus.VERIFIED else 0
     if user.role == UserRole.ADMIN:
+        body["facts_total"] = len(document.facts)
+        body["facts_pending"] = sum(1 for f in document.facts if f.status == FactStatus.PROPOSED)
         body["error"] = document.error
         body["attempts"] = document.attempts
         body["pages_needing_manual_entry"] = [
@@ -133,8 +152,49 @@ def serialize(document: Document, user: User) -> dict[str, Any]:
     return body
 
 
+_IN_RECORD = frozenset({FactStatus.CONFIRMED, FactStatus.EDITED, FactStatus.ADDED})
+
+
+def serialize_fact(fact: ExtractedFact, *, with_review: bool) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "id": fact.id,
+        "page_no": fact.page_no,
+        "kind": fact.kind.value,
+        "label": fact.label,
+        "value_text": fact.value_text,
+        "value_num": fact.value_num,
+        "unit": fact.unit,
+        "ref_low": fact.ref_low,
+        "ref_high": fact.ref_high,
+        "out_of_range": fact.out_of_range,
+        "observed_on": fact.observed_on,
+        "status": fact.status.value,
+    }
+    if with_review:
+        body.update(
+            source=fact.source.value,
+            source_quote=fact.source_quote,
+            original=json.loads(fact.original_json) if fact.original_json else None,
+            reviewed_at=fact.reviewed_at,
+        )
+    return body
+
+
+def visible_facts(document: Document, user: User) -> list[ExtractedFact]:
+    """Admins see every fact, decided or not. Everyone else sees only facts a
+    person put in the record, and only once the document is verified."""
+    if user.role == UserRole.ADMIN:
+        return list(document.facts)
+    if document.status != DocumentStatus.VERIFIED:
+        return []
+    return [f for f in document.facts if f.status in _IN_RECORD]
+
+
 def serialize_with_pages(document: Document, user: User) -> dict[str, Any]:
     body = serialize(document, user)
+    body["facts"] = [
+        serialize_fact(f, with_review=user.role == UserRole.ADMIN) for f in visible_facts(document, user)
+    ]
     if access.can_see_page_text(user):
         body["pages"] = [
             {
@@ -164,6 +224,18 @@ def export_for_patient(db: Session, patient_id: int) -> list[dict[str, Any]]:
             "status": d.status.value,
             "page_count": d.page_count,
             "uploaded_at": d.created_at.isoformat() if d.created_at else None,
+            # Only what a person put in the record; proposals are not the patient's data.
+            "facts": [
+                {
+                    "label": f.label,
+                    "value": f.value_text,
+                    "unit": f.unit,
+                    "reference": [f.ref_low, f.ref_high],
+                    "observed_on": f.observed_on.isoformat() if f.observed_on else None,
+                }
+                for f in d.facts
+                if f.status in _IN_RECORD
+            ],
         }
         for d in documents
     ]
@@ -176,6 +248,7 @@ def erase_for_patient(db: Session, patient_id: int) -> int:
     ids = list(db.scalars(select(Document.id).where(Document.patient_id == patient_id)))
     if not ids:
         return 0
+    db.execute(delete(ExtractedFact).where(ExtractedFact.document_id.in_(ids)))
     db.execute(delete(DocumentPage).where(DocumentPage.document_id.in_(ids)))
     db.execute(delete(Document).where(Document.id.in_(ids)))
     return len(ids)

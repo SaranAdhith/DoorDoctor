@@ -35,6 +35,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Shown in the mobile bottom bar. At most four per role. */
   primary?: boolean
+  /** Shows a live count beside the item. Phase 12: unseen document updates. */
+  badge?: 'documents'
 }
 
 export interface NavSection {
@@ -72,7 +74,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       items: [
         { to: '/family/care', label: 'Care', icon: HeartPulse },
         { to: '/family/labs', label: 'Tests', icon: FlaskConical },
-        { to: '/family/documents', label: 'Documents', icon: FileStack },
+        { to: '/family/documents', label: 'Documents', icon: FileStack, badge: 'documents' },
         { to: '/family/consults', label: 'Doctor consults', icon: Video },
       ],
     },
@@ -113,7 +115,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       title: 'Clinical',
       items: [
         { to: '/admin/labs', label: 'Labs', icon: FlaskConical },
-        { to: '/admin/documents', label: 'Documents', icon: FileStack },
+        { to: '/admin/documents', label: 'Documents', icon: FileStack, badge: 'documents' },
         { to: '/admin/care', label: 'Care managers', icon: UsersRound },
       ],
     },

@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 const FOCUSABLE = [
   'a[href]',
@@ -21,6 +21,16 @@ export function useFocusTrap(
   active: boolean,
   onClose: () => void,
 ): void {
+  // The latest `onClose`, read when Escape is pressed. Kept in a ref so the
+  // effect below runs only when the overlay opens or closes. Depending on
+  // `onClose` itself re-ran it on every render for any caller passing an inline
+  // arrow, and each re-run moved focus back to the first control: typing in a
+  // dialog's text field lost focus after the first character.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!active) return
 
@@ -38,7 +48,7 @@ export function useFocusTrap(
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (event.key !== 'Tab') return
@@ -71,5 +81,5 @@ export function useFocusTrap(
       document.body.style.overflow = previousOverflow
       previouslyFocused?.focus?.()
     }
-  }, [active, containerRef, onClose])
+  }, [active, containerRef])
 }

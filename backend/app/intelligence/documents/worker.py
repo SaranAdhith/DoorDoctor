@@ -42,7 +42,7 @@ from ...core.intelligence import (
 from ...database import SessionLocal, now
 from ...models import Document, DocumentPage, DocumentStatus, PageMethod
 from ...services import storage
-from . import ocr_engine, pdf_text, render
+from . import extraction, notify, ocr_engine, pdf_text, render
 
 logger = logging.getLogger("doordoctor.documents")
 
@@ -150,6 +150,7 @@ def process(db: Session, document: Document) -> Document:
         if document.attempts >= EXTRACTION_MAX_ATTEMPTS:
             document.status = DocumentStatus.FAILED
             document.error = "The file could not be read. Please upload it again or enter it by hand."
+            notify.document_event(db, document, notify.Event.FAILED)
         else:
             document.status = DocumentStatus.UPLOADED  # retried on the next tick
         db.commit()
@@ -162,6 +163,19 @@ def process(db: Session, document: Document) -> Document:
     db.flush()
     document.pages.extend(pages)
 
+    db.flush()
+
+    # Stage 2: propose facts from the text just read. A failure here costs the
+    # facts, never the pages — the admin can still read the text and add facts
+    # by hand, or press "Extract again" once the cause is fixed.
+    # A savepoint, so a half-finished extraction rolls back alone and the pages
+    # already flushed above are kept.
+    try:
+        with db.begin_nested():
+            extraction.extract_document(db, document)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("fact extraction failed for document %d: %s", document.id, type(exc).__name__)
+
     document.page_count = len(pages)
     document.status = (
         DocumentStatus.NEEDS_MANUAL
@@ -170,6 +184,7 @@ def process(db: Session, document: Document) -> Document:
     )
     document.error = None
     document.extracted_at = now()
+    notify.document_event(db, document, notify.Event.READ)
     db.commit()
     db.refresh(document)
     return document

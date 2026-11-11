@@ -73,3 +73,33 @@ OCR_PROMPT: Final = (
     "Do not summarise, correct, translate or add anything."
 )
 OCR_MAX_TOKENS: Final = 4096
+
+# --------------------------------------------------------------------------
+# Layer 1a — facts and verification (Stage 2)
+# --------------------------------------------------------------------------
+
+#: Column headers that identify a lab table's columns. Matched case-insensitively
+#: as substrings, so "Test Name", "Observed Value" and "Biological Ref. Interval"
+#: all land. Order inside each tuple does not matter.
+TABLE_NAME_HEADERS: Final[tuple[str, ...]] = ("test", "investigation", "parameter", "analyte", "description", "name")
+TABLE_RESULT_HEADERS: Final[tuple[str, ...]] = ("result", "value", "observed", "reading")
+TABLE_UNIT_HEADERS: Final[tuple[str, ...]] = ("unit",)
+TABLE_REFERENCE_HEADERS: Final[tuple[str, ...]] = ("reference", "ref", "range", "normal", "interval", "biological")
+
+#: The LLM extraction call. A page of a lab report is a few hundred tokens of
+#: JSON out; the timeout is generous because this runs in the worker, not in a
+#: request anyone is waiting on.
+EXTRACTION_TIMEOUT_S: Final = 30.0
+EXTRACTION_MAX_TOKENS: Final = 2000
+#: The page text sent to the model is capped: a 30-page discharge summary is
+#: extracted page by page, never as one prompt.
+EXTRACTION_MAX_PAGE_CHARS: Final = 12_000
+#: A runaway answer is truncated rather than trusted.
+EXTRACTION_MAX_FACTS_PER_PAGE: Final = 40
+
+#: Field limits, shared by extraction, the admin edit form and the schema.
+FACT_LABEL_MAX: Final = 120
+FACT_VALUE_MAX: Final = 200
+FACT_UNIT_MAX: Final = 30
+FACT_QUOTE_MAX: Final = 300
+REJECTION_REASON_MAX: Final = 255

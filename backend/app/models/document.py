@@ -26,6 +26,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum as SAEnum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -35,7 +36,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base, now
-from .enums import DocumentStatus, DocumentType, PageMethod, UserRole
+from .enums import DocumentStatus, DocumentType, FactKind, FactSource, FactStatus, PageMethod, UserRole
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .attachment import Attachment
@@ -100,6 +101,11 @@ class Document(Base):
         cascade="all, delete-orphan",
         order_by="DocumentPage.page_no",
     )
+    facts: Mapped[list["ExtractedFact"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        order_by="ExtractedFact.id",
+    )
 
     @property
     def is_pdf(self) -> bool:
@@ -124,3 +130,64 @@ class DocumentPage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, nullable=False)
 
     document: Mapped["Document"] = relationship(back_populates="pages")
+
+
+class ExtractedFact(Base):
+    """One fact read off a document (Stage 2): a lab value, a medicine, a diagnosis.
+
+    **Proposed is not recorded.** A fact is software's reading of a page until an
+    admin confirms, edits or adds it; only those three statuses ever reach a
+    nurse, a family or a summary. `original_json` keeps what software first
+    proposed when an admin edits it, so "the OCR said DRS, the admin corrected it
+    to ORS" stays visible rather than being overwritten.
+
+    `source_quote` is the exact text the fact came from on the page, so the
+    reviewer can find it, and `patient_id` is stored directly (not only through
+    the document) so the privacy registry and later layers can query facts by
+    patient without a join.
+    """
+
+    __tablename__ = "extracted_facts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True, nullable=False)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True, nullable=False)
+    page_no: Mapped[Optional[int]] = mapped_column(Integer)
+
+    kind: Mapped[FactKind] = mapped_column(SAEnum(FactKind, values_callable=_values), nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    #: As written on the page ("8.1", "500 mg 1-0-1", "Negative").
+    value_text: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    #: The numeric reading, when there is one. Never guessed from words.
+    value_num: Mapped[Optional[float]] = mapped_column(Float)
+    unit: Mapped[str] = mapped_column(String(30), default="", nullable=False)
+    ref_low: Mapped[Optional[float]] = mapped_column(Float)
+    ref_high: Mapped[Optional[float]] = mapped_column(Float)
+    observed_on: Mapped[Optional[date]] = mapped_column(Date)
+    source_quote: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+
+    source: Mapped[FactSource] = mapped_column(SAEnum(FactSource, values_callable=_values), nullable=False)
+    status: Mapped[FactStatus] = mapped_column(
+        SAEnum(FactStatus, values_callable=_values),
+        default=FactStatus.PROPOSED,
+        index=True,
+        nullable=False,
+    )
+    original_json: Mapped[Optional[str]] = mapped_column(Text)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now, nullable=False)
+
+    document: Mapped["Document"] = relationship(back_populates="facts")
+
+    @property
+    def out_of_range(self) -> bool | None:
+        """Whether the number sits outside the range printed beside it. `None`
+        when either is missing: no range is not the same as in range."""
+        if self.value_num is None or (self.ref_low is None and self.ref_high is None):
+            return None
+        if self.ref_low is not None and self.value_num < self.ref_low:
+            return True
+        if self.ref_high is not None and self.value_num > self.ref_high:
+            return True
+        return False

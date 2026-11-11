@@ -148,8 +148,19 @@ class ChandraEngine:
             return None
 
         try:
-            text = response.json()["choices"][0]["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError):
+            message = response.json()["choices"][0]["message"]
+            text = message.get("content")
+            # Chandra OCR 2 is built on a model with a "thinking" mode, and some
+            # servers (LM Studio among them) file the entire transcription under
+            # `reasoning_content` and leave `content` empty. The transcription is
+            # the same text either way; only the slot differs. Read the answer
+            # slot first, and the thinking slot only when the answer is empty.
+            if not isinstance(text, str) or not text.strip():
+                fallback = message.get("reasoning_content") or message.get("reasoning")
+                if isinstance(fallback, str) and fallback.strip():
+                    logger.info("OCR answer arrived in the reasoning slot; using it")
+                    text = fallback
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             logger.info("OCR call returned a body this client could not read")
             return None
 

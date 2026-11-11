@@ -3,7 +3,9 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 import { cn } from '../../lib/cn'
 import type { Role } from '../../types'
+import { useDocumentUpdates } from '../../hooks/useDocumentUpdates'
 import { Logo } from './Logo'
+import { NavBadge } from './NavBadge'
 import { NAV_BY_ROLE } from './navigation'
 
 interface Props {
@@ -16,6 +18,8 @@ interface Props {
 
 export function Sidebar({ role, collapsed, onToggle, onNavigate }: Props) {
   const sections = NAV_BY_ROLE[role]
+  // Only polled for roles whose menu has a Documents item.
+  const documentUpdates = useDocumentUpdates(sections.some((s) => s.items.some((i) => i.badge === 'documents')))
 
   return (
     <div className="flex h-full flex-col border-r border-border-subtle bg-surface-raised">
@@ -90,11 +94,22 @@ export function Sidebar({ role, collapsed, onToggle, onNavigate }: Props) {
                   >
                     {({ isActive }) => (
                       <>
-                        <item.icon
-                          className={cn('h-4.5 w-4.5 shrink-0', isActive && 'text-brand-600')}
-                          aria-hidden="true"
-                        />
+                        <span className="relative shrink-0">
+                          <item.icon
+                            className={cn('h-4.5 w-4.5 shrink-0', isActive && 'text-brand-600')}
+                            aria-hidden="true"
+                          />
+                          {collapsed && item.badge === 'documents' && documentUpdates > 0 && (
+                            <span
+                              className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-brand-600"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </span>
                         {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
+                        {!collapsed && item.badge === 'documents' && (
+                          <NavBadge count={documentUpdates} label="document updates" />
+                        )}
                       </>
                     )}
                   </NavLink>

@@ -32,6 +32,7 @@ import { AdminVisitBoard } from './pages/admin/AdminVisitBoard'
 import { AdminZones } from './pages/admin/AdminZones'
 import { AdminCare } from './pages/admin/AdminCare'
 import { AdminEscalations } from './pages/admin/AdminEscalations'
+import { AdminDocumentReview } from './pages/admin/AdminDocumentReview'
 import { AdminDocuments } from './pages/admin/AdminDocuments'
 import { AdminLabs } from './pages/admin/AdminLabs'
 import { AdminAssistant } from './pages/admin/AdminAssistant'
@@ -164,6 +165,7 @@ export default function App() {
         <Route path="escalations" element={<AdminEscalations />} />
         <Route path="labs" element={<AdminLabs />} />
         <Route path="documents" element={<AdminDocuments />} />
+        <Route path="documents/:documentId" element={<AdminDocumentReview />} />
         <Route path="visits" element={<AdminVisits />} />
         <Route path="board" element={<AdminVisitBoard />} />
         <Route path="alerts" element={<AdminAlerts />} />

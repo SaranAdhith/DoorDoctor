@@ -76,6 +76,8 @@ class NotificationType(str, Enum):
     ALERT = "alert"
     VISIT = "visit"
     SYSTEM = "system"
+    # Phase 12: a document moved through upload → read → checked. In-app only.
+    DOCUMENT = "document"
 
 
 class VitalMetric(str, Enum):
@@ -431,6 +433,8 @@ class AuditAction(str, Enum):
     LOCATION_OUT_OF_RANGE = "location_out_of_range"
     DOCUMENT_UPLOADED = "document_uploaded"
     DOCUMENT_DELETED = "document_deleted"
+    DOCUMENT_VERIFIED = "document_verified"
+    DOCUMENT_REJECTED = "document_rejected"
 
 
 class ErasureStatus(str, Enum):
@@ -483,3 +487,36 @@ class PageMethod(str, Enum):
     TEXT_LAYER = "text_layer"
     OCR = "ocr"
     NONE = "none"
+
+
+class FactKind(str, Enum):
+    """What one extracted fact is about. Deliberately coarse: the admin decides
+    what it means, the platform only sorts it."""
+
+    LAB_VALUE = "lab_value"
+    VITAL_SIGN = "vital_sign"
+    MEDICATION = "medication"
+    DIAGNOSIS = "diagnosis"
+    ALLERGY = "allergy"
+    INSTRUCTION = "instruction"
+    OTHER = "other"
+
+
+class FactStatus(str, Enum):
+    """A fact is `proposed` by software and becomes part of the record only as
+    `confirmed`, `edited` or `added` — each of which is a person's decision."""
+
+    PROPOSED = "proposed"
+    CONFIRMED = "confirmed"
+    EDITED = "edited"
+    REJECTED = "rejected"
+    ADDED = "added"
+
+
+class FactSource(str, Enum):
+    """Who proposed the fact. A table row is read exactly as the page laid it
+    out; an LLM fact is an interpretation; a manual fact is an admin's entry."""
+
+    TABLE = "table"
+    LLM = "llm"
+    MANUAL = "manual"

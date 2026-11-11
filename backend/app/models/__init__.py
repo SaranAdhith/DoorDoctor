@@ -37,6 +37,9 @@ from .enums import (
     EscalationStatus,
     EscalationStepStatus,
     EscalationTrigger,
+    FactKind,
+    FactSource,
+    FactStatus,
     HospitalBookingStatus,
     InvoiceLineKind,
     InvoiceStatus,
@@ -69,7 +72,7 @@ from .enums import (
     VisitStatus,
     VitalMetric,
 )
-from .document import Document, DocumentPage
+from .document import Document, DocumentPage, ExtractedFact
 from .lab import LabOrder, LabResult
 from .lead import Lead
 from .medication import Medication, MedicationChange, MedicationLog, PillOrganiserFill
@@ -130,6 +133,10 @@ __all__ = [
     "DocumentPage",
     "DocumentStatus",
     "DocumentType",
+    "ExtractedFact",
+    "FactKind",
+    "FactSource",
+    "FactStatus",
     "ErasureRequest",
     "ErasureStatus",
     "EscalationEvent",

@@ -549,6 +549,23 @@ def test_chandra_sends_the_image_and_reads_the_answer(monkeypatch):
     assert "Authorization" not in seen["headers"], "no key configured, no header sent"
 
 
+def test_chandra_reads_the_reasoning_slot_when_the_answer_slot_is_empty(monkeypatch):
+    """LM Studio can file Chandra's whole transcription as 'thinking'. Seen on a
+    real handwritten prescription: `content` was "" and the text was all in
+    `reasoning_content`, so the page was wrongly marked for manual entry."""
+    body = {"choices": [{"message": {"content": "", "reasoning_content": "<p>Rx: 5% Dextrose stat</p>"}}]}
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: _Response(body=body))
+    engine = ChandraEngine(base_url="http://127.0.0.1:1234/v1", model="chandra-ocr-2")
+    assert engine.extract(b"img", content_type="image/jpeg").text == "<p>Rx: 5% Dextrose stat</p>"
+
+
+def test_chandra_prefers_the_answer_slot_when_both_are_filled(monkeypatch):
+    body = {"choices": [{"message": {"content": "the page", "reasoning_content": "I will transcribe… the page"}}]}
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: _Response(body=body))
+    engine = ChandraEngine(base_url="http://127.0.0.1:1234/v1", model="chandra-ocr-2")
+    assert engine.extract(b"img", content_type="image/jpeg").text == "the page"
+
+
 @pytest.mark.parametrize(
     "behaviour",
     [

@@ -1,10 +1,12 @@
 import { FileText } from 'lucide-react'
+import { useEffect } from 'react'
 
 import { documentsApi } from '../../api/documents'
 import { patientsApi } from '../../api/patients'
 import { DocumentRow, DocumentUploadForm } from '../../components/documents'
 import { Button, Card, EmptyState, ErrorState, LoadingScreen, useToast } from '../../components/ui'
 import { useAsync } from '../../hooks/useAsync'
+import { markDocumentsSeen } from '../../hooks/useDocumentUpdates'
 import type { Patient } from '../../types'
 import type { DocumentUploadOptions, MedicalDocument } from '../../types/intelligence'
 
@@ -25,6 +27,11 @@ export function FamilyDocuments() {
     async () => (patient ? documentsApi.list(patient.id) : []),
     [patient?.id],
   )
+
+  // Opening this page is reading the updates: the menu count clears.
+  useEffect(() => {
+    void markDocumentsSeen()
+  }, [])
 
   async function upload(file: File, options: DocumentUploadOptions) {
     if (!patient) return

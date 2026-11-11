@@ -50,10 +50,14 @@ export interface MedicalDocument {
   verified_at: string | null
   file: DocumentFile | null
   can_delete: boolean
+  /** Facts a person put in the record; 0 until the document is verified. */
+  facts_in_record: number
   /** Admin only. */
   error?: string | null
   attempts?: number
   pages_needing_manual_entry?: number[]
+  facts_total?: number
+  facts_pending?: number
 }
 
 export interface DocumentPageText {
@@ -68,9 +72,65 @@ export interface DocumentPageText {
 /** `pages` is present for admins only — unverified machine text goes nowhere else. */
 export interface MedicalDocumentDetail extends MedicalDocument {
   pages?: DocumentPageText[]
+  /** Admins: every fact. Others: decided facts of a verified document only. */
+  facts: ExtractedFact[]
 }
 
 export interface DocumentUploadOptions {
   title?: string
   docType?: DocumentType
 }
+
+// --- Stage 2: facts and verification -----------------------------------------
+
+export type FactKind =
+  | 'lab_value'
+  | 'vital_sign'
+  | 'medication'
+  | 'diagnosis'
+  | 'allergy'
+  | 'instruction'
+  | 'other'
+
+export type FactStatus = 'proposed' | 'confirmed' | 'edited' | 'rejected' | 'added'
+
+export type FactSource = 'table' | 'llm' | 'manual'
+
+export interface ExtractedFact {
+  id: number
+  page_no: number | null
+  kind: FactKind
+  label: string
+  value_text: string
+  value_num: number | null
+  unit: string
+  ref_low: number | null
+  ref_high: number | null
+  /** `null` when there's no number or no range to compare it with. */
+  out_of_range: boolean | null
+  observed_on: string | null
+  status: FactStatus
+  /** Admin only. */
+  source?: FactSource
+  source_quote?: string
+  original?: Partial<Record<'kind' | 'label' | 'value_text' | 'unit', string>> & {
+    value_num?: number | null
+    ref_low?: number | null
+    ref_high?: number | null
+  } | null
+  reviewed_at?: string | null
+}
+
+export interface FactFields {
+  kind?: FactKind
+  label?: string
+  value_text?: string
+  value_num?: number | null
+  unit?: string
+  ref_low?: number | null
+  ref_high?: number | null
+  observed_on?: string | null
+  page_no?: number | null
+}
+
+export type FactAction = 'confirm' | 'edit' | 'reject' | 'reopen'
