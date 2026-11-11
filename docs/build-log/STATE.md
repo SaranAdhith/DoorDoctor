@@ -50,7 +50,7 @@ alongside it. Both sit outside this repo, on the founder's machine. Inside the r
 | 9 | Clinical features (labs → escalation) | ✅ done — `43693d9` |
 | 10 | Trust, GPS, medication, care circle, consent, ops, notifications | ✅ done — `dcbd711` |
 | 11 | Multi-family, hardening, tests, docs | ⬜ after Phase 12 |
-| 12 | Intelligence layers (documents, routing, risk) — **built before 11** | 🟨 Stages 0–1 done; Stage 2 next — see `phase-12.md` |
+| 12 | Intelligence layers (documents, routing, risk) — **built before 11** | 🟨 Stages 0–2 done (Stage 0–1 committed; Stage 2 and follow-ups uncommitted); Stage 3 planned — see `phase-12.md` |
 
 Phases 1–8 are the "credible demoable platform" line. A finished phase 8 beats a broken phase 11.
 
